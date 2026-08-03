@@ -11,8 +11,6 @@ sys.path.insert(0, os.path.join(APP_DIR, "database"))
 from db_manager import resolver_destino, registrar_bitacora, encolar_mensaje, get_config
 
 ENCODER = os.path.join(APP_DIR, "encoder/pocsag_gen.py")
-PTT_ON = os.path.join(APP_DIR, "scripts/ptt_on.sh")
-PTT_OFF = os.path.join(APP_DIR, "scripts/ptt_off.sh")
 AUDIO_DIR = os.path.join(APP_DIR, "audio")
 LOG = os.path.join(APP_DIR, "logs/cola.log")
 
@@ -28,8 +26,6 @@ def set_result(ok):
     sys.stdout.write('SET VARIABLE POCSAG_RESULT "%s"\n' % ("ok" if ok else "fail")); sys.stdout.flush()
 
 def fail():
-    try: subprocess.run([PTT_OFF], capture_output=True, timeout=5)
-    except Exception: pass
     set_result(False); sys.exit(1)
 
 def main():
@@ -57,16 +53,8 @@ def main():
         log("Mensaje encolado (IVR) id=%s interno=%s codigo=%s msg=%s" % (qid, interno, codigo, mensaje))
         return
 
-    # --- Worker: transmitir ---
-    test_mode = get_config("test_mode", "1") == "1"
-    pre = float(get_config("ptt_preactivo", "0.5"))
+    # --- Worker: generar WAV POCSAG 512 baud (sin transmisor DAPT-X Xtra) ---
     os.makedirs(AUDIO_DIR, exist_ok=True)
-    if test_mode:
-        for cap in cap_list:
-            registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", "modo test")
-        log("Envio OK (TEST) codigo=%s caps=%s msg=%s" % (codigo, caps, mensaje))
-        return
-    wavs = []
     for cap in cap_list:
         wav = os.path.join(AUDIO_DIR, "out_%s.wav" % cap)
         rc = subprocess.run([sys.executable, ENCODER, cap, mensaje, str(baudios), wav],
@@ -75,22 +63,9 @@ def main():
             log("Encoder fallo para %s: %s" % (cap, (rc.stderr or rc.stdout or "")[:120]))
             registrar_bitacora(interno, codigo, cap, mensaje, baudios, "error", "encoder")
             fail()
-        wavs.append(wav)
-    obs = []
-    try:
-        subprocess.run([PTT_ON], capture_output=True, timeout=5)
-        time.sleep(pre)
-        for wav in wavs:
-            r = subprocess.run(["aplay", "-q", wav], capture_output=True, text=True, timeout=30)
-            if r.returncode != 0:
-                obs.append("aplay: %s" % (r.stderr or "").strip()[:80])
-        subprocess.run([PTT_OFF], capture_output=True, timeout=5)
-    except Exception as e:
-        obs.append("excepcion: %s" % str(e)[:80])
-    obs_txt = "; ".join(obs)
     for cap in cap_list:
-        registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", obs_txt)
-    log("Envio OK codigo=%s caps=%s msg=%s obs=%s" % (codigo, caps, mensaje, obs_txt or "ok"))
+        registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", "wav generado (sin transmisor)")
+    log("Envio OK codigo=%s caps=%s msg=%s (wav generado)" % (codigo, caps, mensaje))
 
 if __name__ == "__main__":
     try:
