@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>POCSAG - Panel Hospitalario</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
+    header { background: #1e293b; padding: 1rem 2rem; border-bottom: 1px solid #334155; display:flex; justify-content:space-between; }
+    h1 { margin:0; font-size: 1.25rem; }
+    main { padding: 2rem; display: grid; gap: 1.5rem; }
+    .card { background:#1e293b; border:1px solid #334155; border-radius: 0.5rem; padding: 1.25rem; }
+    .card h2 { margin-top:0; font-size: 1rem; color:#38bdf8; }
+    table { width:100%; border-collapse: collapse; font-size: .85rem; }
+    th, td { text-align:left; padding:.5rem; border-bottom:1px solid #334155; }
+    th { color:#94a3b8; }
+    .badge { padding:.15rem .5rem; border-radius:9999px; font-size:.7rem; background:#334155; }
+    .ok { background:#064e3b; color:#6ee7b7; } .err { background:#7f1d1d; color:#fca5a5; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🏥 Sistema de Paginación POCSAG</h1>
+    <span id="health" class="badge">verificando…</span>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Códigos de paginación</h2>
+      <table><thead><tr><th>Código</th><th>Tipo</th><th>Cap Code</th><th>Baudios</th><th>Descripción</th></tr></thead>
+        <tbody id="codigos"></tbody>
+      </table>
+    </section>
+    <section class="card">
+      <h2>Bitácora reciente</h2>
+      <table><thead><tr><th>Fecha</th><th>Interno</th><th>Código</th><th>Cap Code</th><th>Mensaje</th><th>Estado</th></tr></thead>
+        <tbody id="bitacora"></tbody>
+      </table>
+    </section>
+  </main>
+<script>
+async function get(url){
+  const r = await fetch(url); return r.json();
+}
+function badge(estado){
+  return estado==='enviado'
+    ? `<span class="badge ok">${estado}</span>`
+    : `<span class="badge err">${estado||'-'}</span>`;
+}
+(async ()=>{
+  try{
+    const h = await get('/api/health');
+    document.getElementById('health').textContent = h.status==='ok' ? 'en línea' : 'caído';
+  }catch(e){ document.getElementById('health').textContent='caído'; }
+
+  const codigos = await get('/api/codigos');
+  document.getElementById('codigos').innerHTML = codigos.map(c=>
+    `<tr><td>${c.codigo}</td><td>${c.tipo}</td><td>${c.cap_code||''}</td><td>${c.baudios}</td><td>${c.descripcion||''}</td></tr>`
+  ).join('');
+
+  const bit = await get('/api/bitacora');
+  document.getElementById('bitacora').innerHTML = bit.map(b=>
+    `<tr><td>${b.fecha_hora}</td><td>${b.interno_origen||''}</td><td>${b.codigo}</td><td>${b.cap_code||''}</td><td>${b.mensaje||''}</td><td>${badge(b.estado)}</td></tr>`
+  ).join('');
+})();
+</script>
+</body>
+</html>

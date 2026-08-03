@@ -1,0 +1,14 @@
+[Unit]
+Description=API de gestión del sistema POCSAG
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/pocsag-server/backend
+ExecStart=/usr/bin/python3 /opt/pocsag-server/backend/app.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

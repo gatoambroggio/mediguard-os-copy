@@ -1,0 +1,390 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Pogsac - Admin</title>
+<style>
+:root{--bg:#0a0f1e;--panel:#101a2e;--panel2:#17243f;--line:#26334f;--txt:#eaf1fb;--mut:#94a6c6;--acc:#22d3ee;--acc2:#6366f1;--ok:#22c55e;--err:#ef4444;--warn:#f59e0b;--r:16px}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Segoe UI',system-ui,sans-serif;background:linear-gradient(180deg,var(--bg),#0a0f1c 60%);color:var(--txt);min-height:100vh}
+.login{min-height:100vh;display:grid;place-items:center;padding:1rem}
+.login .box{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:2.2rem;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+.login .logo{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,var(--acc),var(--acc2));font-size:28px;margin:0 auto .8rem}
+.login h1{text-align:center;font-size:1.2rem;margin:.2rem 0 .2rem}.login p{text-align:center;color:var(--mut);font-size:.82rem;margin:0 0 1.4rem}
+.app{display:flex;min-height:100vh}
+.side{width:230px;background:var(--panel);border-right:1px solid var(--line);padding:1rem 0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.side .brand{display:flex;align-items:center;gap:.6rem;padding:.4rem 1rem 1rem;font-weight:700}
+.side .brand .logo{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(135deg,var(--acc),var(--acc2));font-size:18px}
+.side nav{flex:1;display:flex;flex-direction:column;gap:.2rem;padding:0 .6rem;overflow-y:auto}
+.side nav button{background:transparent;border:none;color:var(--mut);text-align:left;padding:.6rem .8rem;border-radius:10px;cursor:pointer;font-size:.9rem;font-weight:600;display:flex;align-items:center;gap:.6rem}
+.side nav button:hover{background:var(--panel2);color:var(--txt)}
+.side nav button.active{background:linear-gradient(135deg,rgba(20,184,166,.18),rgba(14,165,233,.18));color:var(--acc);border:1px solid rgba(20,184,166,.3)}
+.side .bot{padding:.6rem}
+.pill{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .7rem;border-radius:999px;font-size:.74rem;background:rgba(20,184,166,.12);color:#5eead4;border:1px solid rgba(20,184,166,.3)}
+.content{flex:1;padding:1.4rem 2rem;max-width:1100px}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.4rem;flex-wrap:wrap;gap:.6rem}
+.topbar h1{margin:0;font-size:1.3rem}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:1.4rem;margin-bottom:1.2rem;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.card h2{margin:0 0 1rem;font-size:1.05rem;display:flex;align-items:center;gap:.5rem;justify-content:space-between}
+.toolbar{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center}
+.search{flex:1;min-width:200px;position:relative}.search input{width:100%}
+label{display:block;font-size:.72rem;color:var(--mut);margin-bottom:.3rem;font-weight:600;letter-spacing:.4px;text-transform:uppercase}
+input,select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:.55rem .7rem;font-size:.9rem;outline:none;transition:.15s}
+input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(20,184,166,.15)}
+.row{display:flex;gap:.7rem;flex-wrap:wrap}.row>*{flex:1;min-width:140px}
+.btn{cursor:pointer;border:none;border-radius:10px;padding:.55rem 1rem;font-weight:700;font-size:.85rem;transition:.15s;display:inline-flex;align-items:center;gap:.4rem}
+.btn:active{transform:translateY(1px)}
+.btn-pri{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff}.btn-pri:hover{filter:brightness(1.08)}
+.btn-sec{background:var(--panel2);color:var(--txt);border:1px solid var(--line)}.btn-sec:hover{border-color:var(--acc)}
+.btn-ok{background:var(--ok);color:#fff}.btn-del{background:var(--err);color:#fff}.btn-warn{background:var(--warn);color:#fff}
+.btn-sm{padding:.35rem .6rem;font-size:.78rem}
+table{width:100%;border-collapse:collapse;font-size:.84rem}
+th,td{text-align:left;padding:.5rem .5rem;border-bottom:1px solid var(--line)}
+th{color:var(--mut);font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px}
+tbody tr:hover{background:rgba(20,184,166,.05)}
+.badge{padding:.18rem .5rem;border-radius:999px;font-size:.7rem;font-weight:600}
+.badge.ok{background:rgba(22,163,74,.18);color:#86efac}.badge.err{background:rgba(220,38,38,.18);color:#fca5a5}.badge.mut{background:var(--panel2);color:var(--mut)}
+.sw{position:relative;width:42px;height:24px;border-radius:999px;background:#334155;cursor:pointer;transition:.15s;border:none}
+.sw.on{background:var(--ok)}.sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s}.sw.on::after{left:21px}
+.filters{display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem}.filters>*{flex:1;min-width:130px}.filters .btn{flex:0 0 auto}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:20;padding:1rem}
+.modal.open{display:flex}.modal .card{width:100%;max-width:480px;margin:0}
+.pager{display:flex;justify-content:space-between;align-items:center;margin-top:1rem;color:var(--mut);font-size:.84rem;flex-wrap:wrap;gap:.6rem}
+.pager button{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:.35rem .8rem;cursor:pointer}.pager button:disabled{opacity:.4;cursor:not-allowed}
+pre{background:#0a0f1c;border:1px solid var(--line);border-radius:10px;padding:.8rem;overflow:auto;max-height:340px;font-size:.78rem;white-space:pre-wrap}
+.drop{border:2px dashed var(--line);border-radius:14px;padding:1.6rem;text-align:center;color:var(--mut)}
+.drop.hover{border-color:var(--acc);background:rgba(20,184,166,.06)}
+.toast{margin-top:.8rem;padding:.7rem .9rem;border-radius:10px;font-size:.86rem;display:none}.toast.show{display:block}
+.toast.ok{background:rgba(22,163,74,.14);border:1px solid rgba(22,163,74,.4);color:#86efac}.toast.err{background:rgba(220,38,38,.14);border:1px solid rgba(220,38,38,.4);color:#fca5a5}
+.tab{display:none}.tab.active{display:block}
+.hint{background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25);border-radius:10px;padding:.7rem .9rem;font-size:.82rem;color:#5eead4;margin-bottom:1rem}
+@media(max-width:760px){.app{flex-direction:column}.side{width:100%;height:auto;position:sticky;top:0;z-index:30;flex-direction:row;align-items:center;justify-content:space-between;padding:.6rem 1rem;overflow:visible;box-shadow:0 2px 10px rgba(0,0,0,.08)}.side .brand{padding:0}.side .burger{display:inline-flex!important}.side nav{display:none;position:absolute;top:100%;left:0;right:0;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:0 0 14px 14px;padding:.4rem;max-height:72vh;overflow:auto;box-shadow:0 14px 30px rgba(0,0,0,.25);z-index:30}.side nav.open{display:flex}.side .bot{padding:.4rem 0}.content{padding:1rem}}
+.side .burger{display:none;width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:22px;align-items:center;justify-content:center;cursor:pointer}
+</style></head>
+<body>
+<style>:root{--acc:#0ea5e9;--acc2:#6366f1;--bg:#f4f7fb;--panel:#ffffff;--panel2:#f1f5f9;--line:rgba(15,23,42,.08);--txt:#0f172a;--mut:#64748b;--r:20px}body{font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif!important;color:#0f172a!important;background:radial-gradient(900px 600px at 8% -10%,rgba(14,165,233,.10),transparent 60%),radial-gradient(820px 520px at 102% 0%,rgba(99,102,241,.10),transparent 55%),radial-gradient(760px 760px at 50% 120%,rgba(16,185,129,.08),transparent 60%),#f4f7fb!important;background-attachment:fixed!important}.card{background:rgba(255,255,255,.85)!important;backdrop-filter:blur(16px) saturate(140%)!important;border:1px solid rgba(15,23,42,.08)!important;border-radius:var(--r)!important;box-shadow:0 1px 2px rgba(15,23,42,.04),0 12px 30px -12px rgba(15,23,42,.12)!important}input,select,textarea{background:#fff!important;border:1px solid rgba(15,23,42,.12)!important;color:#0f172a!important;border-radius:12px!important}input:focus,select:focus,textarea:focus{border-color:var(--acc)!important;box-shadow:0 0 0 4px rgba(14,165,233,.15)!important}.btn{border-radius:12px!important}.btn-pri{background:linear-gradient(135deg,var(--acc),var(--acc2))!important;color:#fff!important;box-shadow:0 6px 18px -6px rgba(14,165,233,.45)!important}.btn-sec{background:#fff!important;color:#0f172a!important;border:1px solid rgba(15,23,42,.12)!important}.btn-sec:hover{border-color:var(--acc)!important}.side{background:rgba(255,255,255,.8)!important;backdrop-filter:blur(16px) saturate(140%)!important;border-right:1px solid rgba(15,23,42,.08)!important}.side nav button{border-radius:12px!important;color:#475569!important}.side nav button:hover{background:#f1f5f9!important;color:#0f172a!important}.side nav button.active{background:linear-gradient(135deg,rgba(14,165,233,.15),rgba(99,102,241,.15))!important;color:#0369a1!important;border:1px solid rgba(14,165,233,.3)!important}.login .box{background:rgba(255,255,255,.92)!important;backdrop-filter:blur(20px) saturate(150%)!important;border:1px solid rgba(15,23,42,.08)!important;box-shadow:0 24px 60px -20px rgba(15,23,42,.25)!important}.login h1{color:#0f172a!important}.login p{color:#64748b!important}tbody tr:hover{background:rgba(14,165,233,.06)!important}.pill{background:rgba(14,165,233,.12)!important;color:#0369a1!important;border:1px solid rgba(14,165,233,.25)!important}pre{background:#f8fafc!important;border:1px solid rgba(15,23,42,.1)!important;color:#0f172a!important;border-radius:12px!important;padding:.8rem 1rem!important}.badge.ok{background:rgba(16,163,74,.15)!important;color:#15803d!important}.badge.err{background:rgba(220,38,38,.12)!important;color:#b91c1c!important}.badge.mut{background:#f1f5f9!important;color:#64748b!important}.toast.ok{background:rgba(16,163,74,.12)!important;border:1px solid rgba(16,163,74,.3)!important;color:#15803d!important}.toast.err{background:rgba(220,38,38,.1)!important;border:1px solid rgba(220,38,38,.3)!important;color:#b91c1c!important}.sw{background:#cbd5e1!important}.sw.on{background:linear-gradient(135deg,#10b981,#059669)!important}th{color:#64748b!important}.card h2{color:#0f172a!important}.hint{background:rgba(14,165,233,.08)!important;border:1px solid rgba(14,165,233,.25)!important;color:#0369a1!important}</style>
+<div class="login" id="login">
+  <div class="box">
+    <div class="logo">🧭</div>
+    <h1>Panel de administracion</h1><p>Pogsac · paginacion hospitalaria</p>
+    <div style="margin-bottom:.8rem"><label>Usuario</label><input id="lu" autocomplete="off"></div>
+    <div style="margin-bottom:1.2rem"><label>Clave</label><input id="lp" type="password" autocomplete="off"></div>
+    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="doLogin()">Ingresar</button>
+    <div id="lerr" class="toast err"></div>
+  </div>
+</div>
+<div class="app" id="app" style="display:none">
+  <div class="side">
+    <div class="brand"><div class="logo">🧭</div><div>Pogsac <small style="display:block;color:var(--mut);font-weight:500;font-size:.7rem">v1.02</small></div></div>
+    <button class="burger" onclick="toggleMenu()" aria-label="menu">☰</button>
+    <nav>
+      <button class="active" onclick="tab('ext',this)">☎ Extensiones</button>
+      <button onclick="tab('pagers',this)">👤 Pagers</button>
+      <button onclick="tab('enviar',this)">📨 Enviar</button>
+      <button onclick="tab('grupos',this)">👥 Grupos</button>
+      <button onclick="tab('import',this)">📥 Importar</button>
+      <button onclick="tab('hist',this)">🕘 Historial</button>
+      <button onclick="tab('dash',this)">📊 Dashboard</button>
+      <button onclick="tab('plantillas',this)">📝 Plantillas</button>
+      <button onclick="tab('programados',this)">📅 Programados</button>
+      <button onclick="tab('logs',this)">📄 Logs</button>
+      <button onclick="tab('aud',this)">🔍 Auditoria</button>
+      <button onclick="tab('cfg',this)">⚙ Parametros</button>
+      <button onclick="tab('diseno',this)">🎨 Diseno</button>
+      <button onclick="tab('pbx',this)">🔀 PBX</button>
+      <button onclick="tab('cola',this)">📋 Cola</button>
+      <button onclick="tab('bd',this)">💾 Base de datos</button>
+    </nav>
+    <div class="bot"><span id="h" class="pill">…</span><br><button class="btn btn-sec btn-sm" style="margin-top:.6rem;width:100%;justify-content:center" onclick="logout()">Salir</button></div>
+  </div>
+  <div class="content">
+    <div class="topbar"><h1 id="tit">Extensiones</h1><span id="ver" class="badge mut" style="margin-left:auto">v1.0</span></div>
+
+    <div class="tab active" id="t-ext"><div class="card">
+      <h2><span>☎ Extensiones registradas en la central del hospital</span><button class="btn btn-pri btn-sm" onclick="openExt()">+ Nueva extension</button></h2>
+      <div class="hint">Los internos 2000-2010 se registran contra la central VoIP del hospital (FreePBX). Cuando alguien marca uno de estos internos desde la central, el IVR contesta automaticamente. Configura la IP del hospital en Parametros, edita las claves de cada interno y pulsa "Aplicar a Asterisk". El registro SIP debe quedar en estado Registered.</div>
+      <div style="display:flex;gap:.6rem;margin-bottom:.8rem;flex-wrap:wrap">
+        <button class="btn btn-warn btn-sm" onclick="aplicarExt()">Aplicar a Asterisk</button>
+        <button class="btn btn-sec btn-sm" onclick="loadExt()">🔄 Actualizar</button>
+      </div>
+      <div style="overflow-x:auto"><table><thead><tr><th>Numero</th><th>Clave</th><th>Contexto</th><th>Descripcion</th><th>Registro</th><th>Activo</th><th></th></tr></thead><tbody id="tb_ext"></tbody></table></div>
+    </div></div>
+
+    <div class="tab" id="t-enviar"><div class="card"><h2>📨 Enviar mensaje</h2>
+      <div class="field"><label>Buscar destinatario (nombre, codigo o area)</label>
+      <div style="position:relative"><input id="s_q" autocomplete="off" placeholder="Escriba para buscar..."><ul id="s_list" style="position:absolute;z-index:6;left:0;right:0;margin-top:.2rem;background:var(--panel2);border:1px solid var(--line);border-radius:10px;max-height:280px;overflow:auto;list-style:none;padding:.3rem;display:none"></ul></div></div>
+      <div class="field"><label>Mensaje (alfanumerico)</label><textarea id="s_msg" rows="3" placeholder="Mensaje para el pager..."></textarea></div>
+      <button class="btn btn-pri" onclick="sendMsg()">Enviar mensaje</button><div id="s_res" class="toast"></div></div></div>
+
+    <div class="tab" id="t-pagers"><div class="card"><h2><span>👤 Pagers individuales</span><button class="btn btn-pri btn-sm" onclick="openPager()">+ Nuevo pager</button></h2>
+      <div class="toolbar"><div class="search"><input id="pq" placeholder="Buscar por nombre, apellido, codigo o area..."></div></div>
+      <div style="overflow-x:auto"><table><thead><tr><th>Codigo</th><th>CapCode</th><th>Nombre</th><th>Apellido</th><th>Area</th><th>Baud</th><th>Activo</th><th></th></tr></thead><tbody id="tb_pagers"></tbody></table></div></div></div>
+    <div class="tab" id="t-grupos"><div class="card"><h2><span>👥 Grupos</span><button class="btn btn-pri btn-sm" onclick="openGrupo()">+ Nuevo grupo</button></h2>
+      <div class="toolbar"><div class="search"><input id="gq" placeholder="Buscar grupo por codigo o nombre..."></div></div>
+      <div style="overflow-x:auto"><table><thead><tr><th>Codigo</th><th>Nombre</th><th>CapCodes</th><th>Baud</th><th></th></tr></thead><tbody id="tb_grupos"></tbody></table></div></div></div>
+    <div class="tab" id="t-import"><div class="card"><h2>📥 Importar codigos desde Excel</h2>
+      <p style="color:var(--mut);font-size:.85rem">Suba un archivo <b>.xls</b>, <b>.xlsx</b> o <b>.csv</b> con columnas: codigo, cap_code, nombre, apellido, area, baudios, descripcion.</p>
+      <div class="drop" id="drop"><input type="file" id="ifile" accept=".xls,.xlsx,.csv" style="display:none"><div id="dftxt">Arrastre el archivo aqui o haga click para seleccionar</div></div>
+      <div style="margin-top:1rem;display:flex;gap:.6rem;flex-wrap:wrap"><button class="btn btn-pri" id="impbtn" onclick="doImport()" disabled>Importar</button></div>
+      <div id="imp_res" class="toast"></div></div>
+      <div class="card"><h2>📥 Importar grupos desde Excel</h2>
+      <p style="color:var(--mut);font-size:.85rem">Columnas: codigo, nombre, baudios, cap_codes (separados por coma).</p>
+      <div class="drop" id="dropG"><input type="file" id="ifileG" accept=".xls,.xlsx,.csv" style="display:none"><div id="dftxtG">Arrastre el archivo aqui o haga click</div></div>
+      <div style="margin-top:1rem"><button class="btn btn-pri" id="impbtnG" onclick="doImportGrupos()" disabled>Importar grupos</button></div>
+      <div id="impG_res" class="toast"></div></div></div>
+    <div class="tab" id="t-hist"><div class="card"><h2>🕘 Historial de mensajes</h2>
+      <div class="filters"><div><label>Desde</label><input id="h_desde" type="date"></div><div><label>Hasta</label><input id="h_hasta" type="date"></div>
+      <div><label>Codigo</label><input id="h_codigo"></div><div><label>Interno</label><input id="h_interno"></div>
+      <div><label>Estado</label><select id="h_estado"><option value="">Todos</option><option>enviado</option><option>error</option></select></div>
+      <button class="btn btn-pri" onclick="loadHist(0)">Filtrar</button><button class="btn btn-ok" onclick="exportHist()">⬇ Excel</button></div>
+      <div style="overflow-x:auto"><table><thead><tr><th>Fecha/Hora</th><th>Interno</th><th>Codigo</th><th>Cap</th><th>Mensaje</th><th>Baud</th><th>Estado</th><th>Obs</th></tr></thead><tbody id="tb_hist"></tbody></table></div>
+      <div class="pager"><span id="hg_info">—</span><div><button id="hg_prev" onclick="hgGo(-1)">← Anterior</button> <button id="hg_next" onclick="hgGo(1)">Siguiente →</button></div></div></div></div>
+    <div class="tab" id="t-cfg"><div class="card"><h2>⚙ Parametros del sistema</h2>
+      <div class="hint" style="margin-bottom:1rem"><b>Modo cliente:</b> Los internos se registran contra la central del hospital. Carga la IP de la central aqui y las claves de cada interno en la pestania Extensiones. Todos los parametros de transporte PJSIP se configuran aqui y se aplican con "Aplicar a Asterisk".</div>
+      <div class="row"><div><label>IP central del hospital</label><input id="c_hospital_pbx_ip" placeholder="192.168.1.10"></div><div><label>Puerto SIP central</label><input id="c_hospital_pbx_port" placeholder="5060"></div></div>
+      <div class="row"><div><label>Bind transporte SIP</label><input id="c_transport_bind" placeholder="0.0.0.0:5060"></div><div><label>Protocolo</label><select id="c_transport_protocol"><option value="udp">UDP</option><option value="tcp">TCP</option></select></div></div>
+      <div class="row"><div><label>Modo sistema</label><input id="c_pocsag_mode" readonly style="opacity:.7"></div><div></div></div>
+      <div class="row"><div><label>Codecs permitidos</label><input id="c_codecs" placeholder="ulaw,alaw"></div><div><label>Reintento registro (seg)</label><input id="c_retry_interval" type="number" value="60"></div></div>
+      <div class="row"><div><label>Expiracion registro (seg)</label><input id="c_expiration" type="number" value="3600"></div></div>
+      <div style="border-top:1px solid var(--line);margin-top:1rem;padding-top:1rem"><h3 style="font-size:.9rem;margin:0 0 .8rem">📡 Encoder POCSAG - parametros configurables</h3>
+      <div class="hint" style="margin-bottom:.8rem">Todos los parametros del encoder se guardan en la BD y se aplican a cada WAV generado. Defaults POCSAG estandar: 1200 baud, preambulo 576 bits, desviacion 4.5 kHz (450 Hz baseband), 2 niveles FSK, modo alfanumerico.</div>
+      <div class="row"><div><label>Baudios (default)</label><select id="c_baudios_default"><option value="512">512</option><option value="1200">1200</option><option value="2400">2400</option></select></div><div><label>Preambulo (bits)</label><input id="c_preamble_bits" type="number" value="576"></div></div>
+      <div class="row"><div><label>WarmUp 512 baud (ms)</label><input id="c_warmup_512_ms" type="number" value="750"></div><div><label>WarmUp 1200 baud (ms)</label><input id="c_warmup_1200_ms" type="number" value="1500"></div></div>
+      <div class="row"><div><label>WarmUp 2400 baud (ms)</label><input id="c_warmup_2400_ms" type="number" value="1500"></div><div><label>Desviacion FSK (kHz)</label><input id="c_fsk_deviation_khz" type="number" step="0.1" value="4.5"></div></div>
+      <div class="row"><div><label>Desviacion FSK baseband (Hz)</label><input id="c_fsk_deviation_baseband_hz" type="number" value="450"></div><div><label>Niveles FSK</label><select id="c_fsk_levels"><option value="2">2 niveles (POCSAG estandar)</option><option value="4">4 niveles</option></select></div></div>
+      <div class="row"><div><label>Modo funcion</label><select id="c_function_mode"><option value="alphanumeric">Alfanumerico</option><option value="numeric">Numerico</option><option value="tone">Tono</option></select></div><div></div></div>
+      <div class="hint" style="margin-top:.6rem">Modo alfanumerico (funcion 0x3): el pager muestra texto. Numerico (0x0): solo digitos. Tono (0x1): alerta sin mensaje. Niveles FSK 2 = POCSAG estandar.</div>
+      </div>
+      <div class="row" style="margin-top:1rem"><div><label>Usuario admin</label><input id="c_admin_user"></div><div><label>Clave admin</label><input id="c_admin_pass" type="text"></div></div>
+      <div class="row"><div><label>Timeout mensaje (seg)</label><input id="c_mensaje_timeout" type="number" step="1"></div><div><label>PTT pre-activo (seg)</label><input id="c_ptt_preactivo" type="number" step="0.1"></div>
+      <div><label>Timeout digitos (seg)</label><input id="c_digit_timeout" type="number" step="1"></div><div><label>Timeout respuesta (seg)</label><input id="c_response_timeout" type="number" step="1"></div>
+      <div><label>Modo prueba (1=si 0=no)</label><input id="c_test_mode" type="number" min="0" max="1"></div></div>
+      <button class="btn btn-pri" onclick="saveConfig()">Guardar parametros</button><div id="cfg_res" class="toast"></div>
+      <div style="border-top:1px solid var(--line);margin-top:1rem;padding-top:1rem"><h3 style="font-size:.9rem;margin:0 0 .8rem">📧 Configuracion SMTP</h3>
+      <div class="row"><div><label>Servidor SMTP</label><input id="c_smtp_host" placeholder="smtp.gmail.com"></div><div><label>Puerto</label><input id="c_smtp_port" type="number" value="587"></div></div>
+      <div class="row"><div><label>Usuario SMTP</label><input id="c_smtp_user"></div><div><label>Clave SMTP</label><input id="c_smtp_pass" type="password"></div></div>
+      <div class="row"><div><label>Remitente</label><input id="c_smtp_from"></div><div><label>Seguridad</label><select id="c_smtp_secure"><option value="tls">TLS</option><option value="ssl">SSL</option><option value="none">Ninguna</option></select></div></div>
+      <div class="row"><div><label>Email para recibir backups</label><input id="c_backup_email"></div></div>
+      <button class="btn btn-sec" onclick="smtpTest()">Probar SMTP</button></div></div></div>
+    <div class="tab" id="t-pbx"><div class="card"><h2>🔀 Gestion del PBX (Asterisk)</h2>
+      <div class="hint">Control total de Asterisk desde aqui. Los registros SIP deben mostrar <b>Registered</b> para recibir llamadas. Si no registran, verifica IP del hospital, puerto y claves en Parametros + Extensiones, luego pulsa "Forzar registro".</div>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.5rem">
+        <button class="btn btn-pri btn-sm" onclick="pbxDiagnose()">🔍 Diagnostico SIP</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('status')">Estado</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('peers')">Endpoints</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('registrations')">Registros SIP</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('aors')">AORs</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('contacts')">Contacts</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('transports')">Transports</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('channels')">Canales</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('uptime')">Uptime</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('modules')">Modulos</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('pjsip_settings')">PJSIP Settings</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('endpoint_hospital')">Endpoint inbound</button>
+      </div>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.8rem">
+        <button class="btn btn-ok btn-sm" onclick="pbxForceReg()">⚡ Forzar registro</button>
+        <button class="btn btn-warn btn-sm" onclick="pbxUnreg()">↩ Unregister</button>
+        <button class="btn btn-warn btn-sm" onclick="pbxReload()">Recargar config</button>
+        <button class="btn btn-del btn-sm" onclick="pbxRestart()">Reiniciar PBX</button>
+      </div>
+      <div style="display:flex;gap:.4rem;margin-bottom:.5rem;align-items:center">
+        <input id="pbx_cmd" placeholder="Comando Asterisk (ej: pjsip show endpoint 3000)" style="flex:1" onkeydown="if(event.key==='Enter')pbxRun()">
+        <button class="btn btn-pri btn-sm" onclick="pbxRun()">Ejecutar</button>
+      </div>
+      <div style="font-size:.74rem;color:var(--mut);margin-bottom:.4rem">Comandos permitidos: pjsip show, core show, dialplan, module show, pjsip send, pjsip unregister, pjsip reload, dialplan reload, core restart</div>
+      <pre id="pbx_out" style="max-height:420px">—</pre></div></div>
+    <div class="tab" id="t-cola"><div class="card"><h2><span>📋 Cola de envios</span><div style="display:flex;gap:.5rem"><button class="btn btn-warn btn-sm" onclick="colaReintentar()">Reintentar fallidos</button><button class="btn btn-sec btn-sm" onclick="colaLimpiar()">Limpiar enviados</button></div></h2>
+      <div id="cola_stats" style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem"></div>
+      <div style="overflow-x:auto"><table><thead><tr><th>ID</th><th>Fecha</th><th>Codigo</th><th>Mensaje</th><th>Origen</th><th>Estado</th><th>Intentos</th><th>Obs</th></tr></thead><tbody id="tb_cola"></tbody></table></div></div></div>
+    <div class="tab" id="t-bd"><div class="card"><h2>💾 Base de datos</h2>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem"><button class="btn btn-pri" onclick="dbBackup()">⬇ Descargar backup</button><button class="btn btn-ok" onclick="dbBackupEmail()">📧 Enviar por mail</button></div>
+      <div class="drop" id="dropDB"><input type="file" id="ifileDB" accept=".db" style="display:none"><div id="dftxtDB">Arrastre un .db o haga click para restaurar</div></div>
+      <div style="margin-top:1rem"><button class="btn btn-del" id="impbtnDB" onclick="dbRestore()" disabled>Restaurar</button></div>
+      <div id="db_res" class="toast"></div></div></div>
+    <div class="tab" id="t-dash"><div class="card"><h2>📊 Estadisticas</h2>
+      <div id="dash_stats" style="display:flex;gap:.8rem;flex-wrap:wrap;margin-bottom:1.2rem"></div>
+      <div class="card" style="background:var(--panel2);margin-bottom:1rem"><h3 style="font-size:.9rem;margin:0 0 .6rem">Mensajes por dia (30 dias)</h3><canvas id="chart_dia" height="120"></canvas></div>
+      <div class="card" style="background:var(--panel2);margin-bottom:1rem"><h3 style="font-size:.9rem;margin:0 0 .6rem">Mensajes por hora (hoy)</h3><canvas id="chart_hora" height="120"></canvas></div>
+      <div class="card" style="background:var(--panel2)"><h3 style="font-size:.9rem;margin:0 0 .6rem">Pagers mas activos</h3><div id="dash_top"></div></div>
+      <button class="btn btn-sec btn-sm" onclick="loadDash()" style="margin-top:1rem">🔄 Actualizar</button></div></div>
+    <div class="tab" id="t-plantillas"><div class="card"><h2><span>📝 Plantillas</span><button class="btn btn-pri btn-sm" onclick="openPlantilla()">+ Nueva</button></h2>
+      <div style="overflow-x:auto"><table><thead><tr><th>Nombre</th><th>Categoria</th><th>Mensaje</th><th>Orden</th><th>Activo</th><th></th></tr></thead><tbody id="tb_plantillas"></tbody></table></div></div></div>
+    <div class="tab" id="t-programados"><div class="card"><h2><span>📅 Envios programados</span><button class="btn btn-pri btn-sm" onclick="openProgramado()">+ Nuevo</button></h2>
+      <div style="overflow-x:auto"><table><thead><tr><th>Codigo</th><th>Mensaje</th><th>Tipo</th><th>Proxima</th><th>Activo</th><th></th></tr></thead><tbody id="tb_programados"></tbody></table></div></div></div>
+    <div class="tab" id="t-logs"><div class="card"><h2>📄 Visor de logs</h2>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">
+        <button class="btn btn-sec btn-sm" onclick="loadLogs('api')">API</button><button class="btn btn-sec btn-sm" onclick="loadLogs('asterisk')">Asterisk</button>
+        <button class="btn btn-sec btn-sm" onclick="loadLogs('cola')">Cola</button><button class="btn btn-sec btn-sm" onclick="loadLogs('scheduler')">Scheduler</button>
+        <button class="btn btn-sec btn-sm" onclick="loadLogs('backup')">Backup</button><button class="btn btn-sec btn-sm" onclick="loadLogs('install')">Instalador</button>
+        <button class="btn btn-ok btn-sm" onclick="loadLogs(curLogType)">🔄 Recargar</button>
+      </div>
+      <pre id="log_out" style="max-height:500px">Seleccione un log.</pre></div></div>
+    <div class="tab" id="t-aud"><div class="card"><h2>🔍 Auditoria</h2>
+      <div style="overflow-x:auto"><table><thead><tr><th>Fecha/Hora</th><th>Usuario</th><th>Accion</th><th>Entidad</th><th>ID</th><th>Detalle</th><th>IP</th></tr></thead><tbody id="tb_aud"></tbody></table></div>
+      <button class="btn btn-sec btn-sm" onclick="loadAud()" style="margin-top:1rem">🔄 Actualizar</button></div></div>
+    <div class="tab" id="t-diseno"><div class="card"><h2>🎨 Diseno del panel</h2>
+      <div class="row"><div><label>Color primario</label><input id="th_acc" type="color" value="#0ea5e9"></div><div><label>Color secundario</label><input id="th_acc2" type="color" value="#6366f1"></div><div><label>Fondo</label><input id="th_bg" type="color" value="#f4f7fb"></div><div><label>Panel</label><input id="th_panel" type="color" value="#ffffff"></div></div>
+      <div class="row"><div><label>Fuente titulos</label><select id="th_fh"><option>Space Grotesk</option><option>Inter</option><option>Georgia</option></select></div><div><label>Fuente cuerpo</label><select id="th_fb"><option>Inter</option><option>Space Grotesk</option><option>Georgia</option></select></div></div>
+      <div style="display:flex;gap:.5rem;margin-top:1rem"><button class="btn btn-pri" onclick="saveTheme()">Guardar</button><button class="btn btn-sec" onclick="resetTheme()">Restablecer</button></div><div id="th_res" class="toast"></div></div></div>
+  </div>
+</div>
+<div class="modal" id="mPager"><div class="card"><h2 id="mPT">Pager</h2>
+  <div class="row"><div><label>Codigo (DTMF)</label><input id="p_codigo"></div><div><label>CapCode</label><input id="p_cap"></div></div>
+  <div class="row"><div><label>Nombre</label><input id="p_nombre"></div><div><label>Apellido</label><input id="p_apellido"></div></div>
+  <div class="row"><div><label>Area</label><input id="p_area"></div><div><label>Baudios</label><input id="p_baud" type="number" value="1200"></div></div>
+  <label>Descripcion</label><input id="p_desc">
+  <div style="display:flex;gap:.5rem;margin-top:.9rem"><button class="btn btn-pri" onclick="savePager()">Guardar</button><button class="btn btn-sec" onclick="closeModal('mPager')">Cancelar</button></div></div></div>
+<div class="modal" id="mGrupo"><div class="card"><h2 id="mGT">Grupo</h2>
+  <div class="row"><div><label>Codigo</label><input id="g_codigo"></div><div><label>Baudios</label><input id="g_baud" type="number" value="1200"></div></div>
+  <label>Nombre</label><input id="g_nombre">
+  <label>CapCodes (uno por linea, max 20)</label><textarea id="g_miembros" rows="6"></textarea>
+  <div style="display:flex;gap:.5rem;margin-top:.9rem"><button class="btn btn-pri" onclick="saveGrupo()">Guardar</button><button class="btn btn-sec" onclick="closeModal('mGrupo')">Cancelar</button></div></div></div>
+<div class="modal" id="mExt"><div class="card"><h2 id="mET">Extension</h2>
+  <div class="row"><div><label>Numero</label><input id="x_numero"></div><div><label>Clave</label><input id="x_pass"></div></div>
+  <label>Contexto</label><input id="x_ctx" value="pocsag-incoming">
+  <label>Descripcion</label><input id="x_desc">
+  <div style="display:flex;gap:.5rem;margin-top:.9rem"><button class="btn btn-pri" onclick="saveExt()">Guardar</button><button class="btn btn-sec" onclick="closeModal('mExt')">Cancelar</button></div></div></div>
+<div class="modal" id="mPlantilla"><div class="card"><h2 id="mPLT">Plantilla</h2>
+  <div class="row"><div><label>Nombre</label><input id="pl_nombre"></div><div><label>Categoria</label><input id="pl_cat" value="general"></div></div>
+  <label>Mensaje</label><textarea id="pl_mensaje" rows="3"></textarea>
+  <div class="row"><div><label>Orden</label><input id="pl_orden" type="number" value="0"></div></div>
+  <div style="display:flex;gap:.5rem;margin-top:.9rem"><button class="btn btn-pri" onclick="savePlantilla()">Guardar</button><button class="btn btn-sec" onclick="closeModal('mPlantilla')">Cancelar</button></div></div></div>
+<div class="modal" id="mProgramado"><div class="card"><h2 id="mPRT">Envio programado</h2>
+  <div class="row"><div><label>Codigo</label><input id="pr_codigo"></div><div><label>Tipo</label><select id="pr_tipo"><option value="unico">Unico</option><option value="diario">Diario</option><option value="semanal">Semanal</option><option value="mensual">Mensual</option></select></div></div>
+  <label>Mensaje</label><textarea id="pr_mensaje" rows="3"></textarea>
+  <div class="row"><div><label>Fecha (unico)</label><input id="pr_fecha" type="datetime-local"></div><div><label>Hora recurrente</label><input id="pr_hora" type="time" value="08:00"></div></div>
+  <div class="row"><div><label>Dia mensual (1-31)</label><input id="pr_dia" type="number" min="1" max="31" value="1"></div></div>
+  <div style="display:flex;gap:.5rem;margin-top:.9rem"><button class="btn btn-pri" onclick="saveProgramado()">Guardar</button><button class="btn btn-sec" onclick="closeModal('mProgramado')">Cancelar</button></div></div></div>
+<script>
+let TOKEN=localStorage.getItem('pocsag_tok')||'';
+let editP=null,editG=null,editX=null,editPL=null,editPR=null; const HPG=50; let hoff=0,htot=0;
+let extTimer=null,histTimer=null,colaTimer=null;
+function api(m,u,b,raw){const o={method:m,headers:{'Authorization':'Bearer '+TOKEN}};if(b!==undefined){if(raw){o.body=b;}else{o.headers['Content-Type']='application/json';o.body=JSON.stringify(b);}}return fetch(u,o).then(async r=>{if(r.status===401){logout(true);throw new Error('no autorizado');}const txt=await r.text();try{return JSON.parse(txt);}catch(e){return txt;}});}
+function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.side nav button').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Enviar mensaje',pagers:'Pagers',grupos:'Grupos',import:'Importar codigos',ext:'Extensiones',hist:'Historial',cfg:'Parametros',pbx:'PBX',cola:'Cola',bd:'Base de datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria',diseno:'Diseno'};document.getElementById('tit').textContent=t[id]||'';
+if(extTimer){clearInterval(extTimer);extTimer=null;}if(histTimer){clearInterval(histTimer);histTimer=null;}if(colaTimer){clearInterval(colaTimer);colaTimer=null;}
+if(id==='ext'){loadExt();extTimer=setInterval(loadExt,5000);}
+if(id==='pagers')loadPagers();if(id==='grupos')loadGrupos();if(id==='cfg')loadConfig();if(id==='hist'){loadHist(0);histTimer=setInterval(()=>loadHist(hoff),8000);}if(id==='pbx')pbx('status');if(id==='cola'){loadCola();colaTimer=setInterval(loadCola,4000);}if(id==='bd')loadBD();if(id==='enviar')initSend();if(id==='dash')loadDash();if(id==='plantillas')loadPlantillas();if(id==='programados')loadProgramados();if(id==='logs')loadLogs('api');if(id==='aud')loadAud();if(id==='diseno')loadTheme();}
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+async function doLogin(){const u=document.getElementById('lu').value,p=document.getElementById('lp').value;document.getElementById('lerr').className='toast err';document.getElementById('lerr').textContent='';try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:u,pass:p})}).then(r=>r.json());if(r.token){TOKEN=r.token;localStorage.setItem('pocsag_tok',TOKEN);showApp();}else{document.getElementById('lerr').classList.add('show');document.getElementById('lerr').textContent=r.error||'error';}}catch(e){document.getElementById('lerr').classList.add('show');document.getElementById('lerr').textContent='error de conexion';}}
+document.getElementById('lp').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+function logout(silent){TOKEN='';localStorage.removeItem('pocsag_tok');document.getElementById('app').style.display='none';document.getElementById('login').style.display='grid';if(!silent)document.getElementById('lp').value='';}
+function toggleMenu(){const n=document.querySelector('.side nav');if(n)n.classList.toggle('open');}
+document.addEventListener('click',e=>{const n=document.querySelector('.side nav'),b=document.querySelector('.side .burger');if(!n)return;if(b&&!b.contains(e.target)&&!n.contains(e.target))n.classList.remove('open');if(n.contains(e.target)&&e.target.closest('button'))n.classList.remove('open');});
+function showApp(){document.getElementById('login').style.display='none';document.getElementById('app').style.display='flex';tab('ext',document.querySelector('.side nav button'));}
+async function checkTok(){if(!TOKEN){return;}try{await api('GET','/api/extensions');showApp();}catch(e){}}
+// Enviar
+let sChosen=null,sTimer=null,sInit=false;
+function initSend(){if(sInit)return;sInit=true;const sq=document.getElementById('s_q');sq.addEventListener('input',()=>{clearTimeout(sTimer);sTimer=setTimeout(async()=>{const r=await buscarDestAdmin(sq.value.trim());renderSList(r);},180);});sq.addEventListener('focus',()=>{if(document.getElementById('s_list').innerHTML)document.getElementById('s_list').style.display='block';});}
+async function buscarDestAdmin(q){const [pe,gr]=await Promise.all([api('GET','/api/pagers'+(q?('?q='+encodeURIComponent(q)):'')),api('GET','/api/grupos'+(q?('?q='+encodeURIComponent(q)):''))]);const out=[];(pe||[]).filter(x=>x.activo).forEach(x=>out.push({codigo:x.codigo,label:`${x.nombre||''} ${x.apellido||''}`.trim()||x.codigo,tipo:'pager'}));(gr||[]).filter(x=>x.activo).forEach(x=>out.push({codigo:x.codigo,label:x.nombre||x.codigo,tipo:'grupo'}));return out;}
+function renderSList(r){const ul=document.getElementById('s_list');ul.innerHTML=r.map(x=>`<li onclick="pickS('${x.codigo}','${(x.label||'').replace(/'/g,'')}')" style="padding:.5rem .6rem;border-radius:7px;cursor:pointer;display:flex;justify-content:space-between"><span>${x.label} <span style="color:var(--mut);font-size:.8rem">${x.codigo}</span></span><span style="font-size:.7rem;color:var(--acc);font-weight:700">${x.tipo}</span></li>`).join('');ul.style.display=r.length?'block':'none';}
+function pickS(codigo,label){sChosen=codigo;document.getElementById('s_q').value=label+' ('+codigo+')';document.getElementById('s_list').style.display='none';}
+document.addEventListener('click',e=>{const c=document.getElementById('s_q');if(c&&!c.contains(e.target)){const ul=document.getElementById('s_list');if(ul)ul.style.display='none';}});
+async function sendMsg(){const t=document.getElementById('s_res');if(!sChosen){t.className='toast show err';t.textContent='Seleccione un destinatario.';return;}const msg=document.getElementById('s_msg').value.trim();if(!msg){t.className='toast show err';t.textContent='Escriba un mensaje.';return;}t.className='toast show ok';t.textContent='Enviando...';const r=await api('POST','/api/enviar',{codigo:sChosen,mensaje:msg,origen:'admin'});if(r.status==='enviado'||r.status==='encolado'){t.className='toast show ok';t.textContent=r.status==='encolado'?'Mensaje encolado para envio.':'Mensaje enviado.';document.getElementById('s_msg').value='';}else{t.className='toast show err';t.textContent='Error: '+(r.detalle||'no se pudo enviar');}}
+// Pagers
+async function loadPagers(){const q=document.getElementById('pq').value.trim();document.getElementById('tb_pagers').innerHTML='<tr><td colspan="8" style="color:var(--mut);text-align:center;padding:1rem">Cargando...</td></tr>';const r=await api('GET','/api/pagers'+(q?('?q='+encodeURIComponent(q)):''));document.getElementById('tb_pagers').innerHTML=(r||[]).map(x=>`<tr><td>${x.codigo}</td><td>${x.cap_code}</td><td>${x.nombre||''}</td><td>${x.apellido||''}</td><td>${x.area||''}</td><td>${x.baudios}</td><td><button class="sw ${x.activo?'on':''}" onclick="toggleP(${x.id},${x.activo?0:1})"></button></td><td><button class="btn btn-sec btn-sm" onclick="openPager(${x.id})">✎</button> <button class="btn btn-del btn-sm" onclick="delP(${x.id})">✕</button></td></tr>`).join('')||`<tr><td colspan="8" style="color:var(--mut);text-align:center;padding:1rem">Sin resultados</td></tr>`;}
+document.getElementById('pq').addEventListener('input',()=>{clearTimeout(window._pt);window._pt=setTimeout(loadPagers,200);});
+async function toggleP(id,act){await api('PUT','/api/pagers/'+id+'/estado',{activo:act});loadPagers();}
+async function openPager(id){editP=id||null;let x=null;if(id){const r=await api('GET','/api/pagers');x=(r||[]).find(i=>i.id===id);}['codigo','cap','nombre','apellido','area','desc'].forEach(f=>document.getElementById('p_'+f).value=x?x[f==='cap'?'cap_code':f]||'':'');document.getElementById('p_baud').value=x?x.baudios:1200;document.getElementById('mPT').textContent=id?'Editar pager':'Nuevo pager';openModal('mPager');}
+async function savePager(){const d={codigo:document.getElementById('p_codigo').value,cap_code:document.getElementById('p_cap').value,nombre:document.getElementById('p_nombre').value,apellido:document.getElementById('p_apellido').value,area:document.getElementById('p_area').value,baudios:+document.getElementById('p_baud').value,descripcion:document.getElementById('p_desc').value,activo:1};if(editP)await api('PUT','/api/pagers/'+editP,d);else await api('POST','/api/pagers',d);closeModal('mPager');loadPagers();}
+async function delP(id){if(confirm('Eliminar pager?')){await api('DELETE','/api/pagers/'+id);loadPagers();}}
+// Grupos
+async function loadGrupos(){const q=document.getElementById('gq').value.trim();const r=await api('GET','/api/grupos'+(q?('?q='+encodeURIComponent(q)):''));document.getElementById('tb_grupos').innerHTML=(r||[]).map(x=>`<tr><td>${x.codigo}</td><td>${x.nombre||''}</td><td>${(x.miembros||[]).join(', ')}</td><td>${x.baudios}</td><td><button class="btn btn-sec btn-sm" onclick="openGrupo(${x.id})">✎</button> <button class="btn btn-del btn-sm" onclick="delG(${x.id})">✕</button></td></tr>`).join('')||`<tr><td colspan="5" style="color:var(--mut);text-align:center;padding:1rem">Sin resultados</td></tr>`;}
+document.getElementById('gq').addEventListener('input',()=>{clearTimeout(window._gt);window._gt=setTimeout(loadGrupos,200);});
+async function openGrupo(id){editG=id||null;let x=null;if(id){const r=await api('GET','/api/grupos');x=(r||[]).find(i=>i.id===id);}document.getElementById('g_codigo').value=x?x.codigo:'';document.getElementById('g_nombre').value=x?x.nombre||'':'';document.getElementById('g_miembros').value=x?(x.miembros||[]).join('\n'):'';document.getElementById('g_baud').value=x?x.baudios:1200;document.getElementById('mGT').textContent=id?'Editar grupo':'Nuevo grupo';openModal('mGrupo');}
+async function saveGrupo(){const d={codigo:document.getElementById('g_codigo').value,nombre:document.getElementById('g_nombre').value,baudios:+document.getElementById('g_baud').value,miembros:document.getElementById('g_miembros').value.split('\n').map(s=>s.trim()).filter(Boolean).slice(0,20)};if(editG)await api('PUT','/api/grupos/'+editG,d);else await api('POST','/api/grupos',d);closeModal('mGrupo');loadGrupos();}
+async function delG(id){if(confirm('Eliminar grupo?')){await api('DELETE','/api/grupos/'+id);loadGrupos();}}
+// Import
+let impFile=null;const drop=document.getElementById('drop'),ifile=document.getElementById('ifile'),dftxt=document.getElementById('dftxt');
+drop.addEventListener('click',()=>ifile.click());
+ifile.addEventListener('change',e=>{impFile=e.target.files[0];dftxt.textContent=impFile.name;document.getElementById('impbtn').disabled=false;});
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hover');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hover');}));
+drop.addEventListener('drop',e=>{impFile=e.dataTransfer.files[0];dftxt.textContent=impFile.name;document.getElementById('impbtn').disabled=false;});
+async function doImport(){if(!impFile)return;const buf=await impFile.arrayBuffer();const r=await fetch('/api/pagers/import',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'X-Filename':encodeURIComponent(impFile.name)},body:buf}).then(async r=>{if(r.status===401){logout(true);throw new Error('no autorizado');}const txt=await r.text();try{return JSON.parse(txt);}catch(e){return txt;}});const t=document.getElementById('imp_res');t.className='toast show '+(r.error?'err':'ok');t.textContent=r.error?('Error: '+r.error):`Importados: ${r.importados} · Errores: ${r.errores}`;if(!r.error)loadPagers();}
+let impGFile=null;const dropG=document.getElementById('dropG'),ifileG=document.getElementById('ifileG'),dftxtG=document.getElementById('dftxtG');
+dropG.addEventListener('click',()=>ifileG.click());
+ifileG.addEventListener('change',e=>{impGFile=e.target.files[0];dftxtG.textContent=impGFile.name;document.getElementById('impbtnG').disabled=false;});
+['dragover','dragenter'].forEach(ev=>dropG.addEventListener(ev,e=>{e.preventDefault();dropG.classList.add('hover');}));
+['dragleave','drop'].forEach(ev=>dropG.addEventListener(ev,e=>{e.preventDefault();dropG.classList.remove('hover');}));
+dropG.addEventListener('drop',e=>{impGFile=e.dataTransfer.files[0];dftxtG.textContent=impGFile.name;document.getElementById('impbtnG').disabled=false;});
+async function doImportGrupos(){if(!impGFile)return;const buf=await impGFile.arrayBuffer();const r=await fetch('/api/grupos/import',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'X-Filename':encodeURIComponent(impGFile.name)},body:buf}).then(async r=>{if(r.status===401){logout(true);throw new Error('no autorizado');}const txt=await r.text();try{return JSON.parse(txt);}catch(e){return txt;}});const t=document.getElementById('impG_res');t.className='toast show '+(r.error?'err':'ok');t.textContent=r.error?('Error: '+r.error):`Importados: ${r.importados} · Errores: ${r.errores}`;if(!r.error)loadGrupos();}
+// Extensiones (con estado de registro SIP en vivo)
+async function loadExt(){const [r,st]=await Promise.all([api('GET','/api/extensions'),api('GET','/api/extensions/status')]);const s=st||{};document.getElementById('tb_ext').innerHTML=(r||[]).map(x=>{const reg=s[x.numero]||'-';const rc=reg==='Registered'?'ok':reg==='No registrado'?'err':'mut';return `<tr><td>${x.numero}</td><td>${'*'.repeat((x.password||'').length||4)}</td><td>${x.contexto||''}</td><td>${x.descripcion||''}</td><td><span class="badge ${rc}">${reg}</span></td><td><button class="sw ${x.activo?'on':''}" onclick="toggleX(${x.id},${x.activo?0:1})"></button></td><td><button class="btn btn-sec btn-sm" onclick="openExt(${x.id})">✎</button> <button class="btn btn-del btn-sm" onclick="delX(${x.id})">✕</button></td></tr>`;}).join('')||`<tr><td colspan="7" style="color:var(--mut);text-align:center;padding:1rem">Sin extensiones</td></tr>`;}
+async function toggleX(id,act){const r=await api('GET','/api/extensions');const x=(r||[]).find(i=>i.id===id);if(x)await api('PUT','/api/extensiones/'+id,{...x,activo:act});loadExt();}
+async function openExt(id){editX=id||null;let x=null;if(id){const r=await api('GET','/api/extensions');x=(r||[]).find(i=>i.id===id);}document.getElementById('x_numero').value=x?x.numero:'';document.getElementById('x_pass').value=x?x.password||'':'';document.getElementById('x_ctx').value=x?x.contexto||'pocsag-incoming':'pocsag-incoming';document.getElementById('x_desc').value=x?x.descripcion||'':'';document.getElementById('mET').textContent=id?'Editar extension':'Nueva extension';openModal('mExt');}
+async function saveExt(){const d={numero:document.getElementById('x_numero').value,password:document.getElementById('x_pass').value,contexto:document.getElementById('x_ctx').value,descripcion:document.getElementById('x_desc').value,activo:1};if(editX)await api('PUT','/api/extensiones/'+editX,d);else await api('POST','/api/extensions',d);closeModal('mExt');loadExt();}
+async function delX(id){if(confirm('Eliminar extension?')){await api('DELETE','/api/extensiones/'+id);loadExt();}}
+async function aplicarExt(){const r=await api('POST','/api/extensions/aplicar');alert(r.salida||r.error||'ok');loadExt();}
+// Historial
+function hQuery(){const p=new URLSearchParams();p.set('limit',HPG);p.set('offset',hoff);const d=document.getElementById('h_desde').value,h=document.getElementById('h_hasta').value,c=document.getElementById('h_codigo').value,i=document.getElementById('h_interno').value,e=document.getElementById('h_estado').value;if(d)p.set('fecha_desde',d);if(h)p.set('fecha_hasta',h+'T23:59:59');if(c)p.set('codigo',c);if(i)p.set('interno',i);if(e)p.set('estado',e);return p;}
+const badge=e=>`<span class="badge ${e==='enviado'?'ok':'err'}">${e||'-'}</span>`;
+async function loadHist(off){hoff=off||0;document.getElementById('tb_hist').innerHTML='<tr><td colspan="8" style="color:var(--mut);text-align:center;padding:1rem">Cargando...</td></tr>';try{const r=await fetch('/api/historial?'+hQuery()).then(r=>r.json());htot=r.total||0;const rows=r.rows||[];document.getElementById('tb_hist').innerHTML=rows.length?rows.map(x=>`<tr><td>${x.fecha_hora}</td><td>${x.interno_origen||''}</td><td>${x.codigo}</td><td>${x.cap_code||''}</td><td>${x.mensaje||''}</td><td>${x.baudios||''}</td><td>${badge(x.estado)}</td><td>${x.observaciones||''}</td></tr>`).join(''):`<tr><td colspan="8" style="color:var(--mut);text-align:center;padding:1rem">Sin registros</td></tr>`;document.getElementById('hg_info').textContent=`${rows.length?hoff+1:0}-${hoff+rows.length} de ${htot}`;document.getElementById('hg_prev').disabled=hoff<=0;document.getElementById('hg_next').disabled=hoff+HPG>=htot;}catch(e){}}
+function hgGo(d){loadHist(Math.max(0,hoff+d*HPG));}
+function exportHist(){const p=new URLSearchParams();const d=document.getElementById('h_desde').value,h=document.getElementById('h_hasta').value,c=document.getElementById('h_codigo').value,i=document.getElementById('h_interno').value,e=document.getElementById('h_estado').value;if(d)p.set('fecha_desde',d);if(h)p.set('fecha_hasta',h+'T23:59:59');if(c)p.set('codigo',c);if(i)p.set('interno',i);if(e)p.set('estado',e);window.open('/api/historial/export?'+p,'_blank');}
+// Config
+async function loadConfig(){const c=await api('GET','/api/config');['admin_user','admin_pass','mensaje_timeout','ptt_preactivo','digit_timeout','response_timeout','test_mode','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','smtp_secure','backup_email','hospital_pbx_ip','hospital_pbx_port','pocsag_mode','transport_bind','transport_protocol','codecs','retry_interval','expiration','baudios_default','warmup_512_ms','warmup_1200_ms','warmup_2400_ms','preamble_bits','fsk_deviation_khz','fsk_deviation_baseband_hz','fsk_levels','function_mode'].forEach(k=>{const el=document.getElementById('c_'+k);if(el&&c[k]!=null)el.value=c[k];});}
+async function saveConfig(){const d={admin_user:document.getElementById('c_admin_user').value,admin_pass:document.getElementById('c_admin_pass').value,mensaje_timeout:document.getElementById('c_mensaje_timeout').value,ptt_preactivo:document.getElementById('c_ptt_preactivo').value,digit_timeout:document.getElementById('c_digit_timeout').value,response_timeout:document.getElementById('c_response_timeout').value,test_mode:document.getElementById('c_test_mode').value,smtp_host:document.getElementById('c_smtp_host').value,smtp_port:document.getElementById('c_smtp_port').value,smtp_user:document.getElementById('c_smtp_user').value,smtp_pass:document.getElementById('c_smtp_pass').value,smtp_from:document.getElementById('c_smtp_from').value,smtp_secure:document.getElementById('c_smtp_secure').value,backup_email:document.getElementById('c_backup_email').value,hospital_pbx_ip:document.getElementById('c_hospital_pbx_ip').value,hospital_pbx_port:document.getElementById('c_hospital_pbx_port').value,transport_bind:document.getElementById('c_transport_bind').value,transport_protocol:document.getElementById('c_transport_protocol').value,codecs:document.getElementById('c_codecs').value,retry_interval:document.getElementById('c_retry_interval').value,expiration:document.getElementById('c_expiration').value,warmup_512_ms:document.getElementById('c_warmup_512_ms').value,warmup_1200_ms:document.getElementById('c_warmup_1200_ms').value,warmup_2400_ms:document.getElementById('c_warmup_2400_ms').value,preamble_bits:document.getElementById('c_preamble_bits').value,baudios_default:document.getElementById('c_baudios_default').value,
+fsk_deviation_khz:document.getElementById('c_fsk_deviation_khz').value,fsk_deviation_baseband_hz:document.getElementById('c_fsk_deviation_baseband_hz').value,fsk_levels:document.getElementById('c_fsk_levels').value,function_mode:document.getElementById('c_function_mode').value};await api('PUT','/api/config',d);const t=document.getElementById('cfg_res');t.className='toast show ok';t.textContent='Parametros guardados. Pulsa "Aplicar a Asterisk" en Extensiones para regenerar la config SIP.';setTimeout(()=>t.className='toast',4000);}
+// Apariencia
+async function loadTheme(){const c=await api('GET','/api/config');['acc','acc2','bg','panel'].forEach(k=>{const el=document.getElementById('th_'+k);if(el&&c['theme_'+k])el.value=c['theme_'+k];});}
+async function saveTheme(){const d={theme_acc:document.getElementById('th_acc').value,theme_acc2:document.getElementById('th_acc2').value,theme_bg:document.getElementById('th_bg').value,theme_panel:document.getElementById('th_panel').value};await api('PUT','/api/config',d);applyTheme();const t=document.getElementById('th_res');t.className='toast show ok';t.textContent='Diseno guardado';setTimeout(()=>t.className='toast',2500);}
+async function resetTheme(){await api('PUT','/api/config',{theme_acc:'#0ea5e9',theme_acc2:'#6366f1',theme_bg:'#f4f7fb',theme_panel:'#ffffff'});loadTheme();applyTheme();}
+// Cola
+async function loadCola(){try{const stats=await api('GET','/api/cola/estado');const items=await api('GET','/api/cola');const sd=document.getElementById('cola_stats');sd.innerHTML=Object.entries(stats||{}).map(([k,v])=>`<span class="badge ${k==='pendiente'?'mut':k==='enviado'?'ok':(k==='error'||k==='fallido')?'err':'mut'}">${k}: ${v}</span>`).join('')||'<span class="badge mut">cola vacia</span>';const rows=items||[];document.getElementById('tb_cola').innerHTML=rows.length?rows.map(x=>`<tr><td>${x.id}</td><td>${x.fecha_encola}</td><td>${x.codigo}</td><td>${(x.mensaje||'').slice(0,40)}</td><td>${x.origen||''}</td><td><span class="badge ${x.estado==='enviado'?'ok':(x.estado==='error'||x.estado==='fallido')?'err':'mut'}">${x.estado}</span></td><td>${x.intentos||0}</td><td>${(x.observaciones||'').slice(0,30)}</td></tr>`).join(''):`<tr><td colspan="8" style="color:var(--mut);text-align:center;padding:1rem">Cola vacia</td></tr>`;}catch(e){}}
+async function colaReintentar(){if(!confirm('Reintentar fallidos?'))return;for(const est of ['fallido','error']){const items=await api('GET','/api/cola?estado='+est);for(const item of (items||[])){await api('POST','/api/cola/reintentar',{id:item.id});}}loadCola();}
+async function colaLimpiar(){if(!confirm('Eliminar enviados?'))return;await api('POST','/api/cola/limpiar');loadCola();}
+// BD
+async function dbBackup(){const r=await fetch('/api/db/backup',{headers:{'Authorization':'Bearer '+TOKEN}});if(r.status===401){logout(true);throw new Error('no autorizado');}const blob=await r.blob();const cd=r.headers.get('Content-Disposition')||'';const m=cd.match(/filename="?([^"]+)"?/);const name=m?m[1]:'pocsag_backup.db';const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);}
+async function dbBackupEmail(){const t=document.getElementById('db_res');t.className='toast show ok';t.textContent='Enviando...';const r=await api('POST','/api/db/backup-email',{});if(r.ok){t.className='toast show ok';t.textContent='Backup enviado.';}else{t.className='toast show err';t.textContent='Error: '+(r.error||'');}setTimeout(()=>t.className='toast',4000);}
+let dbFile=null;const dropDB=document.getElementById('dropDB'),ifileDB=document.getElementById('ifileDB'),dftxtDB=document.getElementById('dftxtDB');
+if(dropDB){dropDB.addEventListener('click',()=>ifileDB.click());ifileDB.addEventListener('change',e=>{dbFile=e.target.files[0];dftxtDB.textContent=dbFile.name;document.getElementById('impbtnDB').disabled=false;});['dragover','dragenter'].forEach(ev=>dropDB.addEventListener(ev,e=>{e.preventDefault();dropDB.classList.add('hover');}));['dragleave','drop'].forEach(ev=>dropDB.addEventListener(ev,e=>{e.preventDefault();dropDB.classList.remove('hover');}));dropDB.addEventListener('drop',e=>{dbFile=e.dataTransfer.files[0];dftxtDB.textContent=dbFile.name;document.getElementById('impbtnDB').disabled=false;});}
+async function dbRestore(){if(!dbFile)return;if(!confirm('Reemplaza la BD actual. Continuar?'))return;const buf=await dbFile.arrayBuffer();const t=document.getElementById('db_res');t.className='toast show ok';t.textContent='Restaurando...';const r=await fetch('/api/db/restore',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN},body:buf}).then(r=>r.json());if(r.ok){t.className='toast show ok';t.textContent='Restaurada.';}else{t.className='toast show err';t.textContent='Error: '+(r.error||'');}}
+async function loadBD(){}
+// SMTP
+async function smtpTest(){const def=(document.getElementById('c_backup_email')||{}).value||'';const email=prompt('Email destino:',def);if(!email)return;const t=document.getElementById('cfg_res');t.className='toast show';t.textContent='Probando...';try{const r=await api('POST','/api/smtp/test',{email:email});if(r&&r.ok){t.className='toast show ok';t.textContent='Enviado a '+email;}else{t.className='toast show err';t.textContent='Error: '+((r&&r.error)||'');}}catch(e){t.className='toast show err';t.textContent='Error: '+e;}}
+// PBX
+async function pbx(cmd){const r=await api('GET','/api/pbx?cmd='+cmd);document.getElementById('pbx_out').textContent=r.salida||r.error||'';}
+async function pbxReload(){if(!confirm('Recargar config PJSIP y dialplan?'))return;const r=await api('POST','/api/pbx/reload');document.getElementById('pbx_out').textContent=r.salida||'';setTimeout(()=>pbx('registrations'),2000);}
+async function pbxRestart(){if(!confirm('Reiniciar PBX? Las llamadas activas se cortaran.'))return;const r=await api('POST','/api/pbx/restart');document.getElementById('pbx_out').textContent=r.salida||'';}
+async function pbxForceReg(){const r=await api('POST','/api/pbx/force-register');document.getElementById('pbx_out').textContent=r.salida||'ok';setTimeout(()=>pbx('registrations'),3000);}
+async function pbxUnreg(){const r=await api('POST','/api/pbx/unregister');document.getElementById('pbx_out').textContent=r.salida||'ok';setTimeout(()=>pbx('registrations'),3000);}
+async function pbxRun(){const cmd=document.getElementById('pbx_cmd').value.trim();if(!cmd)return;const r=await api('POST','/api/pbx/run',{cmd:cmd});document.getElementById('pbx_out').textContent=r.salida||r.error||'';}
+async function pbxDiagnose(){document.getElementById('pbx_out').textContent='Ejecutando diagnostico...';const r=await api('GET','/api/pbx/diagnose');let out='=== DIAGNOSTICO SIP ===\\n\\n';if(r.error){out+='ERROR: '+r.error+'\\n';}else{out+='IP central: '+r.ip+'   Puerto: '+r.puerto+'\\n\\n';r.pasos.forEach(p=>{out+='['+(p.ok?'OK':'FAIL')+'] '+p.paso+'\\n'+p.salida+'\\n\\n';});out+='=== pjsip.conf ===\\n'+r.pjsip_main+'\\n\\n';out+='=== pjsip_hospital.conf (generado) ===\\n'+r.pjsip_conf+'\\n\\n';out+='=== Transportes PJSIP ===\\n'+r.transportes+'\\n\\n';out+='=== Registros SIP ===\\n'+r.registros+'\\n\\n';out+='=== Log PJSIP reciente ===\\n'+r.log_pjsip+'\\n';}document.getElementById('pbx_out').textContent=out;}
+async function applyTheme(){try{const c=await fetch('/api/theme').then(r=>r.json());const acc=c.theme_acc||'#0ea5e9',acc2=c.theme_acc2||'#6366f1',bg=c.theme_bg||'#f4f7fb',panel=c.theme_panel||'#ffffff';let s=document.getElementById('dyn-theme');if(!s){s=document.createElement('style');s.id='dyn-theme';document.body.appendChild(s);}s.textContent=`:root{--acc:${acc}!important;--acc2:${acc2}!important;--bg:${bg}!important;--panel:${panel}!important}body{background:radial-gradient(900px 600px at 8% -10%,${acc}22,transparent 60%),radial-gradient(820px 520px at 102% 0%,${acc2}22,transparent 55%),${bg}!important}.btn-pri,.side nav button.active,.brand .logo,.login .logo{background:linear-gradient(135deg,${acc},${acc2})!important}`}catch(e){}}
+async function health(){try{const h=await fetch('/api/health').then(r=>r.json());const p=document.getElementById('h');p.textContent=h.status==='ok'?'en linea':'caido';p.className='pill '+(h.status==='ok'?'':'off');}catch(e){}}
+// Dashboard
+async function loadDash(){try{const s=await api('GET','/api/stats');const sd=document.getElementById('dash_stats');sd.innerHTML=`<div class="card" style="flex:1;min-width:140px;background:var(--panel2);padding:1rem"><div style="color:var(--mut);font-size:.72rem;text-transform:uppercase">Total</div><div style="font-size:1.8rem;font-weight:800">${s.total_enviados||0}</div></div><div class="card" style="flex:1;min-width:140px;background:var(--panel2);padding:1rem"><div style="color:var(--mut);font-size:.72rem;text-transform:uppercase">OK</div><div style="font-size:1.8rem;font-weight:800;color:#86efac">${s.total_ok||0}</div></div><div class="card" style="flex:1;min-width:140px;background:var(--panel2);padding:1rem"><div style="color:var(--mut);font-size:.72rem;text-transform:uppercase">Errores</div><div style="font-size:1.8rem;font-weight:800;color:#fca5a5">${s.total_err||0}</div></div>`;drawChart('chart_dia',s.por_dia||[],'dia','total');drawChart('chart_hora',s.por_hora||[],'hora','total');const tp=document.getElementById('dash_top');tp.innerHTML=(s.top_pagers||[]).length?(s.top_pagers.map(x=>`<div style="display:flex;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid var(--line)"><span>${x.codigo}</span><strong>${x.total}</strong></div>`).join('')):'<div style="color:var(--mut);padding:1rem">Sin datos</div>';}catch(e){}}
+function drawChart(id,data,xkey,ykey){const c=document.getElementById(id);if(!c)return;const ctx=c.getContext('2d');const w=c.width=c.offsetWidth;const h=c.height;ctx.clearRect(0,0,w,h);if(!data.length){ctx.fillStyle='#8aa0bd';ctx.font='13px sans-serif';ctx.fillText('Sin datos',10,20);return;}const max=Math.max(...data.map(d=>d[ykey]||0))||1;const bw=w/Math.max(data.length,1);ctx.fillStyle='#14b8a6';data.forEach((d,i)=>{const bh=(d[ykey]||0)/max*(h-20);ctx.fillRect(i*bw+2,h-bh-15,bw-4,bh);});}
+// Plantillas
+async function loadPlantillas(){const r=await api('GET','/api/plantillas');document.getElementById('tb_plantillas').innerHTML=(r||[]).map(x=>`<tr><td>${x.nombre}</td><td>${x.categoria||''}</td><td>${(x.mensaje||'').slice(0,60)}</td><td>${x.orden||0}</td><td><span class="badge ${x.activo?'ok':'mut'}">${x.activo?'si':'no'}</span></td><td><button class="btn btn-sec btn-sm" onclick="openPlantilla(${x.id})">✎</button> <button class="btn btn-del btn-sm" onclick="delPlantilla(${x.id})">✕</button></td></tr>`).join('')||`<tr><td colspan="6" style="color:var(--mut);text-align:center;padding:1rem">Sin plantillas</td></tr>`;}
+async function openPlantilla(id){editPL=id||null;let x=null;if(id){const r=await api('GET','/api/plantillas');x=(r||[]).find(i=>i.id===id);}document.getElementById('pl_nombre').value=x?x.nombre:'';document.getElementById('pl_cat').value=x?x.categoria||'general':'general';document.getElementById('pl_mensaje').value=x?x.mensaje:'';document.getElementById('pl_orden').value=x?x.orden||0:0;document.getElementById('mPLT').textContent=id?'Editar':'Nueva';openModal('mPlantilla');}
+async function savePlantilla(){const d={nombre:document.getElementById('pl_nombre').value,mensaje:document.getElementById('pl_mensaje').value,categoria:document.getElementById('pl_cat').value,orden:+document.getElementById('pl_orden').value};if(editPL)await api('PUT','/api/plantillas/'+editPL,d);else await api('POST','/api/plantillas',d);closeModal('mPlantilla');loadPlantillas();}
+async function delPlantilla(id){if(confirm('Eliminar?')){await api('DELETE','/api/plantillas/'+id);loadPlantillas();}}
+// Programados
+async function loadProgramados(){const r=await api('GET','/api/programados');document.getElementById('tb_programados').innerHTML=(r||[]).map(x=>`<tr><td>${x.codigo}</td><td>${(x.mensaje||'').slice(0,50)}</td><td>${x.tipo||''}</td><td>${x.proxima_ejecucion||x.fecha_programada||''}</td><td><span class="badge ${x.activo?'ok':'mut'}">${x.activo?'si':'no'}</span></td><td><button class="btn btn-sec btn-sm" onclick="openProgramado(${x.id})">✎</button> <button class="btn btn-del btn-sm" onclick="delProgramado(${x.id})">✕</button></td></tr>`).join('')||`<tr><td colspan="6" style="color:var(--mut);text-align:center;padding:1rem">Sin envios</td></tr>`;}
+async function openProgramado(id){editPR=id||null;let x=null;if(id){const r=await api('GET','/api/programados');x=(r||[]).find(i=>i.id===id);}document.getElementById('pr_codigo').value=x?x.codigo:'';document.getElementById('pr_tipo').value=x?x.tipo||'unico':'unico';document.getElementById('pr_mensaje').value=x?x.mensaje:'';document.getElementById('pr_fecha').value=x?x.fecha_programada||'':'';document.getElementById('pr_hora').value=x?x.recurrencia_hora||'08:00':'08:00';document.getElementById('pr_dia').value=x?x.recurrencia_dia||1:1;document.getElementById('mPRT').textContent=id?'Editar':'Nuevo';openModal('mProgramado');}
+async function saveProgramado(){const d={codigo:document.getElementById('pr_codigo').value,mensaje:document.getElementById('pr_mensaje').value,tipo:document.getElementById('pr_tipo').value,fecha_programada:document.getElementById('pr_fecha').value,recurrencia_hora:document.getElementById('pr_hora').value,recurrencia_dia:+document.getElementById('pr_dia').value};if(editPR)await api('PUT','/api/programados/'+editPR,d);else await api('POST','/api/programados',d);closeModal('mProgramado');loadProgramados();}
+async function delProgramado(id){if(confirm('Eliminar?')){await api('DELETE','/api/programados/'+id);loadProgramados();}}
+// Logs
+let curLogType='api';async function loadLogs(tipo){curLogType=tipo;const r=await api('GET','/api/logs?tipo='+tipo+'&limit=300');document.getElementById('log_out').textContent=(r.lineas||[]).join('\n')||'(vacio)';}
+// Auditoria
+async function loadAud(){const r=await api('GET','/api/auditoria?limit=200');document.getElementById('tb_aud').innerHTML=(r.rows||[]).map(x=>`<tr><td>${x.fecha_hora}</td><td>${x.usuario||''}</td><td>${x.accion||''}</td><td>${x.entidad||''}</td><td>${x.entidad_id||''}</td><td>${(x.detalle||'').slice(0,50)}</td><td>${x.ip||''}</td></tr>`).join('')||`<tr><td colspan="7" style="color:var(--mut);text-align:center;padding:1rem">Sin registros</td></tr>`;}
+checkTok();applyTheme();health();setInterval(health,20000);loadVersion();
+async function loadVersion(){try{const v=await fetch('/api/version').then(r=>r.json());const el=document.getElementById('ver');if(el)el.textContent='v'+(v.version||'1.0client');}catch(e){}}
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+*{font-family:'Inter',ui-sans-serif,system-ui,-apple-system,sans-serif!important}
+h1,h2,h3,.brand,.btn,.login h1{font-family:'Space Grotesk','Inter',sans-serif!important;letter-spacing:-.01em!important}
+body{background:radial-gradient(900px 600px at 8% -10%,rgba(14,165,233,.15),transparent 60%),radial-gradient(820px 520px at 102% 0%,rgba(99,102,241,.15),transparent 55%),radial-gradient(760px 760px at 50% 120%,rgba(16,185,129,.10),transparent 60%),#f4f7fb!important;background-attachment:fixed!important;color:#0f172a!important}
+.brand .logo,.login .logo,.side .brand .logo{background:linear-gradient(135deg,#0ea5e9,#6366f1,#10b981)!important;box-shadow:0 8px 22px -6px rgba(99,102,241,.5)!important}
+.btn-pri{background:linear-gradient(135deg,#0ea5e9,#6366f1)!important;color:#fff!important;border:none!important;box-shadow:0 8px 20px -6px rgba(99,102,241,.45)!important}
+.btn-pri:hover{filter:brightness(1.06)!important;transform:translateY(-1px)!important}
+.btn-sec{background:#fff!important;color:#0f172a!important;border:1px solid rgba(15,23,42,.12)!important}
+.btn-sec:hover{border-color:#0ea5e9!important;background:#f8fafc!important}
+.btn-ok{background:linear-gradient(135deg,#10b981,#059669)!important;color:#fff!important;border:none!important}
+.btn-del{background:linear-gradient(135deg,#ef4444,#dc2626)!important;color:#fff!important;border:none!important}
+.btn-warn{background:linear-gradient(135deg,#f59e0b,#d97706)!important;color:#fff!important;border:none!important}
+.side nav button.active{background:linear-gradient(135deg,rgba(14,165,233,.16),rgba(99,102,241,.16))!important;color:#0369a1!important;border:1px solid rgba(14,165,233,.3)!important}
+.sw{background:#cbd5e1!important}.sw.on{background:linear-gradient(135deg,#10b981,#059669)!important}
+</style>
+</body></html>

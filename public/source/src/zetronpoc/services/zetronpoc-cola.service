@@ -1,0 +1,15 @@
+[Unit]
+Description=ZetronPOC worker de cola de envios
+After=zetronpoc-api.service
+
+[Service]
+Type=simple
+Environment=ZETRONPOC_DIR=/opt/zetronpoc
+WorkingDirectory=/opt/zetronpoc
+ExecStart=/bin/bash -c 'while true; do python3 -c "import sys; sys.path.insert(0,\"/opt/zetronpoc\"); sys.path.insert(0,\"/opt/zetronpoc/database\"); from db_manager import procesar_siguiente_cola; procesar_siguiente_cola()" 2>/dev/null; sleep 3; done'
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target

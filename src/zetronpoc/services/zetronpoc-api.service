@@ -1,0 +1,18 @@
+[Unit]
+Description=ZetronPOC API (panel web)
+After=network.target
+
+[Service]
+Type=simple
+Environment=ZETRONPOC_DIR=/opt/zetronpoc
+WorkingDirectory=/opt/zetronpoc
+ExecStartPre=/bin/bash -c 'fuser -k 8080/tcp 2>/dev/null || true'
+ExecStart=/usr/bin/python3 /opt/zetronpoc/backend/app.py
+Restart=always
+RestartSec=3
+User=root
+StandardOutput=append:/opt/zetronpoc/logs/api.log
+StandardError=append:/opt/zetronpoc/logs/api.log
+
+[Install]
+WantedBy=multi-user.target

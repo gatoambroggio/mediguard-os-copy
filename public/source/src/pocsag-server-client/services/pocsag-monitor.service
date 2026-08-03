@@ -1,0 +1,12 @@
+[Unit]
+Description=Monitor del sistema POCSAG
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -lc 'while true; do if ! asterisk -rx "core show uptime" >/dev/null 2>&1; then systemctl restart asterisk; fi; /opt/pocsag-server/scripts/healthcheck.sh >> /opt/pocsag-server/logs/health.log 2>&1; sleep 30; done'
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

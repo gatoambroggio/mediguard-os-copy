@@ -1,0 +1,80 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Pogsac - Paginacion Hospitalaria</title>
+<style>
+:root{--bg:#f4f7fb;--panel:#fff;--line:rgba(15,23,42,.08);--txt:#0f172a;--mut:#64748b;--acc:#0ea5e9;--acc2:#6366f1;--ok:#16a34a;--err:#dc2626;--r:20px}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Inter',ui-sans-serif,system-ui,-apple-system,sans-serif;background:radial-gradient(900px 600px at 8% -10%,rgba(14,165,233,.10),transparent 60%),radial-gradient(820px 520px at 102% 0%,rgba(99,102,241,.10),transparent 55%),#f4f7fb;color:var(--txt);min-height:100vh;background-attachment:fixed}
+.topbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.9rem 1.4rem;background:rgba(255,255,255,.7);backdrop-filter:blur(18px) saturate(160%);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:.7rem;font-weight:700}
+.brand .logo{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(135deg,var(--acc),var(--acc2));font-size:20px;box-shadow:0 8px 22px -6px rgba(99,102,241,.5)}
+.brand small{display:block;font-weight:500;color:var(--mut);font-size:.72rem}
+.pill{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .7rem;border-radius:999px;font-size:.74rem;background:rgba(14,165,233,.12);color:#0369a1;border:1px solid rgba(14,165,233,.25)}
+.dot{width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981}
+main{max-width:680px;margin:0 auto;padding:1rem 1.4rem 3rem}
+.card{background:rgba(255,255,255,.86);backdrop-filter:blur(18px) saturate(150%);border:1px solid var(--line);border-radius:var(--r);padding:1.4rem;margin-bottom:1.2rem;box-shadow:0 1px 2px rgba(15,23,42,.04),0 14px 34px -14px rgba(15,23,42,.16)}
+.card h2{margin:0 0 1rem;font-size:1.05rem}
+label{display:block;font-size:.74rem;color:var(--mut);margin-bottom:.3rem;font-weight:600}
+input,textarea{width:100%;background:#fff;border:1px solid rgba(15,23,42,.12);color:#0f172a;border-radius:12px;padding:.6rem .7rem;font-size:.92rem;outline:none}
+input:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 4px rgba(14,165,233,.16)}
+.btn{cursor:pointer;border:none;border-radius:12px;padding:.6rem 1.1rem;font-weight:700;font-size:.88rem;transition:.2s}
+.btn-pri{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;box-shadow:0 8px 20px -6px rgba(99,102,241,.45)}
+.btn-pri:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.toast{margin-top:.8rem;padding:.7rem .9rem;border-radius:12px;font-size:.86rem;display:none}
+.toast.show{display:block}
+.toast.ok{background:rgba(16,163,74,.12);border:1px solid rgba(16,163,74,.3);color:#15803d}
+.toast.err{background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);color:#b91c1c}
+.combo{position:relative}
+.combo ul{position:absolute;z-index:6;left:0;right:0;margin-top:.2rem;background:#fff;border:1px solid rgba(15,23,42,.12);border-radius:12px;max-height:280px;overflow:auto;list-style:none;padding:.3rem;box-shadow:0 16px 40px -12px rgba(15,23,42,.2);display:none}
+.combo ul.open{display:block}
+.combo li{padding:.5rem .6rem;border-radius:8px;cursor:pointer;font-size:.85rem;display:flex;justify-content:space-between}
+.combo li:hover{background:rgba(14,165,233,.08)}
+.foot{max-width:680px;margin:0 auto;padding:0 1.4rem 2rem;color:var(--mut);font-size:.78rem}
+.foot a{color:var(--acc);text-decoration:none}
+</style></head>
+<body>
+<div class="topbar">
+  <div class="brand"><div class="logo">🧭</div><div>Pogsac<small>paginacion hospitalaria</small></div></div>
+  <span id="h" class="pill"><span class="dot"></span> en linea</span>
+</div>
+<main>
+<div class="card">
+  <h2>📨 Enviar mensaje a un codigo o grupo</h2>
+  <div style="margin-bottom:.9rem"><label>Buscar destinatario (nombre, codigo o area)</label>
+    <div class="combo" id="cmb">
+      <input id="e_q" autocomplete="off" placeholder="Escriba para buscar...">
+      <ul id="e_list"></ul>
+    </div>
+  </div>
+  <div style="margin-bottom:.9rem"><label>Mensaje (alfanumerico)</label><textarea id="e_msg" rows="3" placeholder="Escriba el mensaje para el pager..."></textarea></div>
+  <button class="btn btn-pri" onclick="enviar()">Enviar mensaje</button>
+  <div id="e_res" class="toast"></div>
+</div>
+</main>
+<div class="foot"><span>Sistema POCSAG · VoIP a pager</span><a href="/admin" style="margin-left:auto">Acceso administradores →</a></div>
+<script>
+let chosen=null,btimer=null;
+function toast(ok,msg){const t=document.getElementById('e_res');t.className='toast show '+(ok?'ok':'err');t.textContent=msg;}
+async function buscarDest(q){
+  const [pe,gr]=await Promise.all([fetch('/api/pagers'+(q?('?q='+encodeURIComponent(q)):'')).then(r=>r.json()),fetch('/api/grupos'+(q?('?q='+encodeURIComponent(q)):'')).then(r=>r.json())]);
+  const out=[];
+  (pe||[]).filter(x=>x.activo).forEach(x=>out.push({codigo:x.codigo,label:`${x.nombre||''} ${x.apellido||''}`.trim()||x.codigo,tipo:'pager'}));
+  (gr||[]).filter(x=>x.activo).forEach(x=>out.push({codigo:x.codigo,label:x.nombre||x.codigo,tipo:'grupo'}));
+  return out;
+}
+const eq=document.getElementById('e_q'),elist=document.getElementById('e_list');
+eq.addEventListener('input',()=>{clearTimeout(btimer);btimer=setTimeout(async()=>{const r=await buscarDest(eq.value.trim());renderList(r);},180);});
+eq.addEventListener('focus',()=>{if(elist.innerHTML)elist.classList.add('open');});
+function renderList(r){elist.innerHTML=r.map(x=>`<li onclick="pickDest('${x.codigo}','${(x.label||'').replace(/'/g,'')}')" ><span>${x.label} <span style="color:var(--mut);font-size:.8rem">${x.codigo}</span></span><span style="font-size:.7rem;color:var(--acc);font-weight:700">${x.tipo}</span></li>`).join('');elist.classList.toggle('open',r.length>0);}
+function pickDest(codigo,label){chosen=codigo;eq.value=label+' ('+codigo+')';elist.classList.remove('open');}
+document.addEventListener('click',e=>{if(!document.getElementById('cmb').contains(e.target))elist.classList.remove('open');});
+async function enviar(){
+  const codigo=chosen,mensaje=document.getElementById('e_msg').value.trim();
+  if(!codigo){toast(false,'Seleccione un destinatario de la lista.');return;}
+  if(!mensaje){toast(false,'Escriba un mensaje.');return;}
+  const r=await fetch('/api/enviar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({codigo,mensaje,origen:'web'})}).then(r=>r.json());
+  if(r.status==='enviado'||r.status==='encolado'){toast(true,r.status==='encolado'?'Mensaje encolado para envio.':'Mensaje enviado correctamente.');document.getElementById('e_msg').value='';}else toast(false,'Error: '+(r.detalle||'no se pudo enviar'));
+}
+async function health(){try{const h=await fetch('/api/health').then(r=>r.json());const p=document.getElementById('h');p.innerHTML=`<span class="dot"></span> ${h.status==='ok'?'en linea':'caido'}`;}catch(e){document.getElementById('h').innerHTML='<span class="dot" style="background:#dc2626"></span> caido';}}
+health();setInterval(health,15000);
+</script>
+</body></html>

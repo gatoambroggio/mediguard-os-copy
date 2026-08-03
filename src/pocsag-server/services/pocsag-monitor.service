@@ -1,0 +1,12 @@
+[Unit]
+Description=Monitor del sistema de paginación POCSAG
+After=asterisk.service network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -lc 'while true; do systemctl is-active --quiet asterisk || systemctl restart asterisk; /opt/pocsag-server/scripts/healthcheck.sh >> /opt/pocsag-server/logs/health.log 2>&1; sleep 30; done'
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

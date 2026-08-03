@@ -1,0 +1,14 @@
+[Unit]
+Description=Worker de cola de envios POCSAG
+After=network.target pocsag-api.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/pocsag-server/agi/cola_worker.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+Environment=TZ=America/Argentina/Cordoba
+
+[Install]
+WantedBy=multi-user.target

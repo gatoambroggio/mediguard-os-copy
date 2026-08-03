@@ -1,0 +1,18 @@
+[Unit]
+Description=ZetronPOC worker de cola de envios
+After=zetronpoc-api.service
+
+[Service]
+Type=simple
+Environment=ZETRONPOC_DIR=/opt/zetronpoc
+WorkingDirectory=/opt/zetronpoc
+ExecStart=/usr/bin/python3 /opt/zetronpoc/agi/cola_worker.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+Environment=ZETRONPOC_DIR=/opt/zetronpoc
+Environment=TZ=America/Argentina/Cordoba
+User=root
+
+[Install]
+WantedBy=multi-user.target

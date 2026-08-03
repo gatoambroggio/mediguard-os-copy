@@ -1,0 +1,15 @@
+[Unit]
+Description=API y panel web del sistema POCSAG (cliente)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/pocsag-server/backend
+ExecStart=/usr/bin/python3 /opt/pocsag-server/backend/app.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+Environment=TZ=America/Argentina/Cordoba
+
+[Install]
+WantedBy=multi-user.target

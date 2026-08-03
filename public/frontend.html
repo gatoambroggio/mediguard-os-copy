@@ -1,0 +1,80 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>POCSAG</title>
+<style>body{font-family:system-ui;margin:0;background:#0f172a;color:#e2e8f0}
+header{background:#1e293b;padding:1rem 2rem;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center}
+h1{margin:0;font-size:1.25rem}main{padding:2rem;display:grid;gap:1.5rem;max-width:1100px;margin:auto}
+.card{background:#1e293b;border:1px solid #334155;border-radius:.5rem;padding:1.25rem}
+.card h2{margin-top:0;font-size:1rem;color:#38bdf8}table{width:100%;border-collapse:collapse;font-size:.85rem}
+th,td{text-align:left;padding:.5rem;border-bottom:1px solid #334155}th{color:#94a3b8}
+.badge{padding:.15rem .5rem;border-radius:9999px;font-size:.7rem;background:#334155}
+.ok{background:#064e3b;color:#6ee7b7}.err{background:#7f1d1d;color:#fca5a5}
+input,select,button{font-family:inherit;font-size:.9rem;padding:.4rem .6rem;border-radius:.4rem;border:1px solid #334155;background:#0f172a;color:#e2e8f0}
+button{cursor:pointer;border:none}button:disabled{opacity:.5}
+.btn-env{background:#2563eb}.btn-env:hover{background:#3b82f6}.btn-del{background:#b91c1c}.btn-del:hover{background:#dc2626}
+.btn-edit{background:#475569}.btn-edit:hover{background:#64748b}.btn-save{background:#059669}.btn-save:hover{background:#10b981}
+.row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem}
+.row label{min-width:80px;color:#94a3b8;font-size:.8rem}
+.toast{position:fixed;bottom:1rem;right:1rem;padding:.75rem 1rem;border-radius:.5rem;background:#1e293b;border:1px solid #334155;opacity:0;transition:opacity .3s}
+.toast.show{opacity:1}td.act{display:flex;gap:.25rem}</style></head>
+<body><header><h1>🏥 Paginación POCSAG</h1><span id="h" class="badge">…</span></header>
+<main>
+<section class="card"><h2>Enviar mensaje</h2>
+<div class="row"><label>Código</label><select id="e_cod" style="flex:1"></select></div>
+<div class="row"><label>Mensaje</label><input id="e_msg" style="flex:1" placeholder="Texto alfanumérico"></div>
+<div class="row"><button class="btn-env" onclick="enviar()">Enviar a pager</button></div>
+</section>
+<section class="card"><h2 id="ft">Crear código</h2>
+<div class="row"><label>Código</label><input id="f_cod" style="width:90px" placeholder="ej 23"><label>Tipo</label><select id="f_tipo"><option value="individual">individual</option><option value="grupo">grupo</option><option value="broadcast">broadcast</option></select></div>
+<div class="row"><label>Cap Code</label><input id="f_cap" style="width:140px" placeholder="ej 300023"><label>Baudios</label><select id="f_baud"><option>1200</option><option>512</option><option>2400</option></select></div>
+<div class="row"><label>Desc</label><input id="f_desc" style="flex:1" placeholder="descripción"></div>
+<div class="row" id="f_act_wrap" style="display:none"><label>Activo</label><select id="f_act"><option value="1">sí</option><option value="0">no</option></select></div>
+<div class="row"><button class="btn-save" id="f_btn" onclick="guardar()">Crear</button><button id="f_cancel" style="display:none" onclick="resetForm()">Cancelar</button></div>
+</section>
+<section class="card"><h2>Códigos</h2><table><thead><tr><th>Código</th><th>Tipo</th><th>Cap</th><th>Baud</th><th>Desc</th><th>Act</th><th></th></tr></thead>
+<tbody id="cod"></tbody></table></section>
+<section class="card"><h2>Bitácora</h2><table><thead><tr><th>Fecha</th><th>Interno</th><th>Código</th><th>Cap</th><th>Msg</th><th>Estado</th></tr></thead>
+<tbody id="bit"></tbody></table></section></main>
+<div class="toast" id="t"></div>
+<script>
+const g=u=>fetch(u).then(r=>r.json());
+const p=(u,d)=>fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}).then(r=>r.json());
+const toast=m=>{const t=document.getElementById('t');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);};
+const badge=e=>e==='enviado'?`<span class="badge ok">${e}</span>`:`<span class="badge err">${e||'-'}</span>`;
+let editing=null;
+async function enviar(){
+  const codigo=document.getElementById('e_cod').value, mensaje=document.getElementById('e_msg').value.trim();
+  if(!codigo||!mensaje) return toast('Elegí código y mensaje');
+  const r=await p('/api/enviar',{codigo,mensaje,origen:'web'});
+  toast(r.status==='enviado'?`Enviado a ${r.cap_code}`:`Error: ${r.detalle||''}`);
+  cargarBitacora();
+}
+function editar(c){const x=codigos.find(o=>o.codigo===c);if(!x)return;editing=c;
+  document.getElementById('ft').textContent='Modificar código '+c;
+  document.getElementById('f_cod').value=x.codigo;document.getElementById('f_cod').disabled=true;
+  document.getElementById('f_tipo').value=x.tipo;document.getElementById('f_cap').value=x.cap_code||'';
+  document.getElementById('f_baud').value=String(x.baudios);document.getElementById('f_desc').value=x.descripcion||'';
+  document.getElementById('f_act').value=String(x.activo);document.getElementById('f_act_wrap').style.display='flex';
+  document.getElementById('f_btn').textContent='Guardar';document.getElementById('f_cancel').style.display='inline-block';}
+function resetForm(){editing=null;
+  document.getElementById('ft').textContent='Crear código';document.getElementById('f_cod').disabled=false;
+  document.getElementById('f_cod').value='';document.getElementById('f_tipo').value='individual';
+  document.getElementById('f_cap').value='';document.getElementById('f_baud').value='1200';
+  document.getElementById('f_desc').value='';document.getElementById('f_act_wrap').style.display='none';
+  document.getElementById('f_btn').textContent='Crear';document.getElementById('f_cancel').style.display='none';}
+async function guardar(){
+  const d={codigo:document.getElementById('f_cod').value.trim(),tipo:document.getElementById('f_tipo').value,
+    cap_code:document.getElementById('f_cap').value.trim(),baudios:document.getElementById('f_baud').value,
+    descripcion:document.getElementById('f_desc').value.trim(),activo:document.getElementById('f_act').value};
+  if(!d.codigo) return toast('Falta código');
+  if(editing){await p('/api/codigos/update',d);toast('Actualizado');}else{await p('/api/codigos',d);toast('Creado');}
+  resetForm();cargarCodigos();}
+async function borrar(c){if(!confirm('Borrar código '+c+'?'))return;await p('/api/codigos/delete',{codigo:c});cargarCodigos();}
+let codigos=[];
+async function cargarCodigos(){codigos=await g('/api/codigos');
+  document.getElementById('cod').innerHTML=codigos.map(x=>`<tr><td>${x.codigo}</td><td>${x.tipo}</td><td>${x.cap_code||''}</td><td>${x.baudios}</td><td>${x.descripcion||''}</td><td>${x.activo?'✅':'⬛'}</td><td class="act"><button class="btn-edit" onclick="editar('${x.codigo}')">Editar</button><button class="btn-del" onclick="borrar('${x.codigo}')">Borrar</button></td></tr>`).join('');
+  const s=document.getElementById('e_cod');s.innerHTML=codigos.map(x=>`<option value="${x.codigo}">${x.codigo} — ${x.descripcion||x.tipo}</option>`).join('');}
+async function cargarBitacora(){const b=await g('/api/bitacora');
+  document.getElementById('bit').innerHTML=b.map(x=>`<tr><td>${x.fecha_hora}</td><td>${x.interno_origen||''}</td><td>${x.codigo}</td><td>${x.cap_code||''}</td><td>${x.mensaje||''}</td><td>${badge(x.estado)}</td></tr>`).join('');}
+(async()=>{try{const h=await g('/api/health');document.getElementById('h').textContent=h.status==='ok'?'en línea':'caído';}catch(e){document.getElementById('h').textContent='caído';}
+cargarCodigos();cargarBitacora();})();
+</script></body></html>

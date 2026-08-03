@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>ZETRON 640 · DAPT-X XTRA</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@400;500;600&display=swap');
+:root{--bg:#05060f;--panel:rgba(10,15,31,.7);--line:rgba(0,240,255,.18);--txt:#d8e6ff;--mut:#5d7494;--acc:#00f0ff;--acc2:#ff00d4;--acc3:#7c5cff;--ok:#00ff9d}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Rajdhani',sans-serif}
+body{min-height:100vh;color:var(--txt);background:var(--bg);display:flex;flex-direction:column;position:relative;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;background:radial-gradient(900px 600px at 10% -10%,rgba(0,240,255,.12),transparent 60%),radial-gradient(820px 520px at 100% 0%,rgba(255,0,212,.10),transparent 55%);z-index:0}
+body::after{content:"";position:fixed;inset:0;background-image:linear-gradient(rgba(0,240,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,240,255,.04) 1px,transparent 1px);background-size:44px 44px;z-index:0;animation:g 30s linear infinite}
+@keyframes g{to{background-position:44px 44px}}
+.wrap{max-width:560px;margin:auto;padding:2rem;position:relative;z-index:1;width:100%}
+.head{text-align:center;margin-bottom:2rem}
+.logo{width:74px;height:74px;border-radius:20px;display:grid;place-items:center;margin:0 auto 1rem;background:linear-gradient(135deg,var(--acc),var(--acc3),var(--acc2));color:#05060f;font-size:38px;font-weight:900;font-family:'Orbitron';box-shadow:0 0 40px rgba(0,240,255,.5)}
+h1{font-family:'Orbitron';font-size:1.6rem;background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:.06em}
+.sub{color:var(--mut);letter-spacing:.3em;font-size:.7rem;text-transform:uppercase;margin-top:.3rem}
+.card{background:var(--panel);backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:16px;padding:1.8rem;box-shadow:0 0 50px rgba(0,240,255,.1)}
+label{display:block;font-size:.66rem;color:var(--mut);margin-bottom:.3rem;letter-spacing:.1em;text-transform:uppercase}
+input,textarea{width:100%;background:rgba(8,11,26,.9);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:.55rem .7rem;font-size:.95rem;outline:none;transition:.15s}
+input:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(0,240,255,.12)}
+.list{position:relative;margin-top:.4rem}
+ul{position:absolute;z-index:5;left:0;right:0;background:rgba(8,11,26,.98);border:1px solid var(--line);border-radius:9px;max-height:240px;overflow:auto;list-style:none;padding:.3rem}
+li{padding:.5rem .6rem;border-radius:6px;cursor:pointer;display:flex;justify-content:space-between}
+li:hover{background:rgba(0,240,255,.1)}
+.muted{font-size:.7rem;color:var(--mut)}
+.tag{font-size:.62rem;color:var(--acc);font-weight:700}
+.btn{width:100%;margin-top:1rem;cursor:pointer;border:none;border-radius:10px;padding:.7rem;font-family:'Orbitron';font-weight:700;font-size:.85rem;background:linear-gradient(135deg,var(--acc),var(--acc3));color:#04060d;letter-spacing:.05em;box-shadow:0 0 24px rgba(0,240,255,.35)}
+.btn:hover{box-shadow:0 0 32px rgba(0,240,255,.55)}
+.toast{margin-top:1rem;padding:.7rem;border-radius:9px;font-size:.85rem;display:none}
+.toast.show{display:block}
+.toast.ok{background:rgba(0,255,157,.1);border:1px solid rgba(0,255,157,.3);color:var(--ok)}
+.toast.err{background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.3);color:#ff3b5c}
+.foot{text-align:center;margin-top:1.4rem}
+.foot a{color:var(--acc);text-decoration:none;font-size:.85rem;border:1px solid var(--line);padding:.5rem 1rem;border-radius:9px;background:var(--panel)}
+.stat{position:fixed;top:1rem;right:1rem;z-index:2}
+.pill{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .7rem;border-radius:999px;font-size:.7rem;background:rgba(0,255,157,.1);color:var(--ok);border:1px solid rgba(0,255,157,.3);font-weight:600}
+</style></head>
+<body>
+<div class="stat"><span id="h" class="pill">…</span></div>
+<div class="wrap">
+  <div class="head"><div class="logo">⏧</div><h1>ZETRON 640</h1><div class="sub">DAPT-X XTRA · Despacho</div></div>
+  <div class="card">
+    <label>Buscar destinatario</label>
+    <input id="q" autocomplete="off" placeholder="Nombre, codigo o area...">
+    <ul id="list" style="display:none"></ul>
+    <div style="margin-top:1rem"><label>Mensaje alfanumerico</label><textarea id="msg" rows="3" placeholder="Escriba el mensaje al pager..."></textarea></div>
+    <button class="btn" onclick="send()">TRANSMITIR</button>
+    <div id="res" class="toast"></div>
+  </div>
+  <div class="foot"><a href="/admin">Panel administrativo →</a></div>
+</div>
+<script>
+let chosen=null,t=null;
+const q=document.getElementById('q'),list=document.getElementById('list');
+q.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(async()=>{const r=await fetch('/api/pagers'+(q.value?('?q='+encodeURIComponent(q.value)):'')).then(r=>r.json()).catch(()=>[]);const g=await fetch('/api/grupos'+(q.value?('?q='+encodeURIComponent(q.value)):'')).then(r=>r.json()).catch(()=>[]);const out=[];(r||[]).filter(x=>x.activo).forEach(x=>out.push({c:x.codigo,l:((x.nombre||'')+' '+(x.apellido||'')).trim()||x.codigo,t:'pager'}));(g||[]).filter(x=>x.activo).forEach(x=>out.push({c:x.codigo,l:x.nombre||x.codigo,t:'grupo'}));list.innerHTML=out.map(x=>`<li onclick="pick('${x.c}','${(x.l||'').replace(/'/g,'')}')"><span>${x.l} <span class="muted">${x.c}</span></span><span class="tag">${x.t}</span></li>`).join('');list.style.display=out.length?'block':'none';},180);});
+document.addEventListener('click',e=>{if(e.target.id!=='q')list.style.display='none';});
+function pick(c,l){chosen=c;q.value=l+' ('+c+')';list.style.display='none';}
+async function send(){const t=document.getElementById('res');if(!chosen){t.className='toast show err';t.textContent='Seleccione destinatario';return;}const m=document.getElementById('msg').value.trim();if(!m){t.className='toast show err';t.textContent='Escriba un mensaje';return;}t.className='toast show ok';t.textContent='Transmitiendo...';const r=await fetch('/api/enviar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({codigo:chosen,mensaje:m,origen:'publico'})}).then(r=>r.json());if(r.status==='enviado'||r.status==='encolado'){t.className='toast show ok';t.textContent=r.status==='encolado'?'Encolado para envio.':'Mensaje transmitido.';document.getElementById('msg').value='';}else{t.className='toast show err';t.textContent='Error: '+(r.detalle||'fallo');}}
+async function health(){try{const h=await fetch('/api/health').then(r=>r.json());const p=document.getElementById('h');p.textContent=h.status==='ok'?'EN LINEA':'CAIDO';p.className='pill '+(h.status==='ok'?'':'off');}catch(e){}}
+health();setInterval(health,20000);
+</script>
+</body></html>

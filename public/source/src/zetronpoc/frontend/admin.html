@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>ZETRON 640 · DAPT-X XTRA</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+:root{--bg:#05060f;--bg2:#080b1a;--panel:rgba(10,15,31,.72);--panel2:rgba(15,20,40,.85);--line:rgba(0,240,255,.18);--line2:rgba(255,0,212,.18);--txt:#d8e6ff;--mut:#5d7494;--acc:#00f0ff;--acc2:#ff00d4;--acc3:#7c5cff;--ok:#00ff9d;--err:#ff3b5c;--warn:#ffb800;--r:14px}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Rajdhani',sans-serif;color:var(--txt);background:var(--bg);overflow-x:hidden;position:relative}
+body::before{content:"";position:fixed;inset:0;background:
+  radial-gradient(900px 600px at 8% -10%,rgba(0,240,255,.10),transparent 60%),
+  radial-gradient(820px 520px at 102% 0%,rgba(255,0,212,.08),transparent 55%),
+  radial-gradient(760px 760px at 50% 120%,rgba(124,92,255,.07),transparent 60%);z-index:0;pointer-events:none}
+body::after{content:"";position:fixed;inset:0;background-image:linear-gradient(rgba(0,240,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,240,255,.04) 1px,transparent 1px);background-size:40px 40px;z-index:0;pointer-events:none;animation:gridm 30s linear infinite}
+@keyframes gridm{to{background-position:40px 40px}}
+h1,h2,h3,.brand,.btn,.nav-btn,.logo{font-family:'Orbitron',sans-serif;letter-spacing:.04em}
+.mono{font-family:'JetBrains Mono',monospace}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:rgba(0,240,255,.25);border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+.login{min-height:100vh;display:grid;place-items:center;padding:1rem;position:relative;z-index:1}
+.login .box{background:var(--panel);backdrop-filter:blur(20px) saturate(140%);border:1px solid var(--line);border-radius:20px;padding:2.4rem;width:100%;max-width:400px;box-shadow:0 0 60px rgba(0,240,255,.15),inset 0 0 30px rgba(0,240,255,.03);position:relative}
+.login .box::before{content:"";position:absolute;inset:-1px;border-radius:20px;padding:1px;background:linear-gradient(135deg,var(--acc),transparent 40%,var(--acc2));-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.logo{width:64px;height:64px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(135deg,var(--acc),var(--acc3),var(--acc2));font-size:30px;margin:0 auto .8rem;box-shadow:0 0 30px rgba(0,240,255,.5);color:#05060f;font-weight:900}
+.login h1{text-align:center;font-size:1.15rem;margin:.2rem 0;background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.login p{text-align:center;color:var(--mut);font-size:.78rem;margin:0 0 1.6rem;letter-spacing:.2em}
+.app{display:flex;min-height:100vh;position:relative;z-index:1}
+.side{width:240px;background:var(--panel);backdrop-filter:blur(20px);border-right:1px solid var(--line);padding:1rem 0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.side .brand{display:flex;align-items:center;gap:.6rem;padding:.2rem 1rem 1rem;font-weight:700;font-size:.95rem}
+.side .brand .logo{width:38px;height:38px;font-size:20px;margin:0;box-shadow:0 0 20px rgba(0,240,255,.4)}
+.side .brand small{display:block;color:var(--mut);font-weight:500;font-size:.62rem;letter-spacing:.18em}
+.side nav{flex:1;display:flex;flex-direction:column;gap:.15rem;padding:0 .5rem;overflow-y:auto}
+.nav-btn{background:transparent;border:1px solid transparent;color:var(--mut);text-align:left;padding:.55rem .7rem;border-radius:10px;cursor:pointer;font-size:.85rem;font-weight:600;display:flex;align-items:center;gap:.6rem;font-family:'Rajdhani',sans-serif;transition:.18s}
+.nav-btn:hover{background:rgba(0,240,255,.06);color:var(--txt)}
+.nav-btn.active{background:linear-gradient(135deg,rgba(0,240,255,.14),rgba(255,0,212,.10));color:var(--acc);border-color:var(--line);box-shadow:inset 0 0 12px rgba(0,240,255,.08)}
+.nav-btn .ic{width:18px;text-align:center;font-size:.95rem}
+.side .bot{padding:.6rem .5rem}
+.pill{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .7rem;border-radius:999px;font-size:.72rem;background:rgba(0,255,157,.1);color:var(--ok);border:1px solid rgba(0,255,157,.3);font-weight:600}
+.pill.off{background:rgba(255,59,92,.1);color:var(--err);border-color:rgba(255,59,92,.3)}
+.content{flex:1;padding:1.4rem 2rem;max-width:1180px}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.4rem;flex-wrap:wrap;gap:.6rem}
+.topbar h1{font-size:1.25rem;font-weight:700}
+.topbar h1 span{background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.card{background:var(--panel);backdrop-filter:blur(18px) saturate(140%);border:1px solid var(--line);border-radius:var(--r);padding:1.4rem;margin-bottom:1.2rem;box-shadow:0 8px 32px rgba(0,0,0,.4);position:relative}
+.card h2{font-size:.95rem;margin:0 0 1rem;display:flex;align-items:center;gap:.5rem;justify-content:space-between;text-transform:uppercase;letter-spacing:.08em}
+.card h3{font-size:.85rem;margin:0 0 .8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--acc)}
+.toolbar{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center}
+.search{flex:1;min-width:200px;position:relative}
+label{display:block;font-size:.66rem;color:var(--mut);margin-bottom:.3rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+input,select,textarea{width:100%;background:rgba(8,11,26,.9);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:.5rem .65rem;font-size:.9rem;font-family:'Rajdhani',sans-serif;outline:none;transition:.15s}
+input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(0,240,255,.12),inset 0 0 12px rgba(0,240,255,.04)}
+.row{display:flex;gap:.7rem;flex-wrap:wrap}.row>*{flex:1;min-width:140px}
+.btn{cursor:pointer;border:1px solid var(--line);border-radius:9px;padding:.5rem .95rem;font-weight:700;font-size:.8rem;transition:.15s;display:inline-flex;align-items:center;gap:.4rem;background:rgba(15,20,40,.7);color:var(--txt)}
+.btn:active{transform:translateY(1px)}
+.btn-pri{background:linear-gradient(135deg,var(--acc),var(--acc3));color:#04060d;border:none;box-shadow:0 0 18px rgba(0,240,255,.35)}
+.btn-pri:hover{box-shadow:0 0 26px rgba(0,240,255,.55)}
+.btn-sec{background:rgba(15,20,40,.7);color:var(--txt);border:1px solid var(--line)}
+.btn-sec:hover{border-color:var(--acc);color:var(--acc)}
+.btn-ok{background:linear-gradient(135deg,#00ff9d,#00c878);color:#04060d;border:none}
+.btn-del{background:linear-gradient(135deg,#ff3b5c,#cc1638);color:#fff;border:none}
+.btn-warn{background:linear-gradient(135deg,#ffb800,#cc8c00);color:#04060d;border:none}
+.btn-sm{padding:.32rem .55rem;font-size:.72rem}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th,td{text-align:left;padding:.5rem;border-bottom:1px solid rgba(0,240,255,.08)}
+th{color:var(--mut);font-weight:600;font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;font-family:'JetBrains Mono',monospace}
+tbody tr:hover{background:rgba(0,240,255,.04)}
+.badge{padding:.15rem .5rem;border-radius:999px;font-size:.66rem;font-weight:700;letter-spacing:.05em;font-family:'JetBrains Mono',monospace}
+.badge.ok{background:rgba(0,255,157,.14);color:var(--ok);border:1px solid rgba(0,255,157,.3)}
+.badge.err{background:rgba(255,59,92,.14);color:var(--err);border:1px solid rgba(255,59,92,.3)}
+.badge.mut{background:rgba(93,116,148,.14);color:var(--mut);border:1px solid rgba(93,116,148,.3)}
+.sw{position:relative;width:42px;height:24px;border-radius:999px;background:rgba(93,116,148,.4);cursor:pointer;transition:.15s;border:1px solid var(--line)}
+.sw.on{background:linear-gradient(135deg,var(--ok),#00c878);box-shadow:0 0 12px rgba(0,255,157,.4)}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#05060f;transition:.15s}
+.sw.on::after{left:21px;background:#fff}
+.modal{position:fixed;inset:0;background:rgba(5,6,15,.8);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:20;padding:1rem}
+.modal.open{display:flex}.modal .card{width:100%;max-width:480px;margin:0}
+.pager{display:flex;justify-content:space-between;align-items:center;margin-top:1rem;color:var(--mut);font-size:.8rem;flex-wrap:wrap;gap:.6rem}
+.pager button{background:rgba(15,20,40,.7);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:.35rem .8rem;cursor:pointer;font-family:'Rajdhani'}
+.pager button:disabled{opacity:.4;cursor:not-allowed}
+pre{background:rgba(4,6,13,.95);border:1px solid var(--line);border-radius:10px;padding:.8rem;overflow:auto;max-height:380px;font-size:.74rem;font-family:'JetBrains Mono',monospace;color:#9ad0ff;white-space:pre-wrap;line-height:1.5}
+.drop{border:2px dashed var(--line);border-radius:14px;padding:1.6rem;text-align:center;color:var(--mut);transition:.15s;cursor:pointer}
+.drop.hover{border-color:var(--acc);background:rgba(0,240,255,.05);color:var(--acc)}
+.toast{margin-top:.8rem;padding:.6rem .9rem;border-radius:9px;font-size:.82rem;display:none}
+.toast.show{display:block}
+.toast.ok{background:rgba(0,255,157,.1);border:1px solid rgba(0,255,157,.3);color:var(--ok)}
+.toast.err{background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.3);color:var(--err)}
+.tab{display:none;animation:fade .3s}.tab.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.hint{background:linear-gradient(135deg,rgba(0,240,255,.06),rgba(255,0,212,.04));border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;font-size:.82rem;color:#9ad0ff;margin-bottom:1rem;line-height:1.5}
+.hint b{color:var(--acc)}
+.stat{flex:1;min-width:150px;background:rgba(8,11,26,.6);border:1px solid var(--line);border-radius:12px;padding:1.2rem;position:relative;overflow:hidden}
+.stat::after{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--acc),var(--acc2))}
+.stat .k{color:var(--mut);font-size:.66rem;text-transform:uppercase;letter-spacing:.1em;font-family:'JetBrains Mono',monospace}
+.stat .v{font-size:2rem;font-weight:800;font-family:'Orbitron';margin-top:.3rem}
+.sec-title{display:flex;align-items:center;gap:.5rem;font-size:.72rem;color:var(--acc);text-transform:uppercase;letter-spacing:.15em;margin:1.2rem 0 .6rem;font-family:'JetBrains Mono',monospace}
+.sec-title::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+.burger{display:none;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:rgba(15,20,40,.7);color:var(--acc);font-size:20px;align-items:center;justify-content:center;cursor:pointer}
+@media(max-width:780px){.app{flex-direction:column}.side{width:100%;height:auto;position:sticky;top:0;z-index:30;flex-direction:row;align-items:center;justify-content:space-between;padding:.5rem 1rem}.side nav{display:none;position:absolute;top:100%;left:0;right:0;flex-direction:column;background:var(--panel2);border:1px solid var(--line);border-radius:0 0 14px 14px;padding:.4rem;max-height:70vh;overflow:auto}.side nav.open{display:flex}.side .bot{display:none}.content{padding:1rem}.burger{display:inline-flex}}
+</style></head>
+<body>
+<div class="login" id="login">
+  <div class="box">
+    <div class="logo">⏧</div>
+    <h1>ZETRON 640</h1><p>DAPT-X XTRA · CONTROL CORE</p>
+    <div style="margin-bottom:.8rem"><label>Operador</label><input id="lu" autocomplete="off"></div>
+    <div style="margin-bottom:1.2rem"><label>Llave de acceso</label><input id="lp" type="password" autocomplete="off"></div>
+    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="doLogin()">Ingresar al núcleo</button>
+    <div id="lerr" class="toast err"></div>
+  </div>
+</div>
+<div class="app" id="app" style="display:none">
+  <div class="side">
+    <div class="brand"><div class="logo">⏧</div><div>ZETRON 640<small>DAPT-X XTRA v2.0</small></div></div>
+    <button class="burger" onclick="toggleMenu()">☰</button>
+    <nav>
+      <button class="nav-btn active" onclick="tab('ext',this)"><span class="ic">☎</span>Extensiones</button>
+      <button class="nav-btn" onclick="tab('pagers',this)"><span class="ic">👤</span>Pagers</button>
+      <button class="nav-btn" onclick="tab('enviar',this)"><span class="ic">⇪</span>Enviar</button>
+      <button class="nav-btn" onclick="tab('grupos',this)"><span class="ic">⌥</span>Grupos</button>
+      <button class="nav-btn" onclick="tab('import',this)"><span class="ic">⇲</span>Importar</button>
+      <button class="nav-btn" onclick="tab('hist',this)"><span class="ic">◷</span>Historial</button>
+      <button class="nav-btn" onclick="tab('dash',this)"><span class="ic">◈</span>Dashboard</button>
+      <button class="nav-btn" onclick="tab('plantillas',this)"><span class="ic">▤</span>Plantillas</button>
+      <button class="nav-btn" onclick="tab('programados',this)"><span class="ic">⌛</span>Programados</button>
+      <button class="nav-btn" onclick="tab('logs',this)"><span class="ic">▤</span>Logs</button>
+      <button class="nav-btn" onclick="tab('aud',this)"><span class="ic">◉</span>Auditoria</button>
+      <button class="nav-btn" onclick="tab('cfg',this)"><span class="ic">⚙</span>Parametros</button>
+      <button class="nav-btn" onclick="tab('pbx',this)"><span class="ic">⇄</span>PBX</button>
+      <button class="nav-btn" onclick="tab('cola',this)"><span class="ic">≡</span>Cola</button>
+      <button class="nav-btn" onclick="tab('bd',this)"><span class="ic">⛁</span>Base datos</button>
+    </nav>
+    <div class="bot"><span id="h" class="pill">SISTEMA…</span><br><button class="btn btn-sec btn-sm" style="margin-top:.6rem;width:100%;justify-content:center" onclick="logout()">Desconectar</button></div>
+  </div>
+  <div class="content">
+    <div class="topbar"><h1 id="tit">Extensiones</h1><span id="ver" class="badge mut">v2.0</span></div>
+
+    <div class="tab active" id="t-ext"><div class="card">
+      <h2><span>☎ Extensiones SIP registradas en FreePBX</span><button class="btn btn-pri btn-sm" onclick="openExt()">+ Nueva</button></h2>
+      <div class="hint">Los internos 2000-2010 se registran contra la central del hospital. Cuando alguien marca un interno, el IVR contesta. Configura la IP en <b>Parametros</b>, edita cada clave y pulsa <b>Aplicar a Asterisk</b>. El registro debe quedar en <b>Registered</b>.</div>
+      <div style="display:flex;gap:.6rem;margin-bottom:.8rem;flex-wrap:wrap">
+        <button class="btn btn-warn btn-sm" onclick="aplicarExt()">⚡ Aplicar a Asterisk</button>
+        <button class="btn btn-sec btn-sm" onclick="loadExt()">↻ Actualizar</button>
+      </div>
+      <div style="overflow-x:auto"><table><thead><tr><th>Numero</th><th>Clave</th><th>Contexto</th><th>Descripcion</th><th>Registro</th><th>Activo</th><th></th></tr></thead><tbody id="tb_ext"></tbody></table></div>
+    </div></div>
+
+    <div class="tab" id="t-enviar"><div class="card"><h2>⇪ Despacho de mensaje</h2>
+      <div><label>Destinatario (nombre, codigo o area)</label>
+      <div style="position:relative"><input id="s_q" autocomplete="off" placeholder="Buscar destinatario..."><ul id="s_list" style="position:absolute;z-index:6;left:0;right:0;margin-top:.2rem;background:var(--bg2);border:1px solid var(--line);border-radius:10px;max-height:280px;overflow:auto;list-style:none;padding:.3rem;display:none"></ul></div></div>
+      <div style="margin-top:.8rem"><label>Mensaje</label><textarea id="s_msg" rows="3" placeholder="Mensaje alfanumerico..."></textarea></div>
+      <button class="btn btn-pri" onclick="sendMsg()"> Transmitir</button><div id="s_res" class="toast"></div></div></div>
+
+    <div class="tab" id="t-pagers"><div class="card"><h2><span>👤 Pagers</span><button class="btn btn-pri btn-sm" onclick="openPager()">+ Nuevo</button></h2>
+      <div class="toolbar"><div class="search"><input id="pq" placeholder="Buscar por nombre, codigo o area..."></div></div>
+      <div style="overflow-x:auto"><table><thead><tr><th>Codigo</th><th>CapCode</th><th>Nombre</th><th>Apellido</th><th>Area</th><th>Baud</th><th>Func</th><th>Activo</th><th></th></tr></thead><tbody id="tb_pagers"></tbody></table></div></div></div>
+    <div class="tab" id="t-grupos"><div class="card"><h2><span>⌥ Grupos</span><button class="btn btn-pri btn-sm" onclick="openGrupo()">+ Nuevo</button></h2>
+      <div class="toolbar"><div class="search"><input id="gq" placeholder="Buscar grupo..."></div></div>
+      <div style="overflow-x:auto"><table><thead><tr><th>Codigo</th><th>Nombre</th><th>CapCodes</th><th>Baud</th><th></th></tr></thead><tbody id="tb_grupos"></tbody></table></div></div></div>
+    <div class="tab" id="t-import"><div class="card"><h2>⇲ Importar codigos (Excel/CSV)</h2>
+      <div class="hint">Columnas: codigo, cap_code, nombre, apellido, area, baudios, funcion, descripcion.</div>
+      <div class="drop" id="drop"><input type="file" id="ifile" accept=".xls,.xlsx,.csv" style="display:none"><div id="dftxt">Arrastre archivo o haga click</div></div>
+      <div style="margin-top:1rem"><button class="btn btn-pri" id="impbtn" onclick="doImport()" disabled>Importar</button></div>
+      <div id="imp_res" class="toast"></div></div>
+      <div class="card"><h2>⇲ Importar grupos</h2><div class="hint">Columnas: codigo, nombre, baudios, cap_codes (separados por coma).</div>
+      <div class="drop" id="dropG"><input type="file" id="ifileG" accept=".xls,.xlsx,.csv" style="display:none"><div id="dftxtG">Arrastre archivo o haga click</div></div>
+      <div style="margin-top:1rem"><button class="btn btn-pri" id="impbtnG" onclick="doImportGrupos()" disabled>Importar grupos</button></div>
+      <div id="impG_res" class="toast"></div></div></div>
+    <div class="tab" id="t-hist"><div class="card"><h2>◷ Historial</h2>
+      <div class="row" style="margin-bottom:.8rem"><div><label>Desde</label><input id="h_desde" type="date"></div><div><label>Hasta</label><input id="h_hasta" type="date"></div><div><label>Codigo</label><input id="h_codigo"></div><div><label>Interno</label><input id="h_interno"></div><div><label>Estado</label><select id="h_estado"><option value="">Todos</option><option>enviado</option><option>error</option></select></div></div>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap"><button class="btn btn-pri" onclick="loadHist(0)">Filtrar</button><button class="btn btn-ok" onclick="exportHist()">⇩ Excel</button></div>
+      <div style="overflow-x:auto;margin-top:.8rem"><table><thead><tr><th>Fecha/Hora</th><th>Interno</th><th>Codigo</th><th>Cap</th><th>Mensaje</th><th>Baud</th><th>Estado</th><th>Obs</th></tr></thead><tbody id="tb_hist"></tbody></table></div>
+      <div class="pager"><span id="hg_info">—</span><div><button id="hg_prev" onclick="hgGo(-1)">←</button> <button id="hg_next" onclick="hgGo(1)">→</button></div></div></div></div>
+
+    <div class="tab" id="t-cfg"><div class="card"><h2>⚙ Parametros del sistema</h2>
+      <div class="sec-title">⇄ PBX / SIP (FreePBX)</div>
+      <div class="row"><div><label>IP central hospital</label><input id="c_hospital_pbx_ip"></div><div><label>Puerto SIP</label><input id="c_hospital_pbx_port"></div></div>
+      <div class="row"><div><label>Bind transporte</label><input id="c_transport_bind"></div><div><label>Protocolo</label><select id="c_transport_protocol"><option value="udp">UDP</option><option value="tcp">TCP</option></select></div></div>
+      <div class="row"><div><label>Modo sistema</label><input id="c_pocsag_mode" readonly style="opacity:.6"></div><div><label>Codecs</label><input id="c_codecs"></div></div>
+      <div class="row"><div><label>Reintento reg (seg)</label><input id="c_retry_interval" type="number"></div><div><label>Expiracion (seg)</label><input id="c_expiration" type="number"></div></div>
+
+      <div class="sec-title">⏧ ENCODER ZETRON 640 — POCSAG</div>
+      <div class="row"><div><label>Baudios default</label><select id="c_baudios_default"><option value="512">512</option><option value="1200">1200</option><option value="2400">2400</option></select></div><div><label>Preambulo (bits)</label><input id="c_preamble_bits" type="number"></div></div>
+      <div class="row"><div><label>WarmUp 512 (ms)</label><input id="c_warmup_512_ms" type="number"></div><div><label>WarmUp 1200 (ms)</label><input id="c_warmup_1200_ms" type="number"></div><div><label>WarmUp 2400 (ms)</label><input id="c_warmup_2400_ms" type="number"></div></div>
+      <div class="row"><div><label>Desv. FSK (kHz)</label><input id="c_fsk_deviation_khz" type="number" step="0.1"></div><div><label>Desv. FSK baseband (Hz)</label><input id="c_fsk_deviation_baseband_hz" type="number"></div></div>
+      <div class="row"><div><label>Niveles FSK</label><select id="c_fsk_levels"><option value="2">2 (POCSAG)</option><option value="4">4</option></select></div><div><label>Modo funcion</label><select id="c_function_mode"><option value="alphanumeric">Alfanumerico</option><option value="numeric">Numerico</option><option value="tone">Tono</option></select></div></div>
+      <div class="row"><div><label>Sample rate WAV</label><select id="c_sample_rate"><option value="8000">8000</option><option value="22050">22050</option><option value="44100">44100</option></select></div><div><label>Ganancia audio (%)</label><input id="c_audio_gain" type="number" min="0" max="100"></div></div>
+      <div class="row"><div><label>Gaussian BT (0=off)</label><input id="c_gaussian_bt" type="number" step="0.1" min="0" max="1"></div><div><label>Invertir audio</label><select id="c_invert_audio"><option value="0">No</option><option value="1">Si</option></select></div></div>
+
+      <div class="sec-title">📡 TRANSMISOR DAPT-X XTRA</div>
+      <div class="row"><div><label>TX habilitado</label><select id="c_tx_enable"><option value="1">Si</option><option value="0">No</option></select></div><div><label>Frecuencia TX (MHz)</label><input id="c_tx_frequency"></div></div>
+      <div class="row"><div><label>Potencia (W)</label><input id="c_tx_power" type="number" step="0.1"></div><div><label>Espacio canal (kHz)</label><select id="c_channel_spacing"><option value="12.5">12.5</option><option value="20">20</option><option value="25">25</option></select></div></div>
+      <div class="row"><div><label>Modulacion</label><select id="c_modulation_type"><option value="NFM">NFM</option><option value="FM">FM</option><option value="AM">AM</option></select></div><div><label>Desv. TX (kHz)</label><input id="c_tx_deviation_khz" type="number" step="0.1"></div></div>
+      <div class="row"><div><label>Ganancia entrada (%)</label><input id="c_audio_input_gain" type="number"></div><div><label>Nivel squelch</label><input id="c_squelch_level" type="number"></div></div>
+      <div class="row"><div><label>Preemphasis</label><select id="c_preemphasis"><option value="1">Si</option><option value="0">No</option></select></div><div><label>Impedancia antena</label><input id="c_antenna_impedance"></div></div>
+      <div class="row"><div><label>Filtro paso alto (Hz)</label><input id="c_high_pass_filter_hz" type="number"></div><div><label>Filtro paso bajo (Hz)</label><input id="c_low_pass_filter_hz" type="number"></div></div>
+
+      <div class="sec-title">⚙ IVR / GPIO / Admin</div>
+      <div class="row"><div><label>Timeout mensaje (seg)</label><input id="c_mensaje_timeout" type="number"></div><div><label>PTT pre-activo (seg)</label><input id="c_ptt_preactivo" type="number" step="0.1"></div><div><label>Timeout digitos</label><input id="c_digit_timeout" type="number"></div><div><label>Timeout respuesta</label><input id="c_response_timeout" type="number"></div></div>
+      <div class="row"><div><label>Modo prueba</label><select id="c_test_mode"><option value="0">No</option><option value="1">Si</option></select></div><div><label>GPIO chip</label><input id="c_gpio_chip"></div><div><label>GPIO pin (PTT)</label><input id="c_gpio_pin" type="number"></div></div>
+      <div class="row"><div><label>Usuario admin</label><input id="c_admin_user"></div><div><label>Clave admin</label><input id="c_admin_pass" type="text"></div></div>
+
+      <div class="sec-title">📧 SMTP</div>
+      <div class="row"><div><label>Servidor</label><input id="c_smtp_host"></div><div><label>Puerto</label><input id="c_smtp_port" type="number"></div><div><label>Seguridad</label><select id="c_smtp_secure"><option value="tls">TLS</option><option value="ssl">SSL</option><option value="none">Ninguna</option></select></div></div>
+      <div class="row"><div><label>Usuario</label><input id="c_smtp_user"></div><div><label>Clave</label><input id="c_smtp_pass" type="password"></div><div><label>Remitente</label><input id="c_smtp_from"></div></div>
+      <div class="row"><div><label>Email backups</label><input id="c_backup_email"></div></div>
+      <button class="btn btn-pri" style="margin-top:1rem" onclick="saveConfig()">Guardar parametros</button>
+      <button class="btn btn-sec" onclick="smtpTest()">Probar SMTP</button>
+      <div id="cfg_res" class="toast"></div></div></div>
+
+    <div class="tab" id="t-pbx"><div class="card"><h2>⇄ Consola PBX (Asterisk)</h2>
+      <div class="hint">Los registros SIP deben mostrar <b>Registered</b>. Si no, verifica IP/claves en Parametros y pulsa <b>Forzar registro</b>. Marca <b>*99</b> desde la central para probar el IVR (dos beeps).</div>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.5rem">
+        <button class="btn btn-pri btn-sm" onclick="pbxDiagnose()">Diagnostico SIP</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('status')">Estado</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('peers')">Endpoints</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('registrations')">Registros</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('aors')">AORs</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('contacts')">Contacts</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('transports')">Transports</button>
+        <button class="btn btn-sec btn-sm" onclick="pbx('channels')">Canales</button>
+      </div>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.8rem">
+        <button class="btn btn-ok btn-sm" onclick="pbxForceReg()">Forzar registro</button>
+        <button class="btn btn-warn btn-sm" onclick="pbxUnreg()">Unregister</button>
+        <button class="btn btn-warn btn-sm" onclick="pbxReload()">Recargar</button>
+        <button class="btn btn-del btn-sm" onclick="pbxRestart()">Reiniciar PBX</button>
+      </div>
+      <div style="display:flex;gap:.4rem;margin-bottom:.5rem;align-items:center">
+        <input id="pbx_cmd" placeholder="ej: pjsip show endpoint 2000" style="flex:1" onkeydown="if(event.key==='Enter')pbxRun()">
+        <button class="btn btn-pri btn-sm" onclick="pbxRun()">Ejecutar</button>
+      </div>
+      <pre id="pbx_out">—</pre></div></div>
+
+    <div class="tab" id="t-cola"><div class="card"><h2><span>≡ Cola de envios</span><div style="display:flex;gap:.5rem"><button class="btn btn-warn btn-sm" onclick="colaReintentar()">Reintentar</button><button class="btn btn-sec btn-sm" onclick="colaLimpiar()">Limpiar</button></div></h2>
+      <div id="cola_stats" style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem"></div>
+      <div style="overflow-x:auto"><table><thead><tr><th>ID</th><th>Fecha</th><th>Codigo</th><th>Mensaje</th><th>Origen</th><th>Estado</th><th>Intentos</th><th>Obs</th></tr></thead><tbody id="tb_cola"></tbody></table></div></div></div>
+    <div class="tab" id="t-bd"><div class="card"><h2>⛁ Base de datos</h2>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem"><button class="btn btn-pri" onclick="dbBackup()">⇩ Backup</button><button class="btn btn-ok" onclick="dbBackupEmail()">📧 Por mail</button></div>
+      <div class="drop" id="dropDB"><input type="file" id="ifileDB" accept=".db" style="display:none"><div id="dftxtDB">Arrastre .db o haga click para restaurar</div></div>
+      <div style="margin-top:1rem"><button class="btn btn-del" id="impbtnDB" onclick="dbRestore()" disabled>Restaurar</button></div>
+      <div id="db_res" class="toast"></div></div></div>
+    <div class="tab" id="t-dash"><div class="card"><h2>◈ Dashboard</h2>
+      <div id="dash_stats" style="display:flex;gap:.8rem;flex-wrap:wrap;margin-bottom:1.2rem"></div>
+      <div class="card" style="background:rgba(8,11,26,.6)"><h3>Mensajes por dia (30 dias)</h3><canvas id="chart_dia" height="120"></canvas></div>
+      <div class="card" style="background:rgba(8,11,26,.6)"><h3>Mensajes por hora (hoy)</h3><canvas id="chart_hora" height="120"></canvas></div>
+      <div class="card" style="background:rgba(8,11,26,.6)"><h3>Pagers mas activos</h3><div id="dash_top"></div></div>
+      <button class="btn btn-sec btn-sm" onclick="loadDash()" style="margin-top:1rem">↻ Actualizar</button></div></div>
+    <div class="tab" id="t-plantillas"><div class="card"><h2><span>▤ Plantillas</span><button class="btn btn-pri btn-sm" onclick="openPlantilla()">+ Nueva</button></h2>
+      <div style="overflow-x:auto"><table><thead><tr><th>Nombre</th><th>Categoria</th><th>Mensaje</th><th>Orden</th><th>Activo</th><th></th></tr></thead><tbody id="tb_plantillas"></tbody></table></div></div></div>
+    <div class="tab" id="t-programados"><div class="card"><h2><span>⌛ Programados</span><button class="btn btn-pri btn-sm" onclick="openProgramado()">+ Nuevo</button></h2>
+      <div style="overflow-x:auto"><table><thead><tr><th>Codigo</th><th>Mensaje</th><th>Tipo</th><th>Proxima</th><th>Activo</th><th></th></tr></thead><tbody id="tb_programados"></tbody></table></div></div></div>
+    <div class="tab" id="t-logs"><div class="card"><h2>▤ Visor de logs</h2>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">
+        <button class="btn btn-sec btn-sm" onclick="loadLogs('api')">API</button>
+        <button class="btn btn-sec btn-sm" onclick="loadLogs('asterisk')">Asterisk</button>
+        <button class="btn btn-sec btn-sm" onclick="loadLogs('cola')">Cola</button>
+        <button class="btn btn-sec btn-sm" onclick="loadLogs('install')">Instalador</button>
+        <button class="btn btn-ok btn-sm" onclick="loadLogs(curLogType)">↻ Recargar</button>
+      </div>
+      <pre id="log_out">Seleccione un log.</pre></div></div>
+    <div class="tab" id="t-aud"><div class="card"><h2>◉ Auditoria</h2>
+      <div style="overflow-x:auto"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Accion</th><th>Entidad</th><th>ID</th><th>Detalle</th><th>IP</th></tr></thead><tbody id="tb_aud"></tbody></table></div>
+      <button class="btn btn-sec btn-sm" onclick="loadAud()" style="margin-top:1rem">↻ Actualizar</button></div></div>
+  </div>
+</div>
+
+<div class="modal" id="mPager"><div class="card"><h2 id="mPT">Pager</h2>
+  <div class="row"><div><label>Codigo (DTMF)</label><input id="p_codigo"></div><div><label>CapCode</label><input id="p_cap"></div></div>
+  <div class="row"><div><label>Nombre</label><input id="p_nombre"></div><div><label>Apellido</label><input id="p_apellido"></div></div>
+  <div class="row"><div><label>Area</label><input id="p_area"></div><div><label>Baudios</label><input id="p_baud" type="number" value="1200"></div></div>
+  <div class="row"><div><label>Funcion</label><select id="p_func"><option value="alphanumeric">Alfanumerico</option><option value="numeric">Numerico</option><option value="tone">Tono</option></select></div></div>
+  <label>Descripcion</label><input id="p_desc">
+  <div style="display:flex;gap:.5rem;margin-top:.9rem"><button class="btn btn-pri" onclick="savePager()">Guardar</button><button class="btn btn-sec" onclick="closeModal('mPager')">Cancelar</button></div></div></div>
+<div class="modal" id="mGrupo"><div class="card"><h2 id="mGT">Grupo</h2>
+  <div class="row"><div><label>Codigo</label><input id="g_codigo"></div><div><label>Baudios</label><input id="g_baud" type="number" value="1200"></div></div>
+  <label>Nombre</label><input id="g_nombre">
+  <label>CapCodes (uno por linea, max 20)</label><textarea id="g_miembros" rows="6"></textarea>
+  <div style="display:flex;gap:.5rem;margin-top:.9rem"><button class="btn btn-pri" onclick="saveGrupo()">Guardar</button><button class="btn btn-sec" onclick="closeModal('mGrupo')">Cancelar</button></div></div></div>
+<div class="modal" id="mExt"><div class="card"><h2 id="mET">Extension</h2>
+  <div class="row"><div><label>Numero</label><input id="x_numero"></div><div><label>Clave</label><input id="x_pass"></div></div>
+  <label>Contexto</label><input id="x_ctx" value="from-hospital">
+  <label>Descripcion</label><input id="x_desc">
+  <div style="display:flex;gap:.5rem;margin-top:.9rem"><button class="btn btn-pri" onclick="saveExt()">Guardar</button><button class="btn btn-sec" onclick="closeModal('mExt')">Cancelar</button></div></div></div>
+<div class="modal" id="mPlantilla"><div class="card"><h2 id="mPLT">Plantilla</h2>
+  <div class="row"><div><label>Nombre</label><input id="pl_nombre"></div><div><label>Categoria</label><input id="pl_cat" value="general"></div></div>
+  <label>Mensaje</label><textarea id="pl_mensaje" rows="3"></textarea>
+  <div class="row"><div><label>Orden</label><input id="pl_orden" type="number" value="0"></div></div>
+  <div style="display:flex;gap:.5rem;margin-top:.9rem"><button class="btn btn-pri" onclick="savePlantilla()">Guardar</button><button class="btn btn-sec" onclick="closeModal('mPlantilla')">Cancelar</button></div></div></div>
+<div class="modal" id="mProgramado"><div class="card"><h2 id="mPRT">Envio programado</h2>
+  <div class="row"><div><label>Codigo</label><input id="pr_codigo"></div><div><label>Tipo</label><select id="pr_tipo"><option value="unico">Unico</option><option value="diario">Diario</option><option value="semanal">Semanal</option></select></div></div>
+  <label>Mensaje</label><textarea id="pr_mensaje" rows="3"></textarea>
+  <div class="row"><div><label>Fecha (unico)</label><input id="pr_fecha" type="datetime-local"></div><div><label>Hora recurrente</label><input id="pr_hora" type="time" value="08:00"></div></div>
+  <div style="display:flex;gap:.5rem;margin-top:.9rem"><button class="btn btn-pri" onclick="saveProgramado()">Guardar</button><button class="btn btn-sec" onclick="closeModal('mProgramado')">Cancelar</button></div></div></div>
+
+<script>
+let TOKEN=localStorage.getItem('zetron_tok')||'';
+let editP=null,editG=null,editX=null,editPL=null,editPR=null; const HPG=50; let hoff=0,htot=0;
+let extTimer=null,histTimer=null,colaTimer=null; let curLogType='api';
+const CFG_KEYS=['admin_user','admin_pass','mensaje_timeout','ptt_preactivo','digit_timeout','response_timeout','test_mode','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','smtp_secure','backup_email','hospital_pbx_ip','hospital_pbx_port','pocsag_mode','transport_bind','transport_protocol','codecs','retry_interval','expiration','baudios_default','warmup_512_ms','warmup_1200_ms','warmup_2400_ms','preamble_bits','fsk_deviation_khz','fsk_deviation_baseband_hz','fsk_levels','function_mode','sample_rate','audio_gain','invert_audio','gaussian_bt','tx_enable','tx_frequency','tx_power','channel_spacing','modulation_type','tx_deviation_khz','audio_input_gain','squelch_level','preemphasis','high_pass_filter_hz','low_pass_filter_hz','antenna_impedance','gpio_chip','gpio_pin'];
+
+function api(m,u,b,raw){const o={method:m,headers:{'Authorization':'Bearer '+TOKEN}};if(b!==undefined){if(raw){o.body=b;}else{o.headers['Content-Type']='application/json';o.body=JSON.stringify(b);}}return fetch(u,o).then(async r=>{if(r.status===401){logout(true);throw new Error('no autorizado');}const txt=await r.text();try{return JSON.parse(txt);}catch(e){return txt;}});}
+function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',hist:'Historial',cfg:'Parametros',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria'};document.getElementById('tit').textContent=t[id]||'';
+if(extTimer){clearInterval(extTimer);extTimer=null;}if(histTimer){clearInterval(histTimer);histTimer=null;}if(colaTimer){clearInterval(colaTimer);colaTimer=null;}
+if(id==='ext'){loadExt();extTimer=setInterval(loadExt,5000);}
+if(id==='pagers')loadPagers();if(id==='grupos')loadGrupos();if(id==='cfg')loadConfig();if(id==='hist'){loadHist(0);histTimer=setInterval(()=>loadHist(hoff),8000);}if(id==='pbx')pbx('status');if(id==='cola'){loadCola();colaTimer=setInterval(loadCola,4000);}if(id==='enviar')initSend();if(id==='dash')loadDash();if(id==='plantillas')loadPlantillas();if(id==='programados')loadProgramados();if(id==='logs')loadLogs('api');if(id==='aud')loadAud();}
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function toggleMenu(){document.querySelector('.side nav').classList.toggle('open');}
+document.addEventListener('click',e=>{const n=document.querySelector('.side nav');if(n&&!n.contains(e.target)&&!e.target.closest('.burger'))n.classList.remove('open');});
+
+async function doLogin(){const u=document.getElementById('lu').value,p=document.getElementById('lp').value;const err=document.getElementById('lerr');err.className='toast err';err.textContent='';try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:u,pass:p})}).then(r=>r.json());if(r.token){TOKEN=r.token;localStorage.setItem('zetron_tok',TOKEN);showApp();}else{err.classList.add('show');err.textContent=r.error||'error';}}catch(e){err.classList.add('show');err.textContent='error de conexion';}}
+document.getElementById('lp').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+function logout(silent){TOKEN='';localStorage.removeItem('zetron_tok');document.getElementById('app').style.display='none';document.getElementById('login').style.display='grid';if(!silent)document.getElementById('lp').value='';}
+function showApp(){document.getElementById('login').style.display='none';document.getElementById('app').style.display='flex';tab('ext',document.querySelector('.nav-btn'));}
+async function checkTok(){if(!TOKEN)return;try{await api('GET','/api/extensions');showApp();}catch(e){}}
+
+// Enviar
+let sChosen=null,sTimer=null,sInit=false;
+function initSend(){if(sInit)return;sInit=true;const sq=document.getElementById('s_q');sq.addEventListener('input',()=>{clearTimeout(sTimer);sTimer=setTimeout(async()=>renderSList(await buscarDest(sq.value.trim())),180);});}
+async function buscarDest(q){const [pe,gr]=await Promise.all([api('GET','/api/pagers'+(q?('?q='+encodeURIComponent(q)):'')),api('GET','/api/grupos'+(q?('?q='+encodeURIComponent(q)):''))]);const out=[];(pe||[]).filter(x=>x.activo).forEach(x=>out.push({codigo:x.codigo,label:((x.nombre||'')+' '+(x.apellido||'')).trim()||x.codigo,tipo:'pager'}));(gr||[]).filter(x=>x.activo).forEach(x=>out.push({codigo:x.codigo,label:x.nombre||x.codigo,tipo:'grupo'}));return out;}
+function renderSList(r){const ul=document.getElementById('s_list');ul.innerHTML=r.map(x=>`<li onclick="pickS('${x.codigo}','${(x.label||'').replace(/'/g,'')}')" style="padding:.5rem .6rem;border-radius:7px;cursor:pointer;display:flex;justify-content:space-between"><span>${x.label} <span style="color:var(--mut);font-size:.78rem">${x.codigo}</span></span><span style="font-size:.66rem;color:var(--acc);font-weight:700">${x.tipo}</span></li>`).join('');ul.style.display=r.length?'block':'none';}
+function pickS(c,l){sChosen=c;document.getElementById('s_q').value=l+' ('+c+')';document.getElementById('s_list').style.display='none';}
+document.addEventListener('click',e=>{if(e.target.id!=='s_q')document.getElementById('s_list').style.display='none';});
+async function sendMsg(){const t=document.getElementById('s_res');if(!sChosen){t.className='toast show err';t.textContent='Seleccione destinatario';return;}const msg=document.getElementById('s_msg').value.trim();if(!msg){t.className='toast show err';t.textContent='Escriba un mensaje';return;}t.className='toast show ok';t.textContent='Transmitiendo...';const r=await api('POST','/api/enviar',{codigo:sChosen,mensaje:msg,origen:'admin'});if(r.status==='enviado'||r.status==='encolado'){t.className='toast show ok';t.textContent=r.status==='encolado'?'Encolado.':'Enviado.';document.getElementById('s_msg').value='';}else{t.className='toast show err';t.textContent='Error: '+(r.detalle||'fallo');}}
+
+// Pagers
+async function loadPagers(){const q=document.getElementById('pq').value.trim();const r=await api('GET','/api/pagers'+(q?('?q='+encodeURIComponent(q)):''));document.getElementById('tb_pagers').innerHTML=(r||[]).map(x=>`<tr><td>${x.codigo}</td><td class="mono">${x.cap_code}</td><td>${x.nombre||''}</td><td>${x.apellido||''}</td><td>${x.area||''}</td><td>${x.baudios}</td><td>${x.funcion||''}</td><td><button class="sw ${x.activo?'on':''}" onclick="toggleP(${x.id},${x.activo?0:1})"></button></td><td><button class="btn btn-sec btn-sm" onclick="openPager(${x.id})">✎</button> <button class="btn btn-del btn-sm" onclick="delP(${x.id})">✕</button></td></tr>`).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--mut);padding:1rem">Sin resultados</td></tr>';}
+document.getElementById('pq').addEventListener('input',()=>{clearTimeout(window._pt);window._pt=setTimeout(loadPagers,200);});
+async function toggleP(id,a){await api('PUT','/api/pagers/'+id+'/estado',{activo:a});loadPagers();}
+async function openPager(id){editP=id||null;let x=null;if(id){const r=await api('GET','/api/pagers');x=(r||[]).find(i=>i.id===id);}['codigo','cap','nombre','apellido','area','desc'].forEach(f=>document.getElementById('p_'+f).value=x?x[f==='cap'?'cap_code':f]||'':'');document.getElementById('p_baud').value=x?x.baudios:1200;document.getElementById('p_func').value=x?x.funcion||'alphanumeric':'alphanumeric';document.getElementById('mPT').textContent=id?'Editar pager':'Nuevo pager';openModal('mPager');}
+async function savePager(){const d={codigo:document.getElementById('p_codigo').value,cap_code:document.getElementById('p_cap').value,nombre:document.getElementById('p_nombre').value,apellido:document.getElementById('p_apellido').value,area:document.getElementById('p_area').value,baudios:+document.getElementById('p_baud').value,funcion:document.getElementById('p_func').value,descripcion:document.getElementById('p_desc').value};if(editP)await api('PUT','/api/pagers/'+editP,d);else await api('POST','/api/pagers',d);closeModal('mPager');loadPagers();}
+async function delP(id){if(confirm('Eliminar pager?')){await api('DELETE','/api/pagers/'+id);loadPagers();}}
+
+// Grupos
+async function loadGrupos(){const q=document.getElementById('gq').value.trim();const r=await api('GET','/api/grupos'+(q?('?q='+encodeURIComponent(q)):''));document.getElementById('tb_grupos').innerHTML=(r||[]).map(x=>`<tr><td>${x.codigo}</td><td>${x.nombre||''}</td><td class="mono">${(x.miembros||[]).join(', ')}</td><td>${x.baudios}</td><td><button class="btn btn-sec btn-sm" onclick="openGrupo(${x.id})">✎</button> <button class="btn btn-del btn-sm" onclick="delG(${x.id})">✕</button></td></tr>`).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--mut);padding:1rem">Sin resultados</td></tr>';}
+document.getElementById('gq').addEventListener('input',()=>{clearTimeout(window._gt);window._gt=setTimeout(loadGrupos,200);});
+async function openGrupo(id){editG=id||null;let x=null;if(id){const r=await api('GET','/api/grupos');x=(r||[]).find(i=>i.id===id);}document.getElementById('g_codigo').value=x?x.codigo:'';document.getElementById('g_nombre').value=x?x.nombre||'':'';document.getElementById('g_miembros').value=x?(x.miembros||[]).join('\n'):'';document.getElementById('g_baud').value=x?x.baudios:1200;document.getElementById('mGT').textContent=id?'Editar grupo':'Nuevo grupo';openModal('mGrupo');}
+async function saveGrupo(){const d={codigo:document.getElementById('g_codigo').value,nombre:document.getElementById('g_nombre').value,baudios:+document.getElementById('g_baud').value,miembros:document.getElementById('g_miembros').value.split('\n').map(s=>s.trim()).filter(Boolean).slice(0,20)};if(editG)await api('PUT','/api/grupos/'+editG,d);else await api('POST','/api/grupos',d);closeModal('mGrupo');loadGrupos();}
+async function delG(id){if(confirm('Eliminar grupo?')){await api('DELETE','/api/grupos/'+id);loadGrupos();}}
+
+// Import
+function setupDrop(dropEl,fileEl,txtEl,btnEl,setFile){dropEl.addEventListener('click',()=>fileEl.click());fileEl.addEventListener('change',e=>{setFile(e.target.files[0]);txtEl.textContent=e.target.files[0].name;btnEl.disabled=false;});['dragover','dragenter'].forEach(ev=>dropEl.addEventListener(ev,e=>{e.preventDefault();dropEl.classList.add('hover');}));['dragleave','drop'].forEach(ev=>dropEl.addEventListener(ev,e=>{e.preventDefault();dropEl.classList.remove('hover');}));dropEl.addEventListener('drop',e=>{setFile(e.dataTransfer.files[0]);txtEl.textContent=e.dataTransfer.files[0].name;btnEl.disabled=false;});}
+let impFile=null,impGFile=null,dbFile=null;
+setupDrop(document.getElementById('drop'),document.getElementById('ifile'),document.getElementById('dftxt'),document.getElementById('impbtn'),f=>impFile=f);
+setupDrop(document.getElementById('dropG'),document.getElementById('ifileG'),document.getElementById('dftxtG'),document.getElementById('impbtnG'),f=>impGFile=f);
+async function doImport(){if(!impFile)return;const buf=await impFile.arrayBuffer();const r=await fetch('/api/pagers/import',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'X-Filename':encodeURIComponent(impFile.name)},body:buf}).then(r=>r.json());const t=document.getElementById('imp_res');t.className='toast show '+(r.error?'err':'ok');t.textContent=r.error?('Error: '+r.error):`Importados: ${r.importados} · Errores: ${r.errores}`;if(!r.error)loadPagers();}
+async function doImportGrupos(){if(!impGFile)return;const buf=await impGFile.arrayBuffer();const r=await fetch('/api/grupos/import',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'X-Filename':encodeURIComponent(impGFile.name)},body:buf}).then(r=>r.json());const t=document.getElementById('impG_res');t.className='toast show '+(r.error?'err':'ok');t.textContent=r.error?('Error: '+r.error):`Importados: ${r.importados} · Errores: ${r.errores}`;if(!r.error)loadGrupos();}
+
+// Extensiones
+async function loadExt(){const [r,st]=await Promise.all([api('GET','/api/extensions'),api('GET','/api/extensions/status')]);const s=st||{};document.getElementById('tb_ext').innerHTML=(r||[]).map(x=>{const reg=s[x.numero]||'-';const rc=reg==='Registered'?'ok':reg==='Rejected'||reg==='Unregistered'?'err':'mut';return `<tr><td class="mono">${x.numero}</td><td>${'*'.repeat((x.password||'').length||4)}</td><td>${x.contexto||''}</td><td>${x.descripcion||''}</td><td><span class="badge ${rc}">${reg}</span></td><td><button class="sw ${x.activo?'on':''}" onclick="toggleX(${x.id},${x.activo?0:1})"></button></td><td><button class="btn btn-sec btn-sm" onclick="openExt(${x.id})">✎</button> <button class="btn btn-del btn-sm" onclick="delX(${x.id})">✕</button></td></tr>`;}).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:1rem">Sin extensiones</td></tr>';}
+async function toggleX(id,a){const r=await api('GET','/api/extensions');const x=(r||[]).find(i=>i.id===id);if(x)await api('PUT','/api/extensions/'+id,{...x,activo:a});loadExt();}
+async function openExt(id){editX=id||null;let x=null;if(id){const r=await api('GET','/api/extensions');x=(r||[]).find(i=>i.id===id);}document.getElementById('x_numero').value=x?x.numero:'';document.getElementById('x_pass').value=x?x.password||'':'';document.getElementById('x_ctx').value=x?x.contexto||'from-hospital':'from-hospital';document.getElementById('x_desc').value=x?x.descripcion||'':'';document.getElementById('mET').textContent=id?'Editar extension':'Nueva extension';openModal('mExt');}
+async function saveExt(){const d={numero:document.getElementById('x_numero').value,password:document.getElementById('x_pass').value,contexto:document.getElementById('x_ctx').value,descripcion:document.getElementById('x_desc').value};if(editX)await api('PUT','/api/extensions/'+editX,d);else await api('POST','/api/extensions',d);closeModal('mExt');loadExt();}
+async function delX(id){if(confirm('Eliminar extension?')){await api('DELETE','/api/extensions/'+id);loadExt();}}
+async function aplicarExt(){const r=await api('POST','/api/extensions/aplicar');alert(r.salida||r.error||'ok');loadExt();}
+
+// Historial
+function hQuery(){const p=new URLSearchParams();p.set('limit',HPG);p.set('offset',hoff);const map=[['h_desde','fecha_desde'],['h_hasta','fecha_hasta'],['h_codigo','codigo'],['h_interno','interno'],['h_estado','estado']];map.forEach(([k,col])=>{const v=document.getElementById(k).value;if(!v)return;if(col==='fecha_hasta')p.set(col,v+'T23:59:59');else p.set(col,v);});return p;}
+const badge=e=>`<span class="badge ${e==='enviado'?'ok':'err'}">${e||'-'}</span>`;
+async function loadHist(off){hoff=off||0;try{const r=await fetch('/api/historial?'+hQuery()).then(r=>r.json());htot=r.total||0;const rows=r.rows||[];document.getElementById('tb_hist').innerHTML=rows.length?rows.map(x=>`<tr><td class="mono">${x.fecha_hora}</td><td>${x.interno_origen||''}</td><td>${x.codigo}</td><td class="mono">${x.cap_code||''}</td><td>${x.mensaje||''}</td><td>${x.baudios||''}</td><td>${badge(x.estado)}</td><td>${x.observaciones||''}</td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:1rem">Sin registros</td></tr>';document.getElementById('hg_info').textContent=`${rows.length?hoff+1:0}-${hoff+rows.length} de ${htot}`;document.getElementById('hg_prev').disabled=hoff<=0;document.getElementById('hg_next').disabled=hoff+HPG>=htot;}catch(e){}}
+function hgGo(d){loadHist(Math.max(0,hoff+d*HPG));}
+function exportHist(){const p=new URLSearchParams();['h_desde','h_hasta','h_codigo','h_interno','h_estado'].forEach(k=>{const v=document.getElementById(k).value;if(v){if(k==='h_hasta')p.set('fecha_hasta',v+'T23:59:59');else if(k==='h_desde')p.set('fecha_desde',v);else p.set(k.replace('h_',''),v);}});window.open('/api/historial/export?'+p,'_blank');}
+
+// Config
+async function loadConfig(){const c=await api('GET','/api/config');CFG_KEYS.forEach(k=>{const el=document.getElementById('c_'+k);if(el&&c[k]!=null)el.value=c[k];});}
+async function saveConfig(){const d={};CFG_KEYS.forEach(k=>{const el=document.getElementById('c_'+k);if(el)d[k]=el.value;});await api('PUT','/api/config',d);const t=document.getElementById('cfg_res');t.className='toast show ok';t.textContent='Guardado. Pulsa Aplicar a Asterisk en Extensiones.';setTimeout(()=>t.className='toast',4000);}
+async function smtpTest(){const email=prompt('Email destino:',document.getElementById('c_backup_email').value);if(!email)return;const r=await api('POST','/api/smtp/test',{email});const t=document.getElementById('cfg_res');t.className='toast show '+(r.ok?'ok':'err');t.textContent=r.ok?'Enviado a '+email:'Error: '+(r.error||'');setTimeout(()=>t.className='toast',4000);}
+
+// Cola
+async function loadCola(){try{const stats=await api('GET','/api/cola/estado');const items=await api('GET','/api/cola');document.getElementById('cola_stats').innerHTML=Object.entries(stats||{}).map(([k,v])=>`<span class="badge ${k==='pendiente'?'mut':k==='enviado'?'ok':(k==='error'||k==='fallido')?'err':'mut'}">${k}: ${v}</span>`).join('')||'<span class="badge mut">cola vacia</span>';const rows=items||[];document.getElementById('tb_cola').innerHTML=rows.length?rows.map(x=>`<tr><td class="mono">${x.id}</td><td>${x.fecha_encola}</td><td>${x.codigo}</td><td>${(x.mensaje||'').slice(0,40)}</td><td>${x.origen||''}</td><td><span class="badge ${x.estado==='enviado'?'ok':(x.estado==='error'||x.estado==='fallido')?'err':'mut'}">${x.estado}</span></td><td>${x.intentos||0}</td><td>${(x.observaciones||'').slice(0,30)}</td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:1rem">Cola vacia</td></tr>';}catch(e){}}
+async function colaReintentar(){if(!confirm('Reintentar fallidos?'))return;for(const est of ['fallido','error']){const items=await api('GET','/api/cola?estado='+est);for(const item of (items||[]))await api('POST','/api/cola/reintentar',{id:item.id});}loadCola();}
+async function colaLimpiar(){if(!confirm('Eliminar enviados?'))return;await api('POST','/api/cola/limpiar');loadCola();}
+
+// BD
+async function dbBackup(){const r=await fetch('/api/db/backup',{headers:{'Authorization':'Bearer '+TOKEN}});if(r.status===401){logout(true);return;}const blob=await r.blob();const cd=r.headers.get('Content-Disposition')||'';const m=cd.match(/filename="?([^"]+)"?/);const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=m?m[1]:'zetronpoc_backup.db';a.click();}
+async function dbBackupEmail(){const r=await api('POST','/api/db/backup-email',{});alert(r.ok?'Backup enviado.':'Error: '+(r.error||''));}
+setupDrop(document.getElementById('dropDB'),document.getElementById('ifileDB'),document.getElementById('dftxtDB'),document.getElementById('impbtnDB'),f=>dbFile=f);
+async function dbRestore(){if(!dbFile||!confirm('Reemplaza la BD actual. Continuar?'))return;const buf=await dbFile.arrayBuffer();const r=await fetch('/api/db/restore',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN},body:buf}).then(r=>r.json());alert(r.ok?'Restaurada.':'Error: '+(r.error||''));}
+
+// PBX
+async function pbx(cmd){const r=await api('GET','/api/pbx?cmd='+cmd);document.getElementById('pbx_out').textContent=r.salida||r.error||'';}
+async function pbxReload(){if(!confirm('Recargar PJSIP y dialplan?'))return;const r=await api('POST','/api/pbx/reload');document.getElementById('pbx_out').textContent=r.salida||'';setTimeout(()=>pbx('registrations'),2000);}
+async function pbxRestart(){if(!confirm('Reiniciar PBX? Corta llamadas activas.'))return;const r=await api('POST','/api/pbx/restart');document.getElementById('pbx_out').textContent=r.salida||'';}
+async function pbxForceReg(){const r=await api('POST','/api/pbx/force-register');document.getElementById('pbx_out').textContent=r.salida||'ok';setTimeout(()=>pbx('registrations'),3000);}
+async function pbxUnreg(){const r=await api('POST','/api/pbx/unregister');document.getElementById('pbx_out').textContent=r.salida||'ok';setTimeout(()=>pbx('registrations'),3000);}
+async function pbxRun(){const cmd=document.getElementById('pbx_cmd').value.trim();if(!cmd)return;const r=await api('POST','/api/pbx/run',{cmd});document.getElementById('pbx_out').textContent=r.salida||r.error||'';}
+async function pbxDiagnose(){document.getElementById('pbx_out').textContent='Diagnosticando...';const r=await api('GET','/api/pbx/diagnose');let out='=== DIAGNOSTICO SIP ===\n\n';if(r.error){out+='ERROR: '+r.error+'\n';}else{out+='IP central: '+r.ip+'  Puerto: '+r.puerto+'\n\n';(r.pasos||[]).forEach(p=>{out+='['+(p.ok?'OK':'FAIL')+'] '+p.paso+'\n'+p.salida+'\n\n';});out+='=== pjsip_zetronpoc.conf ===\n'+r.pjsip_conf+'\n\n';out+='=== Registros SIP ===\n'+r.registros+'\n\n';out+='=== Transportes ===\n'+r.transportes+'\n';}document.getElementById('pbx_out').textContent=out;}
+
+// Dashboard
+async function loadDash(){const s=await api('GET','/api/stats');document.getElementById('dash_stats').innerHTML=`<div class="stat"><div class="k">Total</div><div class="v">${s.total_enviados||0}</div></div><div class="stat"><div class="k">OK</div><div class="v" style="color:var(--ok)">${s.total_ok||0}</div></div><div class="stat"><div class="k">Errores</div><div class="v" style="color:var(--err)">${s.total_err||0}</div></div>`;drawChart('chart_dia',s.por_dia||[],'dia','total');drawChart('chart_hora',s.por_hora||[],'hora','total');document.getElementById('dash_top').innerHTML=(s.top_pagers||[]).length?s.top_pagers.map(x=>`<div style="display:flex;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid var(--line)"><span>${x.codigo}</span><strong>${x.total}</strong></div>`).join(''):'<div style="color:var(--mut);padding:1rem">Sin datos</div>';}
+function drawChart(id,data,xk,yk){const c=document.getElementById(id);if(!c)return;const ctx=c.getContext('2d');const w=c.width=c.offsetWidth,h=c.height;ctx.clearRect(0,0,w,h);if(!data.length){ctx.fillStyle='#5d7494';ctx.font='12px JetBrains Mono';ctx.fillText('Sin datos',10,20);return;}const max=Math.max(...data.map(d=>d[yk]||0))||1,bw=w/data.length;ctx.fillStyle='#00f0ff';data.forEach((d,i)=>{const bh=(d[yk]||0)/max*(h-20);ctx.fillRect(i*bw+2,h-bh-15,bw-4,bh);});}
+
+// Plantillas
+async function loadPlantillas(){const r=await api('GET','/api/plantillas');document.getElementById('tb_plantillas').innerHTML=(r||[]).map(x=>`<tr><td>${x.nombre}</td><td>${x.categoria||''}</td><td>${(x.mensaje||'').slice(0,60)}</td><td>${x.orden||0}</td><td><span class="badge ${x.activo?'ok':'mut'}">${x.activo?'si':'no'}</span></td><td><button class="btn btn-sec btn-sm" onclick="openPlantilla(${x.id})">✎</button> <button class="btn btn-del btn-sm" onclick="delPlantilla(${x.id})">✕</button></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--mut);padding:1rem">Sin plantillas</td></tr>';}
+async function openPlantilla(id){editPL=id||null;let x=null;if(id){const r=await api('GET','/api/plantillas');x=(r||[]).find(i=>i.id===id);}document.getElementById('pl_nombre').value=x?x.nombre:'';document.getElementById('pl_cat').value=x?x.categoria||'general':'general';document.getElementById('pl_mensaje').value=x?x.mensaje:'';document.getElementById('pl_orden').value=x?x.orden||0:0;document.getElementById('mPLT').textContent=id?'Editar':'Nueva';openModal('mPlantilla');}
+async function savePlantilla(){const d={nombre:document.getElementById('pl_nombre').value,mensaje:document.getElementById('pl_mensaje').value,categoria:document.getElementById('pl_cat').value,orden:+document.getElementById('pl_orden').value};if(editPL)await api('PUT','/api/plantillas/'+editPL,d);else await api('POST','/api/plantillas',d);closeModal('mPlantilla');loadPlantillas();}
+async function delPlantilla(id){if(confirm('Eliminar?')){await api('DELETE','/api/plantillas/'+id);loadPlantillas();}}
+
+// Programados
+async function loadProgramados(){const r=await api('GET','/api/programados');document.getElementById('tb_programados').innerHTML=(r||[]).map(x=>`<tr><td>${x.codigo}</td><td>${(x.mensaje||'').slice(0,50)}</td><td>${x.tipo||''}</td><td class="mono">${x.proxima_ejecucion||x.fecha_programada||''}</td><td><span class="badge ${x.activo?'ok':'mut'}">${x.activo?'si':'no'}</span></td><td><button class="btn btn-sec btn-sm" onclick="openProgramado(${x.id})">✎</button> <button class="btn btn-del btn-sm" onclick="delProgramado(${x.id})">✕</button></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--mut);padding:1rem">Sin envios</td></tr>';}
+async function openProgramado(id){editPR=id||null;let x=null;if(id){const r=await api('GET','/api/programados');x=(r||[]).find(i=>i.id===id);}document.getElementById('pr_codigo').value=x?x.codigo:'';document.getElementById('pr_tipo').value=x?x.tipo||'unico':'unico';document.getElementById('pr_mensaje').value=x?x.mensaje:'';document.getElementById('pr_fecha').value=x?x.fecha_programada||'':'';document.getElementById('pr_hora').value=x?x.recurrencia_hora||'08:00':'08:00';document.getElementById('mPRT').textContent=id?'Editar':'Nuevo';openModal('mProgramado');}
+async function saveProgramado(){const d={codigo:document.getElementById('pr_codigo').value,mensaje:document.getElementById('pr_mensaje').value,tipo:document.getElementById('pr_tipo').value,fecha_programada:document.getElementById('pr_fecha').value,recurrencia_hora:document.getElementById('pr_hora').value};if(editPR)await api('PUT','/api/programados/'+editPR,d);else await api('POST','/api/programados',d);closeModal('mProgramado');loadProgramados();}
+async function delProgramado(id){if(confirm('Eliminar?')){await api('DELETE','/api/programados/'+id);loadProgramados();}}
+
+// Logs / Auditoria
+async function loadLogs(t){curLogType=t;const r=await api('GET','/api/logs?tipo='+t+'&limit=300');document.getElementById('log_out').textContent=(r.lineas||[]).join('\n')||'(vacio)';}
+async function loadAud(){const r=await api('GET','/api/auditoria?limit=200');document.getElementById('tb_aud').innerHTML=(r.rows||[]).map(x=>`<tr><td class="mono">${x.fecha_hora}</td><td>${x.usuario||''}</td><td>${x.accion||''}</td><td>${x.entidad||''}</td><td>${x.entidad_id||''}</td><td>${(x.detalle||'').slice(0,50)}</td><td>${x.ip||''}</td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:1rem">Sin registros</td></tr>';}
+
+// Health
+async function health(){try{const h=await fetch('/api/health').then(r=>r.json());const p=document.getElementById('h');p.textContent=h.status==='ok'?'EN LINEA':'CAIDO';p.className='pill '+(h.status==='ok'?'':'off');}catch(e){}}
+
+checkTok();health();setInterval(health,20000);
+async function loadVer(){try{const v=await fetch('/api/version').then(r=>r.json());const el=document.getElementById('ver');if(el)el.textContent='v'+(v.version||'2.0');}catch(e){}}
+loadVer();
+</script>
+</body></html>
