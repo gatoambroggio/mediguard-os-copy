@@ -19,7 +19,7 @@ INSERT OR IGNORE INTO config(clave,valor) VALUES('mensaje_timeout','10');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('ptt_preactivo','0.5');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('digit_timeout','5');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('response_timeout','15');
-INSERT OR IGNORE INTO config(clave,valor) VALUES('test_mode','0');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('test_mode','1');
 
 -- === ZETRON 640 - Encoder POCSAG ===
 INSERT OR IGNORE INTO config(clave,valor) VALUES('baudios_default','1200');

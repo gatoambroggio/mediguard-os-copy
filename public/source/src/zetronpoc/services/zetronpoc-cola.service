@@ -6,9 +6,12 @@ After=zetronpoc-api.service
 Type=simple
 Environment=ZETRONPOC_DIR=/opt/zetronpoc
 WorkingDirectory=/opt/zetronpoc
-ExecStart=/bin/bash -c 'while true; do python3 -c "import sys; sys.path.insert(0,\"/opt/zetronpoc\"); sys.path.insert(0,\"/opt/zetronpoc/database\"); from db_manager import procesar_siguiente_cola; procesar_siguiente_cola()" 2>/dev/null; sleep 3; done'
+ExecStart=/usr/bin/python3 /opt/zetronpoc/agi/cola_worker.py
 Restart=always
 RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+Environment=ZETRONPOC_DIR=/opt/zetronpoc
+Environment=TZ=America/Argentina/Cordoba
 User=root
 
 [Install]

@@ -106,6 +106,7 @@ dl "${SRC}/database/seed.sql" "${APP_DIR}/database/seed.sql"
 
 dl "${SRC}/agi/pocsag_handler.py" "${APP_DIR}/agi/pocsag_handler.py"
 dl "${SRC}/agi/pocsag_check.py" "${APP_DIR}/agi/pocsag_check.py"
+dl "${SRC}/agi/cola_worker.py" "${APP_DIR}/agi/cola_worker.py"
 chmod +x "${APP_DIR}/agi/"*.py
 cp "${APP_DIR}/agi/pocsag_handler.py" "${APP_DIR}/agi/pocsag_check.py" /var/lib/asterisk/agi-bin/
 chmod +x /var/lib/asterisk/agi-bin/*.py

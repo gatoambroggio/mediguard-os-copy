@@ -134,6 +134,8 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/health": return jok(self, {"status": "ok", "ts": int(time.time())})
         if p == "/api/version": return jok(self, {"version": db.get_config("version", "2.0")})
         if p == "/api/theme": return jok(self, db.all_config())
+        if p == "/api/pagers": return jok(self, db.buscar_pagers(q.get("q", [""])[0]))
+        if p == "/api/grupos": return jok(self, db.buscar_grupos(q.get("q", [""])[0]))
         if p == "/api/login": return jtext(self, "use POST", 405)
         # auth
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
@@ -141,8 +143,6 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/config": return jok(self, db.all_config())
         if p == "/api/extensions": return jok(self, db.listar_extensiones())
         if p == "/api/extensions/status": return jok(self, ext_status())
-        if p == "/api/pagers": return jok(self, db.buscar_pagers(q.get("q", [""])[0]))
-        if p == "/api/grupos": return jok(self, db.buscar_grupos(q.get("q", [""])[0]))
         if p == "/api/plantillas": return jok(self, db.listar_plantillas())
         if p == "/api/programados": return jok(self, db.listar_programados())
         if p == "/api/auditoria": return jok(self, db.listar_auditoria(int(q.get("limit", ["200"])[0])))
@@ -177,9 +177,11 @@ class Handler(BaseHTTPRequestHandler):
             tok = db.login_validar(d.get("user", ""), d.get("pass", ""))
             if tok: return jok(self, {"token": tok})
             return jok(self, {"error": "credenciales invalidas"}, 401)
+        if p == "/api/enviar":
+            d = self._json()
+            return jok(self, db.enviar_mensaje(d.get("codigo"), d.get("mensaje"), d.get("origen", "web")))
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
         d = self._json()
-        if p == "/api/enviar": return jok(self, db.enviar_mensaje(d.get("codigo"), d.get("mensaje"), d.get("origen", "web")))
         if p == "/api/extensions":
             return jok(self, {"id": db.crear_extension(d)})
         if p == "/api/extensions/aplicar":
