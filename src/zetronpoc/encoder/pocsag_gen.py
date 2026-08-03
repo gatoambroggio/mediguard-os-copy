@@ -180,11 +180,11 @@ def main():
         print("Uso: pocsag_gen.py <cap_code> <mensaje> [baudios] [wav_out]", file=sys.stderr)
         sys.exit(1)
     cap = int(str(sys.argv[1]).split(",")[0])
-    mensaje = str(sys.argv[2])
-    baud = int(sys.argv[3]) if len(sys.argv) > 3 and sys.argv[3] else int(get_config("baudios_default", "1200"))
+    mensaje = str(sys.argv[2])[:12]  # v1.01: maximo 12 caracteres
+    baud = 512  # ZetronPOC v1.01: exclusivamente 512 baudios
     wav_out = sys.argv[4] if len(sys.argv) > 4 else "/tmp/zetronpoc_out.wav"
 
-    func_mode = get_config("function_mode", "alphanumeric")
+    func_mode = "alphanumeric"  # v1.01: solo alfanumerico
     dev_hz = int(get_config("fsk_deviation_baseband_hz", "450"))
     sr = int(get_config("sample_rate", "22050"))
     gain = int(get_config("audio_gain", "80")) / 100.0
