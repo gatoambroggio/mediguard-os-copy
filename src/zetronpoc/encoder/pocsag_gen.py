@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 pocsag_gen.py - ZetronPOC v2.0 - Encoder POCSAG (Zetron 640 compatible)
-Codewords POCSAG con BCH(31,21) + paridad par. FSK con filtrado Gaussiano.
-Todos los parametros se leen de la BD (configurable desde el panel admin).
+Codewords POCSAG con BCH(31,21) + paridad par. Banda base filtrada (discriminador)
+para multimon-ng. Todos los parametros se leen de la BD (configurable desde panel).
 
 Uso: pocsag_gen.py <cap_code> <mensaje> [baudios] [wav_out]
 """
@@ -19,7 +19,7 @@ except Exception:
 # === Constantes POCSAG ===
 SYNC_CODEWORD = 0x7CD215D8
 IDLE_CODEWORD = 0x7A89C197
-BCH_GEN = 0x779  # x^10+x^9+x^8+x^6+x^5+x^4+x^3+1
+BCH_GEN = 0x769  # generador BCH que usa multimon-ng (match pocsag-server + script de referencia)
 
 FUNCTION_NUMERIC = 0x0
 FUNCTION_TONE = 0x1
@@ -67,7 +67,10 @@ def bits_to_words(bits, width=20):
     words = []
     for i in range(0, len(bits), width):
         chunk = bits[i:i + width]
-        data20 = sum(b << j for j, b in enumerate(chunk))
+        # MSB-first: el primer bit del stream va al bit mas significativo del data20,
+        # asi se transmite primero (igual que pocsag-server y el script de referencia).
+        # Antes estaba LSB-first y multimon-ng decodificaba el texto al reves.
+        data20 = sum(b << (width - 1 - j) for j, b in enumerate(chunk))
         words.append(data20)
     return words
 
