@@ -113,16 +113,18 @@ def codewords_to_bits(cws):
             bits.append((cw >> i) & 1)
     return bits
 
-# === FSK ===
-def gaussian_kernel(bt, baud, sr, span=4):
+# === Banda base (discriminador) para multimon-ng ===
+def gaussian_kernel(bt, baud, sr):
+    # Filtro Gaussiano BT*baud (match pocsag-server que anduvo con multimon-ng).
     sps = sr / baud
-    n = max(1, int(span * sps))
-    alpha = math.sqrt(math.log(2) / 2) * bt * baud
+    alpha = math.sqrt(2 * math.log(2)) / (float(bt) / baud)
+    fsize = int(sps * 2) + 1
+    mid = fsize // 2
     h = []
-    for i in range(-n // 2, n // 2 + 1):
-        t = i / sr
-        h.append(math.exp(-2 * (math.pi * alpha * t) ** 2))
-    s = sum(h) or 1
+    for i in range(fsize):
+        t = (i - mid) / sr
+        h.append((alpha / math.sqrt(math.pi)) * math.exp(-(alpha * t) ** 2))
+    s = sum(h) or 1.0
     return [x / s for x in h]
 
 def convolve(sig, h):
@@ -137,36 +139,27 @@ def convolve(sig, h):
         out[i] = acc
     return out
 
-def bits_to_fsk(bits, baud, dev_hz, sr, bt, invert):
+def bits_to_baseband(bits, baud, sr, bt, invert):
+    """Banda base filtrada (salida de discriminador) para multimon-ng.
+    NO modula FM: la amplitud ES la desviacion de frecuencia, igual que pocsag-server.
+    multimon-ng espera la salida del discriminador (NRZ filtrado), no una senoide FSK."""
     sps = sr / baud
     n = int(len(bits) * sps) + 1
     nrz = []
-    cur = 0
     for i in range(n):
         bi = int(i / sps)
         b = bits[bi] if bi < len(bits) else bits[-1]
-        v = 1.0 if b == 1 else -1.0
+        v = -1.0 if b == 1 else 1.0  # polaridad: bit 1 -> negativo (match pocsag-server)
         if invert:
             v = -v
         nrz.append(v)
     if bt and float(bt) > 0:
         nrz = convolve(nrz, gaussian_kernel(float(bt), baud, sr))
-    # FM
-    phase = 0.0
-    out = [0.0] * len(nrz)
-    for i in range(len(nrz)):
-        freq = dev_hz * nrz[i]
-        phase += 2 * math.pi * freq / sr
-        out[i] = math.sin(phase)
-    return out
+    return nrz
 
 def normalize(samples, peak=0.95):
     m = max(abs(s) for s in samples) or 1.0
     return [s / m * peak for s in samples]
-
-def warmup_tone(ms, sr, gain):
-    n = int(sr * ms / 1000)
-    return [math.sin(2 * math.pi * 350 * i / sr) * gain for i in range(n)]
 
 def write_wav(path, samples, sr):
     with wave.open(path, "w") as w:
@@ -185,22 +178,20 @@ def main():
     wav_out = sys.argv[4] if len(sys.argv) > 4 else "/tmp/zetronpoc_out.wav"
 
     func_mode = "alphanumeric"  # v1.01: solo alfanumerico
-    dev_hz = int(get_config("fsk_deviation_baseband_hz", "450"))
     sr = int(get_config("sample_rate", "22050"))
     gain = int(get_config("audio_gain", "80")) / 100.0
     invert = get_config("invert_audio", "0") == "1"
     bt = get_config("gaussian_bt", "0.5")
     preamble_bits = int(get_config("preamble_bits", "576"))
-    warm_ms = int(get_config("warmup_%d_ms" % baud, "1500"))
 
     bits = [1, 0] * (preamble_bits // 2)
     bits += codewords_to_bits(build_codewords(cap, 0, mensaje, func_mode))
 
-    samples = bits_to_fsk(bits, baud, dev_hz, sr, bt, invert)
-    samples = warmup_tone(warm_ms, sr, gain) + samples
+    # Banda base (discriminador) para multimon-ng: sin tono warmup, sin FM.
+    samples = bits_to_baseband(bits, baud, sr, bt, invert)
     samples = [s * gain for s in normalize(samples)]
     write_wav(wav_out, samples, sr)
-    print("OK %s (%d samples, %d baud, modo %s, dev %dHz, sr %d)" % (wav_out, len(samples), baud, func_mode, dev_hz, sr))
+    print("OK %s (%d samples, %d baud, modo %s, baseband, sr %d)" % (wav_out, len(samples), baud, func_mode, sr))
 
 if __name__ == "__main__":
     main()
