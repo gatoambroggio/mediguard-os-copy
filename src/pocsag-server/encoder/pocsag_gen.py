@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Codificador POCSAG - Banda base limpia (Discriminador) compatible con multimon-ng.
+# Codificador POCSAG 512 baud - Banda base limpia (Discriminador) compatible con multimon-ng.
 # Genera WAV mono 16-bit a 22050 Hz (obligatorio para multimon-ng en modo nativo).
 #
 # Algoritmo BCH(31,21) estandar de POCSAG, polaridad de discriminador:
@@ -7,10 +7,14 @@
 #   Bit 1 -> amplitud maxima negativa
 #
 # Uso: pocsag_gen.py <capcode> <mensaje> <baudios> <out.wav>
+# Nota: el sistema solo encodea a 512 baud; el argumento <baudios> se ignora.
 import sys
 import wave
 import struct
-import math
+
+BAUDIOS = 512
+FRECUENCIA_MUESTREO = 22050  # Obligatorio para multimon-ng en modo nativo
+AMPLITUD = 16384  # Amplitud media para evitar saturacion de clipping
 
 
 def calcular_bch_pocsag(datos_21bit):
@@ -106,22 +110,22 @@ def crear_bitstream_pocsag(capcode, mensaje):
     return bitstream
 
 
-def modular_banda_base(bits, baudios, frecuencia_muestreo, amplitud=16384):
+def modular_banda_base(bits):
     """Modulacion de banda base limpia (discriminador) sin numpy/scipy.
 
     Bit 0 -> amplitud maxima positiva
     Bit 1 -> amplitud maxima negativa
     """
-    muestras_por_bit = frecuencia_muestreo / baudios
+    muestras_por_bit = FRECUENCIA_MUESTREO / BAUDIOS
     total_muestras = int(len(bits) * muestras_por_bit)
 
     muestras = bytearray()
     for n in range(total_muestras):
         # indice del bit correspondiente a esta muestra
-        idx = int(n * baudios / frecuencia_muestreo)
+        idx = int(n * BAUDIOS / FRECUENCIA_MUESTREO)
         if idx >= len(bits):
             idx = len(bits) - 1
-        valor = amplitud if bits[idx] == 0 else -amplitud
+        valor = AMPLITUD if bits[idx] == 0 else -AMPLITUD
         muestras += struct.pack('<h', valor)
     return bytes(muestras), total_muestras
 
@@ -133,25 +137,19 @@ def main():
 
     capcode = int(sys.argv[1])
     mensaje = sys.argv[2]
-    baudios = int(sys.argv[3])
     out_path = sys.argv[4]
 
-    if baudios not in (512, 1200, 2400):
-        baudios = 512
-
-    frecuencia_muestreo = 22050  # Obligatorio para multimon-ng en modo nativo
-    amplitud = 16384  # Amplitud media para evitar saturacion de clipping
-
+    # El sistema solo encodea a POCSAG 512 baud; se ignora el argumento de baudios.
     bitstream = crear_bitstream_pocsag(capcode, mensaje)
-    audio, total = modular_banda_base(bitstream, baudios, frecuencia_muestreo, amplitud)
+    audio, total = modular_banda_base(bitstream)
 
     with wave.open(out_path, 'wb') as w:
         w.setnchannels(1)
         w.setsampwidth(2)
-        w.setframerate(frecuencia_muestreo)
+        w.setframerate(FRECUENCIA_MUESTREO)
         w.writeframes(audio)
 
-    print(f"OK: {out_path} ({baudios} bps, {frecuencia_muestreo} Hz, {len(bitstream)} bits, {total} muestras)")
+    print(f"OK: {out_path} ({BAUDIOS} bps, {FRECUENCIA_MUESTREO} Hz, {len(bitstream)} bits, {total} muestras)")
     return 0
 
 
