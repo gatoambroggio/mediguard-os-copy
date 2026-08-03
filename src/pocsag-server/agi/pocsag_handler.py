@@ -5,8 +5,8 @@ agi/pocsag_handler.py - AGI de Asterisk para paginación POCSAG.
 Uso desde el dialplan:
     AGI(pocsag_handler.py,${CALLERID(num)},${CODE},${MESSAGE})
 
-Lee variables AGI por stdin, resuelve el destino, codifica POCSAG 512 baud
-a un archivo WAV y registra en bitácora. (Sin control de transmisor DAPT-X Xtra.)
+Lee variables AGI por stdin, resuelve el destino, codifica POCSAG,
+activa PTT, reproduce el audio hacia el transmisor y registra en bitácora.
 """
 import sys
 import os

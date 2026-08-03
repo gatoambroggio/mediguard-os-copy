@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import {
   RadioTower,
@@ -22,11 +22,10 @@ import {
   FolderGit2,
 } from "lucide-react";
 import JSZip from "jszip";
-import { base44 } from "@/api/base44Client";
 
-const REPO = "https://github.com/gatoambroggio/mediguard-os-copy.git";
-const RAW = "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador.sh";
-const RAW_RPI = "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador.sh";
+const REPO = "https://github.com/gatoambroggio/ubntpagingsystem.git";
+const RAW = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/src/zetronpoc/instalador.sh";
+const RAW_RPI = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/src/zetronpoc/instalador.sh";
 
 const BOOTSTRAP = `#!/usr/bin/env bash
 # Instala ZetronPOC (paginacion hospitalaria POCSAG, cliente FreePBX) desde GitHub.
@@ -66,53 +65,11 @@ export default function Descarga() {
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
   const [copied, setCopied] = useState("");
-  const [pubBusy, setPubBusy] = useState(false);
-  const [pubMsg, setPubMsg] = useState("");
-  const [pubErr, setPubErr] = useState("");
-  const [version, setVersion] = useState("v1.0");
-  const [isAdmin, setIsAdmin] = useState(false);
 
   const copiar = (txt, id) => {
     navigator.clipboard.writeText(txt);
     setCopied(id);
     setTimeout(() => setCopied(""), 2000);
-  };
-
-  useEffect(() => {
-    base44.auth.isAuthenticated().then(async (authed) => {
-      if (!authed) return;
-      try {
-        const me = await base44.auth.me();
-        setIsAdmin(me?.role === "admin");
-      } catch {}
-    }).catch(() => {});
-  }, []);
-
-  const publicarRelease = async () => {
-    setPubBusy(true); setPubErr(""); setPubMsg("");
-    try {
-      const mr = await fetch("/source-manifest.json");
-      if (!mr.ok) throw new Error("No se pudo leer el manifest (publica/compila la app primero).");
-      const manifest = await mr.json();
-      const files = [];
-      for (const rel of manifest) {
-        const fr = await fetch("/source/" + rel);
-        if (!fr.ok) continue;
-        const content = await fr.text();
-        if (content) files.push({ path: rel, content });
-      }
-      if (files.length === 0) throw new Error("No se obtuvieron archivos fuente.");
-      const res = await base44.functions.invoke("githubPublishRelease", {
-        version,
-        message: "Release " + version + " - ZetronPOC (POCSAG 512 baud, sin transmisor DAPT-X Xtra)",
-        files,
-      });
-      setPubMsg("Release " + res.data.version + " publicado: " + res.data.release_url);
-    } catch (e) {
-      setPubErr(e?.response?.data?.error || e.message || String(e));
-    } finally {
-      setPubBusy(false);
-    }
   };
 
   const descargarZip = async () => {
@@ -493,57 +450,6 @@ export default function Descarga() {
           </div>
         </motion.div>
       </section>
-
-      {isAdmin && (
-        <section className="relative z-10 max-w-5xl mx-auto px-6 mt-8">
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="rounded-[28px] bg-white/70 backdrop-blur-xl border border-slate-200 p-6"
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <Github className="w-5 h-5 text-slate-700" />
-              <h2 className="font-display font-bold text-slate-900">Publicar release en GitHub</h2>
-            </div>
-            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-              Empaqueta todos los archivos fuente (src/) y los sube al repo {REPO} creando un release con tag.
-              Despues se instala con:{" "}
-              <code className="font-mono text-indigo-600">curl -fsSL {RAW} | sudo bash</code>
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <input
-                value={version}
-                onChange={(e) => setVersion(e.target.value)}
-                placeholder="v1.0"
-                className="flex-1 px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-mono focus:outline-none focus:border-indigo-400"
-              />
-              <motion.button
-                whileHover={{ scale: pubBusy ? 1 : 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={publicarRelease}
-                disabled={pubBusy}
-                className="bg-gradient-to-r from-slate-900 to-slate-700 text-white font-semibold px-6 py-2.5 rounded-2xl flex items-center justify-center gap-2 disabled:opacity-60"
-              >
-                {pubBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Github className="w-4 h-4" />}
-                {pubBusy ? "Publicando..." : "Publicar release " + version}
-              </motion.button>
-            </div>
-            {pubMsg && (
-              <div className="mt-4 flex items-start gap-2 text-sm text-emerald-700 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl px-4 py-3">
-                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-                <span className="break-words">{pubMsg}</span>
-              </div>
-            )}
-            {pubErr && (
-              <div className="mt-4 flex items-start gap-2 text-sm text-rose-600 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3">
-                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span className="break-words">{pubErr}</span>
-              </div>
-            )}
-          </motion.div>
-        </section>
-      )}
 
       <footer className="relative z-10 max-w-5xl mx-auto px-6 mt-10 mb-10 flex items-center justify-center gap-2 text-xs text-slate-400">
         <Server className="w-3.5 h-3.5" />

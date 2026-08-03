@@ -181,7 +181,7 @@ def main():
         sys.exit(1)
     cap = int(str(sys.argv[1]).split(",")[0])
     mensaje = str(sys.argv[2])
-    baud = 512  # Fijo: el sistema solo encodea a POCSAG 512 baud (sin parametros de transmisor).
+    baud = int(sys.argv[3]) if len(sys.argv) > 3 and sys.argv[3] else int(get_config("baudios_default", "1200"))
     wav_out = sys.argv[4] if len(sys.argv) > 4 else "/tmp/zetronpoc_out.wav"
 
     func_mode = get_config("function_mode", "alphanumeric")
