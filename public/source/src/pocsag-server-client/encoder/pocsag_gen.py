@@ -79,7 +79,7 @@ def get_function_bits():
     global ENC_CFG
     if ENC_CFG is None: ENC_CFG = get_encoder_config()
     mode = (ENC_CFG.get('function_mode', DEFAULT_FUNCTION_MODE) or 'alphanumeric').lower()
-    return FUNCTION_BITS.get(mode, FUNCTION_ALPHANUMERIC)
+    return FUNCTION_ALPHANUMERIC  # v1.01: solo alfanumerico
 
 def crc(input_msg):
     denominator = CRC_GENERATOR << 20
@@ -119,7 +119,7 @@ def encode_transmission(address, message):
     addr_data = ((address >> 3) << 2) | get_function_bits()
     out.append(encode_codeword(addr_data, is_message=False))
     cur = 0; nbits = 0; pos = offset + 1
-    for c in message:
+    for c in message[:12]:  # v1.01: maximo 12 caracteres
         for i in range(TEXT_BITS_PER_CHAR):
             cur = (cur << 1) | ((ord(c) >> i) & 1)
             nbits += 1
@@ -192,8 +192,7 @@ def main():
         print("Uso: pocsag_gen.py <cap> <msg> <baud> <out.wav>", file=sys.stderr)
         return 1
     cap, msg, baud, out_path = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
-    if baud not in (512, 1200, 2400):
-        baud = 1200
+    baud = 512  # v1.01: exclusivamente 512 baudios
     sample_rate = 38400
     if sample_rate % baud != 0:
         sample_rate = baud * 32

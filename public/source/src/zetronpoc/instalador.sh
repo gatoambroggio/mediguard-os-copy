@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 # ============================================================================
-# instalador.sh - ZetronPOC v1.0 (paginacion hospitalaria POCSAG, cliente FreePBX)
+# instalador.sh - ZetronPOC v1.02 (paginacion hospitalaria POCSAG, cliente FreePBX)
 # ============================================================================
 # Registra internos SIP contra la central FreePBX del hospital y reproduce un
 # IVR (igual al 2184) cuando alguien marca esos internos.
 #
 # Instalacion (una linea):
-#   curl -fsSL https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/src/zetronpoc/instalador.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador.sh | sudo bash
 #
 # Actualizar (sin reinstalar Asterisk/deps):
-#   curl -fsSL https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/src/zetronpoc/instalador.sh | sudo bash -s -- --update
+#   curl -fsSL https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador.sh | sudo bash -s -- --update
 # ============================================================================
 set -euo pipefail
 
-REPO="https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main"
+REPO="https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main"
 SRC="${REPO}/src/zetronpoc"
 AST_ETC="/etc/asterisk"
 APP_DIR="/opt/zetronpoc"
 DB="${APP_DIR}/database/zetronpoc.db"
-VERSION="2.0"
+VERSION="1.02"
 UPDATE=0
 [[ "${1:-}" == "--update" ]] && UPDATE=1
 
@@ -29,8 +29,34 @@ err(){ echo -e "${R}[ERR]${NC}  $*" >&2; }
 
 [[ $EUID -ne 0 ]] && { err "Ejecuta como root o con sudo."; exit 1; }
 
+# dl <url> <dest>  — descarga y valida que no venga HTML (sandbox/404 disfrazado).
 dl(){ # dl <url> <dest>
-  if ! curl -fsSL "$1" -o "$2"; then err "No se pudo descargar $1"; exit 1; fi
+  local url="$1" dest="$2"
+  if ! curl -fsSL "$url" -o "$dest"; then
+    err "No se pudo descargar $url"; exit 1
+  fi
+  # Guarda contra respuestas HTML (pagina de error del sandbox o 404 disfrazado).
+  local first
+  first="$(head -c 200 "$dest" | tr -d '\0')"
+  if printf '%s' "$first" | grep -qiE '^(\s*<(!doctype|html)|<head)'; then
+    err "El archivo bajado de $url vino como HTML (¿ruta inexistente en el repo?). Abortando para no instalar basura."
+    rm -f "$dest"; exit 1
+  fi
+}
+
+# dl_opt <url> <dest>  — como dl pero no aborta si el archivo no existe (opcional).
+dl_opt(){ # dl_opt <url> <dest>
+  local url="$1" dest="$2"
+  if curl -fsSL "$url" -o "$dest" 2>/dev/null; then
+    local first
+    first="$(head -c 200 "$dest" | tr -d '\0')"
+    if printf '%s' "$first" | grep -qiE '^(\s*<(!doctype|html)|<head)'; then
+      warn "$dest vino como HTML, se descarta."; rm -f "$dest"; return 1
+    fi
+    return 0
+  fi
+  warn "Opcional no encontrado: $url"
+  return 1
 }
 
 export TZ="America/Argentina/Cordoba"
@@ -38,33 +64,26 @@ timedatectl set-timezone "America/Argentina/Cordoba" 2>/dev/null || true
 
 # ============================ 0. LIMPIAR SISTEMA ANTERIOR ====================
 echo "==> 0/10 Limpiando instalacion anterior (pogsac-server / pogsag-server)..."
-# Detener y deshabilitar TODOS los servicios viejos (y los propios por si es reintento)
 for svc in pogsag-api pogsag-cola pogsag-monitor zetronpoc-api zetronpoc-cola; do
   systemctl stop "$svc" 2>/dev/null || true
   systemctl disable "$svc" 2>/dev/null || true
   rm -f "/etc/systemd/system/${svc}.service" 2>/dev/null || true
 done
 systemctl daemon-reload 2>/dev/null || true
-# Matar procesos viejos que pudieran tener el puerto 8080 o colas activas
 pkill -f "/opt/pogsag-server" 2>/dev/null || true
 pkill -f "pogsag_handler" 2>/dev/null || true
 pkill -f "cola_worker" 2>/dev/null || true
 fuser -k 8080/tcp 2>/dev/null || true
-# Borrar directorios de apps viejas
 rm -rf /opt/pogsag-server 2>/dev/null || true
-# Limpiar configs de Asterisk dejadas por sistemas viejos
 for f in pjsip_hospital.conf pjsip_pocsag.conf pjsip_pogsag.conf \
          pjsip_hospital.conf.bak pjsip_pocsag.conf.bak pjsip_pogsag.conf.bak \
          extensions_hospital.conf extensions_pocsag.conf; do
   rm -f "${AST_ETC}/${f}" 2>/dev/null || true
 done
-# Limpiar AGI scripts viejos copiados a Asterisk
 for f in pogsag_handler.py pogsag_check.py cola_worker.py; do
   rm -f "/var/lib/asterisk/agi-bin/${f}" 2>/dev/null || true
 done
-# Quitar cron y logrotate viejos
 rm -f /etc/cron.d/pogsag-cleanup /etc/logrotate.d/pogsag 2>/dev/null || true
-# Recargar Asterisk para que solte endpoints/registros viejos
 asterisk -rx "pjsip reload" 2>/dev/null || true
 asterisk -rx "dialplan reload" 2>/dev/null || true
 log "Sistema anterior limpio."
@@ -76,7 +95,6 @@ if [[ $UPDATE -eq 0 ]]; then
   apt-get install -y sqlite3 python3 python3-pip alsa-utils sox git curl ca-certificates \
     logrotate espeak gpiod libgpiod2 asterisk 2>&1 || { err "Fallo instalacion de paquetes."; exit 1; }
 else
-  # En --update solo asegurar lo critico que pudo ser purgado (ej: asterisk)
   command -v asterisk >/dev/null 2>&1 || apt-get install -y asterisk 2>&1 || warn "No se pudo reinstalar asterisk"
 fi
 command -v espeak >/dev/null 2>&1 || apt-get install -y espeak sox 2>&1 || true
@@ -122,10 +140,12 @@ chmod +x "${APP_DIR}/scripts/"*.sh
 dl "${SRC}/services/zetronpoc-api.service" "/etc/systemd/system/zetronpoc-api.service"
 dl "${SRC}/services/zetronpoc-cola.service" "/etc/systemd/system/zetronpoc-cola.service"
 
+dl_opt "${SRC}/asterisk/modules.conf" "${AST_ETC}/modules.conf" || true
+log "Archivos descargados y validados."
+
 # ============================ 4. ASTERISK CONFIG ===========================
 echo "==> 4/10 Configurando Asterisk..."
 mkdir -p "${AST_ETC}"
-# pjsip.conf: self-contained (se regenera desde la BD en el paso 6 / panel admin)
 cat > "${AST_ETC}/pjsip.conf" <<'EOF'
 ; ZetronPOC: pjsip.conf es self-contained (transport + endpoints + registros)
 ; Se regenera desde el panel admin -> Extensiones -> Aplicar a Asterisk
@@ -135,10 +155,7 @@ protocol=udp
 bind=0.0.0.0:5060
 EOF
 
-# extensions.conf: dialplan con IVR en un unico contexto (from-hospital)
 dl "${SRC}/asterisk/extensions.conf" "${AST_ETC}/extensions.conf"
-dl "${SRC}/asterisk/modules.conf" "${AST_ETC}/modules.conf" 2>/dev/null || true
-
 chown -R "${AST_USER}:${AST_USER}" "${AST_ETC}" 2>/dev/null || true
 
 # ============================ 5. BASE DE DATOS ==============================
@@ -156,7 +173,7 @@ chmod 640 "${DB}" 2>/dev/null || true
 chown "${AST_USER}:${AST_USER}" "${DB}" 2>/dev/null || true
 
 # ============================ 6. GENERAR PJSIP DESDE BD ====================
-echo "==> 6/10 Generando pjsip_zetronpoc.conf desde la base de datos..."
+echo "==> 6/10 Generando pjsip.conf desde la base de datos..."
 python3 - <<'PYEOF'
 import sys, os
 sys.path.insert(0, "/opt/zetronpoc"); sys.path.insert(0, "/opt/zetronpoc/database")
@@ -205,7 +222,6 @@ systemctl enable --now asterisk 2>/dev/null || warn "Asterisk no pudo activarse"
 asterisk -rx "dialplan reload" 2>/dev/null || warn "No se pudo recargar dialplan"
 asterisk -rx "pjsip reload" 2>/dev/null || true
 sleep 1
-# Verificar que res_pjsip cargo el transporte; si no, forzar recarga del modulo
 if ! asterisk -rx "pjsip show transports" 2>/dev/null | grep -q "transport-udp"; then
   warn "pjsip no cargo el transporte. Reintentando..."
   asterisk -rx "module reload res_pjsip.so" 2>/dev/null || true
@@ -214,7 +230,9 @@ if ! asterisk -rx "pjsip show transports" 2>/dev/null | grep -q "transport-udp";
 fi
 asterisk -rx "pjsip show transports" 2>/dev/null | head -6 || true
 systemctl enable --now zetronpoc-api 2>/dev/null || warn "API no pudo activarse"
-systemctl enable --now zetronpoc-cola 2>/dev/null || true
+systemctl enable --now zetronpoc-cola 2>/dev/null || warn "Worker de cola no pudo activarse"
+# Forzar restart del worker por si venia corriendo un cola_worker.py viejo/corrupto
+systemctl restart zetronpoc-cola 2>/dev/null || true
 sleep 2
 
 # ============================ 10. CHEQUEO =================================
@@ -223,6 +241,11 @@ if curl -sf "http://localhost:8080/api/health" >/dev/null 2>&1; then
   log "API responde en http://localhost:8080"
 else
   warn "API no responde aun. Verifique: systemctl status zetronpoc-api"
+fi
+if systemctl is-active --quiet zetronpoc-cola; then
+  log "Worker de cola activo (procesa mensajes pendientes)"
+else
+  warn "Worker de cola NO activo. Los mensajes quedaran pendientes. Verifique: journalctl -u zetronpoc-cola -n 30"
 fi
 echo "  Dialplan cargado:"
 asterisk -rx "dialplan show from-hospital" 2>/dev/null | head -8 || warn "No se pudo mostrar el dialplan"
@@ -236,13 +259,14 @@ echo ""
 echo "  PROXIMO PASO (todo desde el panel admin):"
 echo "    1) Parametros -> IP de la central FreePBX -> Guardar"
 echo "    2) Extensiones -> editar cada interno con su clave real"
-echo "    3) Extensiones -> Aplicar a Asterisk  (genera pjsip_zetronpoc.conf)"
+echo "    3) Extensiones -> Aplicar a Asterisk  (genera pjsip.conf)"
 echo "    4) La columna 'Registro' debe quedar en Registered"
 echo "    5) Probar IVR: marcar *99 desde la central (escucha dos beeps)"
 echo ""
 echo "  Verificar por consola:"
 echo "    sudo asterisk -rx 'pjsip show registrations'"
 echo "    sudo asterisk -rx 'dialplan show from-hospital'"
+echo "    sudo systemctl status zetronpoc-cola"
 echo ""
 echo "  Actualizar (sin perder config):"
 echo "    curl -fsSL ${SRC}/instalador.sh | sudo bash -s -- --update"

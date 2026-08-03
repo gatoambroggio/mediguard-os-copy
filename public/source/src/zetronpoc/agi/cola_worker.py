@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
-"""cola_worker.py - Worker de cola de envios ZetronPOC.
-Procesa mensajes pendientes llamando a pocsag_handler.py con POCSAG_WORKER=1."""
+"""Worker de cola - procesa mensajes pendientes (ZetronPOC v2.0).
+Daemon invocado por zetronpoc-cola.service. Loopea llamando a
+procesar_siguiente_cola() del db_manager, que a su vez ejecuta
+pocsag_handler.py con POCSAG_WORKER=1 para generar el WAV y transmitir.
+"""
 import sys, os, time
+
 APP_DIR = os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc")
 sys.path.insert(0, APP_DIR)
 sys.path.insert(0, os.path.join(APP_DIR, "database"))
+
 from db_manager import procesar_siguiente_cola, get_conn, DEFAULT_DB
 
-LOG = os.path.join(APP_DIR, "logs/cola.log")
+LOG = os.path.join(APP_DIR, "logs", "cola.log")
+
 
 def clog(m):
     try:
@@ -17,22 +23,32 @@ def clog(m):
     except Exception:
         pass
 
+
 def recuperar_enviando():
-    with get_conn(DEFAULT_DB) as conn:
-        conn.execute("UPDATE cola_envios SET estado='pendiente' WHERE estado='enviando'")
+    """Al arrancar, vuelve a 'pendiente' cualquier item que haya quedado en 'enviando'
+    por un crasheo previo del worker (no queda audio/PTT colgado)."""
+    try:
+        with get_conn(DEFAULT_DB) as conn:
+            conn.execute("UPDATE cola_envios SET estado='pendiente' WHERE estado='enviando'")
+    except Exception as e:
+        clog("[WARN] recuperar_enviando: %s" % e)
+
 
 def main():
     recuperar_enviando()
-    clog("[START] Worker de cola ZetronPOC iniciado")
+    clog("[START] Worker de cola iniciado (ZETRONPOC_DIR=%s)" % APP_DIR)
     while True:
         try:
             result = procesar_siguiente_cola()
             if result is None:
                 time.sleep(2)
             else:
-                clog("[OK] Procesado item id=%s" % result); time.sleep(0.5)
+                clog("[OK] Procesado item id=%s" % result)
+                time.sleep(0.5)
         except Exception as e:
-            clog("[ERROR] %s" % e); time.sleep(5)
+            clog("[ERROR] %s" % e)
+            time.sleep(5)
+
 
 if __name__ == "__main__":
     main()
