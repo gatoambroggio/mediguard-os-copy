@@ -100,6 +100,36 @@ fi
 command -v espeak >/dev/null 2>&1 || apt-get install -y espeak sox 2>&1 || true
 pip3 install --break-system-packages openpyxl xlrd 2>&1 || warn "openpyxl/xlrd no instalados (import Excel limitado a CSV)"
 
+# --- Verificar modulo de transporte UDP PJSIP (critico para registrar internos) ---
+AST_MOD_DIR="/usr/lib/asterisk/modules"
+AST_MOD_DIR_ALT="/usr/lib/x86_64-linux-gnu/asterisk/modules"
+PJSIP_UDP=""
+for d in "$AST_MOD_DIR" "$AST_MOD_DIR_ALT"; do
+  [[ -f "$d/res_pjsip_transport_udp.so" ]] && PJSIP_UDP="$d/res_pjsip_transport_udp.so" && break
+done
+if [[ -z "$PJSIP_UDP" ]]; then
+  warn "Falta res_pjsip_transport_udp.so. La instalacion de Asterisk esta incompleta (¿PPA de terceros o compilacion propia?)."
+  warn "Purgando Asterisk incompleto y reinstalando desde repositorios oficiales de Ubuntu..."
+  systemctl stop asterisk 2>/dev/null || true
+  apt-get purge -y 'asterisk*' 2>&1 || true
+  apt-get autoremove -y 2>&1 || true
+  apt-get update -y
+  apt-get install -y asterisk 2>&1 || { err "No se pudo reinstalar asterisk desde los repos oficiales."; exit 1; }
+  for d in "$AST_MOD_DIR" "$AST_MOD_DIR_ALT"; do
+    [[ -f "$d/res_pjsip_transport_udp.so" ]] && PJSIP_UDP="$d/res_pjsip_transport_udp.so" && break
+  done
+fi
+if [[ -z "$PJSIP_UDP" ]]; then
+  err "No se encontro res_pjsip_transport_udp.so ni siquiera tras reinstalar. Tu Asterisk fue compilado sin soporte PJSIP UDP."
+  err "Solucion manual: instala desde una ISO/PKG oficial de Ubuntu 22.04, o recompila Asterisk con menuselect -> res_pjsip + res_pjsip_transport_udp."
+  exit 1
+fi
+log "Modulo de transporte UDP presente: $PJSIP_UDP"
+# Asegurar que modules.conf no bloquee PJSIP/transporte UDP
+if [[ -f "${AST_ETC}/modules.conf" ]]; then
+  sed -i 's/^noload\s*=\s*res_pjsip_transport_udp\.so.*/load => res_pjsip_transport_udp.so/gI' "${AST_ETC}/modules.conf" 2>/dev/null || true
+fi
+
 AST_USER="asterisk"
 mkdir -p /var/lib/asterisk/agi-bin /var/lib/asterisk/sounds
 chown -R "${AST_USER}:${AST_USER}" /var/lib/asterisk/agi-bin 2>/dev/null || true
