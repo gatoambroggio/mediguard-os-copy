@@ -25,6 +25,7 @@ const PINOUT = [
 ];
 
 const RAW_MMDVM = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/instalador_mmdvm.sh";
+const RAW_MMDVM_RPI = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/instalador_rpi_mmdvm.sh";
 
 const INSTALL_CMDS = [
   ["1", "Instalar todo (ZetronPOC + MMDVMHost + puente)", `curl -fsSL ${RAW_MMDVM} | sudo bash`],
@@ -121,9 +122,10 @@ export default function Mmdvm() {
           transition={{ duration: 0.55, delay: 0.12 }}
           className="mt-5 text-slate-600 text-base sm:text-lg max-w-xl mx-auto leading-relaxed"
         >
-          Conectas el modulo MMDVM a la PC con Ubuntu Server por un adaptador USB-TTL, compilas
-          MMDVMHost y el sistema genera la FSK de POCSAG con desviacion y timing exactos.
-          Reemplaza el audio por .wav que no funciona para paginacion.
+          Conectas el modulo MMDVM a la PC con Ubuntu Server por un adaptador USB-TTL (o al
+          GPIO de la Raspberry Pi), compilas MMDVMHost y el sistema genera la FSK de POCSAG
+          con desviacion y timing exactos. Reemplaza el audio por .wav que no funciona para
+          paginacion.
         </motion.p>
       </section>
 
@@ -225,13 +227,16 @@ export default function Mmdvm() {
         >
           <div className="flex items-center gap-2 mb-4">
             <Terminal className="w-5 h-5 text-emerald-400" />
-            <h2 className="font-display font-bold text-slate-900">Instalacion en Ubuntu Server</h2>
+            <h2 className="font-display font-bold text-slate-900">Instalacion (Ubuntu Server y Raspberry Pi)</h2>
           </div>
           <p className="text-xs text-slate-500 mb-3 leading-relaxed">
             Una sola linea instala el sistema completo (ZetronPOC + Asterisk + MMDVMHost + puente), compila el
             modem, genera el <code className="font-mono text-indigo-600">MMDVM.ini</code> y deja el servicio
             <code className="font-mono text-indigo-600"> mmdvmhost</code> corriendo. Despues conectas el modulo y probas.
           </p>
+          <div className="text-[11px] font-semibold text-slate-500 mb-1.5 flex items-center gap-1.5">
+            <Usb className="w-3.5 h-3.5 text-sky-600" /> Ubuntu Server / PC (USB-TTL)
+          </div>
           <div className="rounded-2xl bg-gradient-to-r from-sky-500/10 to-emerald-500/10 border border-emerald-500/30 px-4 py-3 mb-3 flex items-center gap-3">
             <Zap className="w-4 h-4 text-amber-500 shrink-0" />
             <button
@@ -241,6 +246,19 @@ export default function Mmdvm() {
               {`curl -fsSL ${RAW_MMDVM} | sudo bash`}
             </button>
             {copied === "mmdvm-oneliner" ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <Copy className="w-4 h-4 text-slate-400 shrink-0" />}
+          </div>
+          <div className="text-[11px] font-semibold text-slate-500 mb-1.5 flex items-center gap-1.5">
+            <CircuitBoard className="w-3.5 h-3.5 text-indigo-600" /> Raspberry Pi (UART GPIO)
+          </div>
+          <div className="rounded-2xl bg-gradient-to-r from-indigo-500/10 to-fuchsia-500/10 border border-indigo-500/30 px-4 py-3 mb-3 flex items-center gap-3">
+            <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+            <button
+              onClick={() => copiar(`curl -fsSL ${RAW_MMDVM_RPI} | sudo bash`, "mmdvm-rpi")}
+              className="flex-1 text-left font-mono text-xs text-indigo-700 break-all"
+            >
+              {`curl -fsSL ${RAW_MMDVM_RPI} | sudo bash`}
+            </button>
+            {copied === "mmdvm-rpi" ? <Check className="w-4 h-4 text-indigo-500 shrink-0" /> : <Copy className="w-4 h-4 text-slate-400 shrink-0" />}
           </div>
           <div className="space-y-2.5">
             {INSTALL_CMDS.map((c) => (
