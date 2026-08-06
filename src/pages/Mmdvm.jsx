@@ -24,13 +24,15 @@ const PINOUT = [
   ["RX (Pi GPIO15)", "TX del adaptador USB-TTL", "verde"],
 ];
 
+const RAW_MMDVM = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/instalador_mmdvm.sh";
+
 const INSTALL_CMDS = [
-  ["1", "Dependencias de compilacion", "sudo apt-get update && sudo apt-get install -y git build-essential libudev-dev"],
-  ["2", "Clonar MMDVMHost (G4KLX)", "git clone https://github.com/g4klx/MMDVMHost.git /opt/MMDVMHost"],
-  ["3", "Compilar MMDVMHost", "cd /opt/MMDVMHost && make -j$(nproc)"],
-  ["4", "Dar permisos al puerto serie", "sudo usermod -aG dialout $USER && sudo chmod 666 /dev/ttyUSB0"],
-  ["5", "Crear config (pegar MMDVM.ini)", "sudo nano /opt/MMDVMHost/MMDVM.ini"],
-  ["6", "Probar conexion con el modulo", "cd /opt/MMDVMHost && ./MMDVMHost MMDVM.ini"],
+  ["1", "Instalar todo (ZetronPOC + MMDVMHost + puente)", `curl -fsSL ${RAW_MMDVM} | sudo bash`],
+  ["2", "Conectar el modulo MMDVM por USB-TTL", "# /dev/ttyUSB0  (CP2102 / FTDI / CH340)"],
+  ["3", "Arrancar MMDVMHost si no autoinicio", "sudo systemctl start mmdvmhost"],
+  ["4", "Probar POCSAG local (sin DAPNET, sin .wav)", `/opt/pocsag-server/scripts/tx_mmdvm.sh 1234567 "PRUEBA HOSPITAL" 1200`],
+  ["5", "Ver logs del modem en vivo", "sudo journalctl -u mmdvmhost -f"],
+  ["6", "Editar config (frecuencia/puerto/nivel)", `sudo nano /opt/pocsag-server/mmdvm/MMDVM.ini && sudo systemctl restart mmdvmhost`],
 ];
 
 const fade = {
@@ -224,6 +226,21 @@ export default function Mmdvm() {
           <div className="flex items-center gap-2 mb-4">
             <Terminal className="w-5 h-5 text-emerald-400" />
             <h2 className="font-display font-bold text-slate-900">Instalacion en Ubuntu Server</h2>
+          </div>
+          <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+            Una sola linea instala el sistema completo (ZetronPOC + Asterisk + MMDVMHost + puente), compila el
+            modem, genera el <code className="font-mono text-indigo-600">MMDVM.ini</code> y deja el servicio
+            <code className="font-mono text-indigo-600"> mmdvmhost</code> corriendo. Despues conectas el modulo y probas.
+          </p>
+          <div className="rounded-2xl bg-gradient-to-r from-sky-500/10 to-emerald-500/10 border border-emerald-500/30 px-4 py-3 mb-3 flex items-center gap-3">
+            <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+            <button
+              onClick={() => copiar(`curl -fsSL ${RAW_MMDVM} | sudo bash`, "mmdvm-oneliner")}
+              className="flex-1 text-left font-mono text-xs text-emerald-700 break-all"
+            >
+              {`curl -fsSL ${RAW_MMDVM} | sudo bash`}
+            </button>
+            {copied === "mmdvm-oneliner" ? <Check className="w-4 h-4 text-emerald-500 shrink-0" /> : <Copy className="w-4 h-4 text-slate-400 shrink-0" />}
           </div>
           <div className="space-y-2.5">
             {INSTALL_CMDS.map((c) => (
