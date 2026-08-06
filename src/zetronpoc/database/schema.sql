@@ -1,4 +1,4 @@
--- schema.sql - ZetronPOC v2.0 (Zetron 640 / DaptX-Xtra)
+-- schema.sql - ZetronPOC v2.0 (MMDVM serial)
 -- SQLite schema. Config es clave/valor para maxima flexibilidad.
 
 CREATE TABLE IF NOT EXISTS config (
@@ -52,7 +52,8 @@ CREATE TABLE IF NOT EXISTS bitacora (
   mensaje       TEXT,
   baudios       INTEGER,
   estado        TEXT,
-  observaciones TEXT
+  observaciones TEXT,
+  cola_id       INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS cola_envios (
@@ -105,4 +106,5 @@ CREATE TABLE IF NOT EXISTS auditoria (
 );
 
 CREATE INDEX IF NOT EXISTS idx_bitacora_fecha ON bitacora(fecha_hora);
+CREATE INDEX IF NOT EXISTS idx_bitacora_cola ON bitacora(cola_id);
 CREATE INDEX IF NOT EXISTS idx_cola_estado ON cola_envios(estado);

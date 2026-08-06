@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 db_manager.py - ZetronPOC v2.0 - Gestor de base de datos y configuracion.
-Toda la configuracion (PBX, encoder Zetron 640, transmisor DaptX-Xtra, IVR,
-GPIO, SMTP, tema) vive en la tabla config (clave/valor).
-generar_pjsip_conf() produce un pjsip.conf SELF-CONTAINED (sin includes).
+Toda la configuracion (PBX, modulo MMDVM, IVR, GPIO, SMTP, tema) vive en la
+tabla config (clave/valor). generar_pjsip_conf() produce un pjsip.conf
+SELF-CONTAINED (sin includes). generar_mmdvm_ini() produce el MMDVM.ini.
 """
 import sqlite3, os, secrets, time, datetime, subprocess, sys
 from contextlib import contextmanager
@@ -250,6 +250,75 @@ def generar_pjsip_conf(db_path=DEFAULT_DB):
     except PermissionError:
         return False, "Sin permisos para escribir pjsip_zetronpoc.conf"
 
+# ===================== MMDVM =====================
+MMDVM_INI = os.path.join(os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc"), "mmdvm", "MMDVM.ini")
+
+def generar_mmdvm_ini(db_path=DEFAULT_DB):
+    cfg = all_config(db_path)
+    def g(k, d=""):
+        return (cfg.get(k) or d).strip()
+    callsign = g("mmdvm_callsign", "LU1ABC")
+    port = g("mmdvm_serial_port", "/dev/ttyUSB0")
+    baud = g("mmdvm_baud", "115200")
+    freq = g("mmdvm_frequency", "433.800")
+    pocsag_baud = g("mmdvm_pocsag_baud", "1200")
+    duplex = g("mmdvm_duplex", "0")
+    tx_invert = g("mmdvm_tx_invert", "1")
+    tx_level = g("mmdvm_tx_level", "50")
+    tx_offset = g("mmdvm_tx_offset", "0")
+    ptt_delay = g("mmdvm_ptt_delay", "100")
+    display = g("mmdvm_display", "None")
+    enable_pocsag = "1" if g("mmdvm_enable_pocsag", "1") == "1" else "0"
+    dapnet_enable = "1" if g("mmdvm_dapnet_enable", "0") == "1" else "0"
+    dapnet_address = g("mmdvm_dapnet_address", "")
+    dapnet_passcode = g("mmdvm_dapnet_passcode", "")
+    ini = (
+        "# MMDVM.ini - generado por ZetronPOC / MediGuard OS\n"
+        "# Modulo MMDVM por puerto serie (sin .wav)\n\n"
+        "[General]\n"
+        "Callsign=%s\n"
+        "Id=%s000\n"
+        "Timeout=180\n"
+        "Duplex=%s\n"
+        "RFModeHang=10\n"
+        "DMR=0\nDSTAR=0\nYSF=0\nP25=0\nNXDN=0\n"
+        "POCSAG=%s\n"
+        "Display=%s\n\n"
+        "[Modem]\n"
+        "Port=%s\n"
+        "BaudeRate=%s\n"
+        "TXInvert=%s\n"
+        "RXInvert=0\n"
+        "PTTInvert=0\n"
+        "TXDelay=%s\n"
+        "RXLevel=50\n"
+        "POCSAGTXLevel=%s\n"
+        "TXOffset=%s\n"
+        "RXOffset=%s\n"
+        "RSSIMapping=0:0,100:100\n"
+        "UseCOSAsLockout=0\n\n"
+        "[POCSAG]\n"
+        "Enable=%s\n"
+        "Callsign=%s\n\n"
+        "[DAPNET]\n"
+        "Enable=%s\n"
+        "Address=%s\n"
+        "Passcode=%s\n\n"
+        "[Info]\nEnabled=0\n\n"
+        "[Log]\nDisplayLevel=1\nFileLevel=1\nFilePath=/var/log/mmdvm\nFileRoot=MMDVM\n"
+    ) % (callsign, callsign.replace(" ", ""), duplex, enable_pocsag, display,
+         port, baud, tx_invert, ptt_delay, tx_level, tx_offset, tx_offset,
+         enable_pocsag, callsign, dapnet_enable, dapnet_address, dapnet_passcode)
+    try:
+        os.makedirs(os.path.dirname(MMDVM_INI), exist_ok=True)
+        with open(MMDVM_INI, "w") as f:
+            f.write(ini)
+        return True, "MMDVM.ini generado en %s (frec=%s MHz, baud=%s, puerto=%s)" % (MMDVM_INI, freq, pocsag_baud, port)
+    except PermissionError:
+        return False, "sin permisos para escribir %s (ejecute el servicio como root)" % MMDVM_INI
+    except Exception as e:
+        return False, str(e)
+
 # ===================== DESTINO / ENVIO =====================
 def resolver_destino(codigo, db_path=DEFAULT_DB):
     with get_conn(db_path) as conn:
@@ -263,13 +332,34 @@ def resolver_destino(codigo, db_path=DEFAULT_DB):
             return (caps, grow["baudios"], "grupo")
         return None
 
-def registrar_bitacora(interno, codigo, cap_code, mensaje, baudios, estado, obs="", db_path=DEFAULT_DB):
+def registrar_bitacora(interno, codigo, cap_code, mensaje, baudios, estado, obs="", cola_id=None, db_path=DEFAULT_DB):
     with get_conn(db_path) as conn:
         conn.execute(
-            "INSERT INTO bitacora (fecha_hora,interno_origen,codigo,cap_code,mensaje,baudios,estado,observaciones) "
-            "VALUES (?,?,?,?,?,?,?,?)",
+            "INSERT INTO bitacora (fecha_hora,interno_origen,codigo,cap_code,mensaje,baudios,estado,observaciones,cola_id) "
+            "VALUES (?,?,?,?,?,?,?,?,?)",
             (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), interno, codigo, cap_code, mensaje,
-             baudios, estado, obs))
+             baudios, estado, obs, cola_id))
+
+def registrar_envio_encolado(qid, codigo, caps, mensaje, baudios, origen, db_path=DEFAULT_DB):
+    """Registra en bitacora (estado='encolado') al encolar, para que el
+    mensaje figure en el historial aun si el worker tarda o no esta corriendo."""
+    cap_list = [c.strip() for c in str(caps or "").split(",") if c.strip()] or [""]
+    ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with get_conn(db_path) as conn:
+        for cap in cap_list:
+            conn.execute(
+                "INSERT INTO bitacora (fecha_hora,interno_origen,codigo,cap_code,mensaje,baudios,estado,observaciones,cola_id) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (ts, origen, codigo, cap, mensaje, baudios, "encolado", "", qid))
+
+def actualizar_bitacora_envio(qid, cap, estado, obs="", db_path=DEFAULT_DB):
+    with get_conn(db_path) as conn:
+        conn.execute("UPDATE bitacora SET estado=?, observaciones=? WHERE cola_id=? AND cap_code=?",
+                     (estado, obs, qid, cap))
+
+def marcar_bitacora_error(qid, obs, db_path=DEFAULT_DB):
+    with get_conn(db_path) as conn:
+        conn.execute("UPDATE bitacora SET estado='error', observaciones=? WHERE cola_id=?", (obs, qid))
 
 # ===================== COLA =====================
 def encolar_mensaje(codigo, caps, mensaje, baudios, origen, db_path=DEFAULT_DB):
@@ -288,6 +378,7 @@ def enviar_mensaje(codigo, mensaje, origen="web", db_path=DEFAULT_DB):
         return {"status": "error", "detalle": "codigo inactivo o inexistente"}
     caps, baudios, tipo = dest
     qid = encolar_mensaje(codigo, caps, mensaje, baudios, origen, db_path)
+    registrar_envio_encolado(qid, codigo, caps, mensaje, baudios, origen, db_path)
     return {"status": "encolado", "detalle": "mensaje encolado (id=%d)" % qid, "id": qid}
 
 def listar_cola(estado=None, limit=200, db_path=DEFAULT_DB):
@@ -328,7 +419,7 @@ def procesar_siguiente_cola(db_path=DEFAULT_DB):
     item = dict(row)
     try:
         env = dict(os.environ, ZETRONPOC_DIR="/opt/zetronpoc", POCSAG_WORKER="1")
-        rc = subprocess.run([sys.executable, handler, item["origen"] or "cola", item["codigo"], item["mensaje"]],
+        rc = subprocess.run([sys.executable, handler, item["origen"] or "cola", item["codigo"], item["mensaje"], str(item["id"])],
                             capture_output=True, text=True, timeout=120, env=env)
         ok = rc.returncode == 0
         obs = "" if ok else (rc.stderr or rc.stdout or "fallo").strip()[:200]

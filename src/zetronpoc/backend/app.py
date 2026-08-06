@@ -141,6 +141,7 @@ class Handler(BaseHTTPRequestHandler):
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
 
         if p == "/api/config": return jok(self, db.all_config())
+        if p == "/api/mmdvm/config": return jok(self, {k: v for k, v in db.all_config().items() if k.startswith("mmdvm_")})
         if p == "/api/extensions": return jok(self, db.listar_extensiones())
         if p == "/api/extensions/status": return jok(self, ext_status())
         if p == "/api/plantillas": return jok(self, db.listar_plantillas())
@@ -182,6 +183,23 @@ class Handler(BaseHTTPRequestHandler):
             return jok(self, db.enviar_mensaje(d.get("codigo"), d.get("mensaje"), d.get("origen", "web")))
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
         d = self._json()
+        if p == "/api/mmdvm/apply":
+            for k, v in d.items():
+                if k.startswith("mmdvm_"):
+                    db.set_config(k, "" if v is None else str(v))
+            ok, msg = db.generar_mmdvm_ini()
+            if not ok:
+                return jok(self, {"ok": False, "error": "No se pudo generar MMDVM.ini: %s" % msg})
+            try:
+                r = subprocess.run(["systemctl", "restart", "mmdvmhost"], capture_output=True, text=True, timeout=20)
+            except FileNotFoundError:
+                return jok(self, {"ok": False, "error": "MMDVM.ini generado, pero systemctl no esta disponible en este host."})
+            except subprocess.TimeoutExpired:
+                return jok(self, {"ok": False, "error": "MMDVM.ini generado, pero el reinicio de mmdvmhost demoro demasiado."})
+            if r.returncode != 0:
+                svc_err = (r.stderr or r.stdout or "").strip()
+                return jok(self, {"ok": False, "error": "MMDVM.ini generado en %s, pero fallo reiniciar el servicio 'mmdvmhost': %s" % (db.MMDVM_INI, svc_err or "verifique que MMDVMHost este instalado")})
+            return jok(self, {"ok": True, "salida": "MMDVM.ini generado en %s y servicio mmdvmhost reiniciado." % db.MMDVM_INI, "ini": db.MMDVM_INI})
         if p == "/api/extensions":
             return jok(self, {"id": db.crear_extension(d)})
         if p == "/api/extensions/aplicar":

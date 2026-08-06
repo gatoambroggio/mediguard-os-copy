@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>ZETRON 640 · DAPT-X XTRA</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>ZetronPOC · MMDVM</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 :root{--bg:#05060f;--bg2:#080b1a;--panel:rgba(10,15,31,.72);--panel2:rgba(15,20,40,.85);--line:rgba(0,240,255,.18);--line2:rgba(255,0,212,.18);--txt:#d8e6ff;--mut:#5d7494;--acc:#00f0ff;--acc2:#ff00d4;--acc3:#7c5cff;--ok:#00ff9d;--err:#ff3b5c;--warn:#ffb800;--r:14px}
@@ -99,16 +99,16 @@ pre{background:rgba(4,6,13,.95);border:1px solid var(--line);border-radius:10px;
 <div class="login" id="login">
   <div class="box">
     <div class="logo">⏧</div>
-    <h1>ZETRON 640</h1><p>DAPT-X XTRA · CONTROL CORE</p>
+    <h1>ZetronPOC</h1><p>MEDIGUARD OS · PANEL</p>
     <div style="margin-bottom:.8rem"><label>Operador</label><input id="lu" autocomplete="off"></div>
     <div style="margin-bottom:1.2rem"><label>Llave de acceso</label><input id="lp" type="password" autocomplete="off"></div>
-    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="doLogin()">Ingresar al núcleo</button>
+    <button class="btn btn-pri" style="width:100%;justify-content:center" onclick="doLogin()">Ingresar</button>
     <div id="lerr" class="toast err"></div>
   </div>
 </div>
 <div class="app" id="app" style="display:none">
   <div class="side">
-    <div class="brand"><div class="logo">⏧</div><div>ZETRON 640<small>DAPT-X XTRA v2.0</small></div></div>
+    <div class="brand"><div class="logo">⏧</div><div>ZetronPOC<small>MEDIGUARD OS</small></div></div>
     <button class="burger" onclick="toggleMenu()">☰</button>
     <nav>
       <button class="nav-btn active" onclick="tab('ext',this)"><span class="ic">☎</span>Extensiones</button>
@@ -164,7 +164,7 @@ pre{background:rgba(4,6,13,.95);border:1px solid var(--line);border-radius:10px;
       <div style="margin-top:1rem"><button class="btn btn-pri" id="impbtnG" onclick="doImportGrupos()" disabled>Importar grupos</button></div>
       <div id="impG_res" class="toast"></div></div></div>
     <div class="tab" id="t-hist"><div class="card"><h2>◷ Historial</h2>
-      <div class="row" style="margin-bottom:.8rem"><div><label>Desde</label><input id="h_desde" type="date"></div><div><label>Hasta</label><input id="h_hasta" type="date"></div><div><label>Codigo</label><input id="h_codigo"></div><div><label>Interno</label><input id="h_interno"></div><div><label>Estado</label><select id="h_estado"><option value="">Todos</option><option>enviado</option><option>error</option></select></div></div>
+      <div class="row" style="margin-bottom:.8rem"><div><label>Desde</label><input id="h_desde" type="date"></div><div><label>Hasta</label><input id="h_hasta" type="date"></div><div><label>Codigo</label><input id="h_codigo"></div><div><label>Interno</label><input id="h_interno"></div><div><label>Estado</label><select id="h_estado"><option value="">Todos</option><option>encolado</option><option>enviado</option><option>error</option></select></div></div>
       <div style="display:flex;gap:.6rem;flex-wrap:wrap"><button class="btn btn-pri" onclick="loadHist(0)">Filtrar</button><button class="btn btn-ok" onclick="exportHist()">⇩ Excel</button></div>
       <div style="overflow-x:auto;margin-top:.8rem"><table><thead><tr><th>Fecha/Hora</th><th>Interno</th><th>Codigo</th><th>Cap</th><th>Mensaje</th><th>Baud</th><th>Estado</th><th>Obs</th></tr></thead><tbody id="tb_hist"></tbody></table></div>
       <div class="pager"><span id="hg_info">—</span><div><button id="hg_prev" onclick="hgGo(-1)">←</button> <button id="hg_next" onclick="hgGo(1)">→</button></div></div></div></div>
@@ -176,21 +176,18 @@ pre{background:rgba(4,6,13,.95);border:1px solid var(--line);border-radius:10px;
       <div class="row"><div><label>Modo sistema</label><input id="c_pocsag_mode" readonly style="opacity:.6"></div><div><label>Codecs</label><input id="c_codecs"></div></div>
       <div class="row"><div><label>Reintento reg (seg)</label><input id="c_retry_interval" type="number"></div><div><label>Expiracion (seg)</label><input id="c_expiration" type="number"></div></div>
 
-      <div class="sec-title">⏧ ENCODER ZETRON 640 — POCSAG</div>
-      <div class="row"><div><label>Baudios default</label><select id="c_baudios_default"><option value="512">512</option><option value="1200">1200</option><option value="2400">2400</option></select></div><div><label>Preambulo (bits)</label><input id="c_preamble_bits" type="number"></div></div>
-      <div class="row"><div><label>WarmUp 512 (ms)</label><input id="c_warmup_512_ms" type="number"></div><div><label>WarmUp 1200 (ms)</label><input id="c_warmup_1200_ms" type="number"></div><div><label>WarmUp 2400 (ms)</label><input id="c_warmup_2400_ms" type="number"></div></div>
-      <div class="row"><div><label>Desv. FSK (kHz)</label><input id="c_fsk_deviation_khz" type="number" step="0.1"></div><div><label>Desv. FSK baseband (Hz)</label><input id="c_fsk_deviation_baseband_hz" type="number"></div></div>
-      <div class="row"><div><label>Niveles FSK</label><select id="c_fsk_levels"><option value="2">2 (POCSAG)</option><option value="4">4</option></select></div><div><label>Modo funcion</label><select id="c_function_mode"><option value="alphanumeric">Alfanumerico</option><option value="numeric">Numerico</option><option value="tone">Tono</option></select></div></div>
-      <div class="row"><div><label>Sample rate WAV</label><select id="c_sample_rate"><option value="8000">8000</option><option value="22050">22050</option><option value="44100">44100</option></select></div><div><label>Ganancia audio (%)</label><input id="c_audio_gain" type="number" min="0" max="100"></div></div>
-      <div class="row"><div><label>Gaussian BT (0=off)</label><input id="c_gaussian_bt" type="number" step="0.1" min="0" max="1"></div><div><label>Invertir audio</label><select id="c_invert_audio"><option value="0">No</option><option value="1">Si</option></select></div></div>
-
-      <div class="sec-title">📡 TRANSMISOR DAPT-X XTRA</div>
-      <div class="row"><div><label>TX habilitado</label><select id="c_tx_enable"><option value="1">Si</option><option value="0">No</option></select></div><div><label>Frecuencia TX (MHz)</label><input id="c_tx_frequency"></div></div>
-      <div class="row"><div><label>Potencia (W)</label><input id="c_tx_power" type="number" step="0.1"></div><div><label>Espacio canal (kHz)</label><select id="c_channel_spacing"><option value="12.5">12.5</option><option value="20">20</option><option value="25">25</option></select></div></div>
-      <div class="row"><div><label>Modulacion</label><select id="c_modulation_type"><option value="NFM">NFM</option><option value="FM">FM</option><option value="AM">AM</option></select></div><div><label>Desv. TX (kHz)</label><input id="c_tx_deviation_khz" type="number" step="0.1"></div></div>
-      <div class="row"><div><label>Ganancia entrada (%)</label><input id="c_audio_input_gain" type="number"></div><div><label>Nivel squelch</label><input id="c_squelch_level" type="number"></div></div>
-      <div class="row"><div><label>Preemphasis</label><select id="c_preemphasis"><option value="1">Si</option><option value="0">No</option></select></div><div><label>Impedancia antena</label><input id="c_antenna_impedance"></div></div>
-      <div class="row"><div><label>Filtro paso alto (Hz)</label><input id="c_high_pass_filter_hz" type="number"></div><div><label>Filtro paso bajo (Hz)</label><input id="c_low_pass_filter_hz" type="number"></div></div>
+      <div class="sec-title">📡 MODULO MMDVM (POCSAG serial)</div>
+      <div class="hint">Parametros del modulo MMDVM conectado por USB-TTL (o UART en Raspberry). Pulsa <b>Aplicar a la placa MMDVM</b> para generar el <b>MMDVM.ini</b> y reiniciar el servicio <b>mmdvmhost</b>.</div>
+      <div class="row"><div><label>Callsign</label><input id="c_mmdvm_callsign"></div><div><label>Puerto serie</label><input id="c_mmdvm_serial_port"></div></div>
+      <div class="row"><div><label>Baudios serie</label><input id="c_mmdvm_baud" type="number"></div><div><label>Frecuencia (MHz)</label><input id="c_mmdvm_frequency"></div></div>
+      <div class="row"><div><label>POCSAG baudios</label><select id="c_mmdvm_pocsag_baud"><option value="512">512</option><option value="1200">1200</option><option value="2400">2400</option></select></div><div><label>Modo</label><select id="c_mmdvm_duplex"><option value="0">Simplex</option><option value="1">Duplex</option></select></div></div>
+      <div class="row"><div><label>TX Invert</label><select id="c_mmdvm_tx_invert"><option value="1">Si</option><option value="0">No</option></select></div><div><label>Nivel TX (0-100)</label><input id="c_mmdvm_tx_level" type="number" min="0" max="100"></div></div>
+      <div class="row"><div><label>TX Offset (Hz)</label><input id="c_mmdvm_tx_offset" type="number"></div><div><label>TX Delay (ms)</label><input id="c_mmdvm_ptt_delay" type="number"></div></div>
+      <div class="row"><div><label>Display</label><select id="c_mmdvm_display"><option value="None">Sin display</option><option value="OLED">OLED SSD1306</option><option value="Nextion">Nextion</option></select></div><div><label>Puerto RemoteCommand</label><input id="c_mmdvm_remote_port" type="number"></div></div>
+      <div class="row"><div><label>POCSAG habilitado</label><select id="c_mmdvm_enable_pocsag"><option value="1">Si</option><option value="0">No</option></select></div><div><label>DAPNET</label><select id="c_mmdvm_dapnet_enable"><option value="0">No</option><option value="1">Si</option></select></div></div>
+      <div class="row"><div><label>DAPNET Address (IP)</label><input id="c_mmdvm_dapnet_address"></div><div><label>DAPNET Passcode</label><input id="c_mmdvm_dapnet_passcode"></div></div>
+      <button class="btn btn-pri" style="margin-top:1rem" onclick="applyMmdvm()">📡 Aplicar a la placa MMDVM</button>
+      <div id="mmdvm_res" class="toast"></div>
 
       <div class="sec-title">⚙ IVR / GPIO / Admin</div>
       <div class="row"><div><label>Timeout mensaje (seg)</label><input id="c_mensaje_timeout" type="number"></div><div><label>PTT pre-activo (seg)</label><input id="c_ptt_preactivo" type="number" step="0.1"></div><div><label>Timeout digitos</label><input id="c_digit_timeout" type="number"></div><div><label>Timeout respuesta</label><input id="c_response_timeout" type="number"></div></div>
@@ -294,7 +291,7 @@ pre{background:rgba(4,6,13,.95);border:1px solid var(--line);border-radius:10px;
 let TOKEN=localStorage.getItem('zetron_tok')||'';
 let editP=null,editG=null,editX=null,editPL=null,editPR=null; const HPG=50; let hoff=0,htot=0;
 let extTimer=null,histTimer=null,colaTimer=null; let curLogType='api';
-const CFG_KEYS=['admin_user','admin_pass','mensaje_timeout','ptt_preactivo','digit_timeout','response_timeout','test_mode','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','smtp_secure','backup_email','hospital_pbx_ip','hospital_pbx_port','pocsag_mode','transport_bind','transport_protocol','codecs','retry_interval','expiration','baudios_default','warmup_512_ms','warmup_1200_ms','warmup_2400_ms','preamble_bits','fsk_deviation_khz','fsk_deviation_baseband_hz','fsk_levels','function_mode','sample_rate','audio_gain','invert_audio','gaussian_bt','tx_enable','tx_frequency','tx_power','channel_spacing','modulation_type','tx_deviation_khz','audio_input_gain','squelch_level','preemphasis','high_pass_filter_hz','low_pass_filter_hz','antenna_impedance','gpio_chip','gpio_pin'];
+const CFG_KEYS=['admin_user','admin_pass','mensaje_timeout','ptt_preactivo','digit_timeout','response_timeout','test_mode','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','smtp_secure','backup_email','hospital_pbx_ip','hospital_pbx_port','pocsag_mode','transport_bind','transport_protocol','codecs','retry_interval','expiration','mmdvm_callsign','mmdvm_serial_port','mmdvm_baud','mmdvm_frequency','mmdvm_duplex','mmdvm_pocsag_baud','mmdvm_tx_invert','mmdvm_tx_level','mmdvm_tx_offset','mmdvm_ptt_delay','mmdvm_display','mmdvm_remote_port','mmdvm_enable_pocsag','mmdvm_dapnet_enable','mmdvm_dapnet_address','mmdvm_dapnet_passcode','gpio_chip','gpio_pin'];
 
 function api(m,u,b,raw){const o={method:m,headers:{'Authorization':'Bearer '+TOKEN}};if(b!==undefined){if(raw){o.body=b;}else{o.headers['Content-Type']='application/json';o.body=JSON.stringify(b);}}return fetch(u,o).then(async r=>{if(r.status===401){logout(true);throw new Error('no autorizado');}const txt=await r.text();try{return JSON.parse(txt);}catch(e){return txt;}});}
 function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',hist:'Historial',cfg:'Parametros',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria'};document.getElementById('tit').textContent=t[id]||'';
@@ -354,7 +351,7 @@ async function aplicarExt(){const r=await api('POST','/api/extensions/aplicar');
 
 // Historial
 function hQuery(){const p=new URLSearchParams();p.set('limit',HPG);p.set('offset',hoff);const map=[['h_desde','fecha_desde'],['h_hasta','fecha_hasta'],['h_codigo','codigo'],['h_interno','interno'],['h_estado','estado']];map.forEach(([k,col])=>{const v=document.getElementById(k).value;if(!v)return;if(col==='fecha_hasta')p.set(col,v+'T23:59:59');else p.set(col,v);});return p;}
-const badge=e=>`<span class="badge ${e==='enviado'?'ok':'err'}">${e||'-'}</span>`;
+const badge=e=>`<span class="badge ${e==='enviado'?'ok':e==='encolado'?'mut':'err'}">${e||'-'}</span>`;
 async function loadHist(off){hoff=off||0;try{const r=await fetch('/api/historial?'+hQuery()).then(r=>r.json());htot=r.total||0;const rows=r.rows||[];document.getElementById('tb_hist').innerHTML=rows.length?rows.map(x=>`<tr><td class="mono">${x.fecha_hora}</td><td>${x.interno_origen||''}</td><td>${x.codigo}</td><td class="mono">${x.cap_code||''}</td><td>${x.mensaje||''}</td><td>${x.baudios||''}</td><td>${badge(x.estado)}</td><td>${x.observaciones||''}</td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:1rem">Sin registros</td></tr>';document.getElementById('hg_info').textContent=`${rows.length?hoff+1:0}-${hoff+rows.length} de ${htot}`;document.getElementById('hg_prev').disabled=hoff<=0;document.getElementById('hg_next').disabled=hoff+HPG>=htot;}catch(e){}}
 function hgGo(d){loadHist(Math.max(0,hoff+d*HPG));}
 function exportHist(){const p=new URLSearchParams();['h_desde','h_hasta','h_codigo','h_interno','h_estado'].forEach(k=>{const v=document.getElementById(k).value;if(v){if(k==='h_hasta')p.set('fecha_hasta',v+'T23:59:59');else if(k==='h_desde')p.set('fecha_desde',v);else p.set(k.replace('h_',''),v);}});window.open('/api/historial/export?'+p,'_blank');}
@@ -362,6 +359,7 @@ function exportHist(){const p=new URLSearchParams();['h_desde','h_hasta','h_codi
 // Config
 async function loadConfig(){const c=await api('GET','/api/config');CFG_KEYS.forEach(k=>{const el=document.getElementById('c_'+k);if(el&&c[k]!=null)el.value=c[k];});}
 async function saveConfig(){const d={};CFG_KEYS.forEach(k=>{const el=document.getElementById('c_'+k);if(el)d[k]=el.value;});await api('PUT','/api/config',d);const t=document.getElementById('cfg_res');t.className='toast show ok';t.textContent='Guardado. Pulsa Aplicar a Asterisk en Extensiones.';setTimeout(()=>t.className='toast',4000);}
+async function applyMmdvm(){const d={};CFG_KEYS.filter(k=>k.startsWith('mmdvm_')).forEach(k=>{const el=document.getElementById('c_'+k);if(el)d[k]=el.value;});const t=document.getElementById('mmdvm_res');t.className='toast show ok';t.textContent='Aplicando a la placa MMDVM...';const r=await api('POST','/api/mmdvm/apply',d);if(r.ok){t.className='toast show ok';t.textContent='OK: '+(r.salida||'');}else{t.className='toast show err';t.textContent='Error: '+(r.error||'fallo');}}
 async function smtpTest(){const email=prompt('Email destino:',document.getElementById('c_backup_email').value);if(!email)return;const r=await api('POST','/api/smtp/test',{email});const t=document.getElementById('cfg_res');t.className='toast show '+(r.ok?'ok':'err');t.textContent=r.ok?'Enviado a '+email:'Error: '+(r.error||'');setTimeout(()=>t.className='toast',4000);}
 
 // Cola

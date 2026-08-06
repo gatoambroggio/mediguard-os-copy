@@ -8,7 +8,8 @@ import sys, os, subprocess, datetime, time
 APP_DIR = os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc")
 sys.path.insert(0, APP_DIR)
 sys.path.insert(0, os.path.join(APP_DIR, "database"))
-from db_manager import resolver_destino, registrar_bitacora, encolar_mensaje, get_config
+from db_manager import (resolver_destino, registrar_bitacora, encolar_mensaje, get_config,
+                        actualizar_bitacora_envio, marcar_bitacora_error)
 
 ENCODER = os.path.join(APP_DIR, "encoder/pocsag_gen.py")
 PTT_ON = os.path.join(APP_DIR, "scripts/ptt_on.sh")
@@ -36,6 +37,11 @@ def main():
     interno = sys.argv[1] if len(sys.argv) > 1 else ""
     codigo = sys.argv[2] if len(sys.argv) > 2 else ""
     mensaje = sys.argv[3] if len(sys.argv) > 3 else ""
+    qid_raw = sys.argv[4] if len(sys.argv) > 4 else ""
+    try:
+        qid = int(qid_raw) if qid_raw else None
+    except ValueError:
+        qid = None
     worker = os.environ.get("POCSAG_WORKER") == "1"
     if not codigo or not mensaje:
         log("Falta codigo o mensaje (worker=%s)" % worker)
@@ -43,7 +49,10 @@ def main():
         set_result(False); return
     dest = resolver_destino(codigo)
     if not dest:
-        registrar_bitacora(interno, codigo, "", mensaje, 1200, "error", "codigo inexistente")
+        if worker and qid:
+            marcar_bitacora_error(qid, "codigo inexistente")
+        else:
+            registrar_bitacora(interno, codigo, "", mensaje, 1200, "error", "codigo inexistente")
         log("Codigo no encontrado: %s" % codigo)
         if worker: sys.exit(1)
         set_result(False); return
@@ -63,7 +72,10 @@ def main():
     os.makedirs(AUDIO_DIR, exist_ok=True)
     if test_mode:
         for cap in cap_list:
-            registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", "modo test")
+            if qid:
+                actualizar_bitacora_envio(qid, cap, "enviado", "modo test")
+            else:
+                registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", "modo test")
         log("Envio OK (TEST) codigo=%s caps=%s msg=%s" % (codigo, caps, mensaje))
         return
     wavs = []
@@ -73,7 +85,10 @@ def main():
                             capture_output=True, text=True, timeout=60)
         if rc.returncode != 0 or not os.path.exists(wav):
             log("Encoder fallo para %s: %s" % (cap, (rc.stderr or rc.stdout or "")[:120]))
-            registrar_bitacora(interno, codigo, cap, mensaje, baudios, "error", "encoder")
+            if qid:
+                actualizar_bitacora_envio(qid, cap, "error", "encoder")
+            else:
+                registrar_bitacora(interno, codigo, cap, mensaje, baudios, "error", "encoder")
             fail()
         wavs.append(wav)
     obs = []
@@ -89,7 +104,10 @@ def main():
         obs.append("excepcion: %s" % str(e)[:80])
     obs_txt = "; ".join(obs)
     for cap in cap_list:
-        registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", obs_txt)
+        if qid:
+            actualizar_bitacora_envio(qid, cap, "enviado", obs_txt)
+        else:
+            registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", obs_txt)
     log("Envio OK codigo=%s caps=%s msg=%s obs=%s" % (codigo, caps, mensaje, obs_txt or "ok"))
 
 if __name__ == "__main__":
