@@ -465,15 +465,24 @@ def historial(filtros, limit=50, offset=0, db_path=DEFAULT_DB):
 def login_validar(user, passw, db_path=DEFAULT_DB):
     au = get_config("admin_user", "admin"); ap = get_config("admin_pass", "admin123")
     if user == au and passw == ap:
-        tok = secrets.token_hex(16); _TOKENS[tok] = time.time() + 86400; return tok
+        tok = secrets.token_hex(16); _TOKENS[tok] = {"user": user, "exp": time.time() + 86400}
+        return tok
     return None
 
 def verificar_token(tok):
-    exp = _TOKENS.get(tok)
-    if not exp: return False
-    if time.time() > exp:
+    v = _TOKENS.get(tok)
+    if not v: return False
+    if time.time() > v["exp"]:
         _TOKENS.pop(tok, None); return False
     return True
+
+def token_user(tok, default="sistema"):
+    """Devuelve el nombre del operador asociado al token (para auditoria)."""
+    v = _TOKENS.get(tok)
+    if not v: return default
+    if time.time() > v["exp"]:
+        _TOKENS.pop(tok, None); return default
+    return v.get("user") or default
 
 def cerrar_sesion(tok):
     _TOKENS.pop(tok, None)
