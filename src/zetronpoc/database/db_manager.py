@@ -463,7 +463,18 @@ def historial(filtros, limit=50, offset=0, db_path=DEFAULT_DB):
 
 # ===================== AUTH =====================
 def login_validar(user, passw, db_path=DEFAULT_DB):
-    au = get_config("admin_user", "admin"); ap = get_config("admin_pass", "admin123")
+    """Autentica al operador. Auto-repara la BD si falta la tabla config y
+    nunca lanza: si la BD es inaccesible, usa admin/admin123 para que el panel
+    nunca quede bloqueado por un problema de base de datos."""
+    try:
+        with get_conn(db_path) as conn:
+            conn.execute("CREATE TABLE IF NOT EXISTS config (clave TEXT PRIMARY KEY, valor TEXT)")
+            conn.execute("INSERT OR IGNORE INTO config (clave,valor) VALUES ('admin_user','admin')")
+            conn.execute("INSERT OR IGNORE INTO config (clave,valor) VALUES ('admin_pass','admin123')")
+        au = get_config("admin_user", "admin", db_path)
+        ap = get_config("admin_pass", "admin123", db_path)
+    except Exception:
+        au, ap = "admin", "admin123"
     if user == au and passw == ap:
         tok = secrets.token_hex(16); _TOKENS[tok] = {"user": user, "exp": time.time() + 86400}
         return tok

@@ -222,7 +222,7 @@ class Handler(BaseHTTPRequestHandler):
                 tok = db.login_validar(user, d.get("pass", ""))
             except Exception as e:
                 evlog(self, "error", "api", "login_validar fallo: %s" % str(e)[:120])
-                return jok(self, {"error": "error interno del servidor (db)"}, 500)
+                return jok(self, {"error": "base de datos no disponible"}, 401)
             ok = bool(tok)
             try:
                 db.registrar_auditoria(user or "?", "login", "auth", "", "ok" if ok else "credenciales invalidas", _ip(self))
