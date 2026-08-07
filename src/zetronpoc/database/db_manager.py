@@ -300,6 +300,9 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
         "[POCSAG]\n"
         "Enable=%s\n"
         "Callsign=%s\n\n"
+        "[RemoteControl]\n"
+        "Enable=1\n"
+        "Port=%s\n\n"
         "[DAPNET]\n"
         "Enable=%s\n"
         "Address=%s\n"
@@ -308,7 +311,8 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
         "[Log]\nDisplayLevel=1\nFileLevel=1\nFilePath=/var/log/mmdvm\nFileRoot=MMDVM\n"
     ) % (callsign, callsign.replace(" ", ""), duplex, enable_pocsag, display,
          port, baud, tx_invert, ptt_delay, tx_level, tx_offset, tx_offset,
-         enable_pocsag, callsign, dapnet_enable, dapnet_address, dapnet_passcode)
+         enable_pocsag, callsign, (cfg.get("mmdvm_remote_port", "7642") or "7642").strip() or "7642",
+         dapnet_enable, dapnet_address, dapnet_passcode)
     try:
         os.makedirs(os.path.dirname(MMDVM_INI), exist_ok=True)
         with open(MMDVM_INI, "w") as f:
