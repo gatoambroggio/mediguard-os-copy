@@ -22,6 +22,8 @@ import {
   FolderGit2,
 } from "lucide-react";
 import JSZip from "jszip";
+import { Link } from "react-router-dom";
+import { CircuitBoard } from "lucide-react";
 
 const REPO = "https://github.com/gatoambroggio/ubntpagingsystem.git";
 const RAW = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/src/zetronpoc/instalador.sh";
@@ -167,14 +169,22 @@ export default function Descarga() {
             <div className="text-[11px] text-slate-500 -mt-0.5">Zetron 640 / DaptX-Xtra v2.0</div>
           </div>
         </div>
-        <a
-          href={REPO}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 bg-white/70 backdrop-blur border border-slate-200 rounded-full px-4 py-2 transition"
-        >
-          <Github className="w-4 h-4" /> GitHub <ArrowUpRight className="w-3.5 h-3.5" />
-        </a>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/mmdvm"
+            className="flex items-center gap-2 text-sm font-medium text-white bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-500 rounded-full px-4 py-2 transition shadow-lg shadow-indigo-500/30"
+          >
+            <CircuitBoard className="w-4 h-4" /> MMDVM
+          </Link>
+          <a
+            href={REPO}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 bg-white/70 backdrop-blur border border-slate-200 rounded-full px-4 py-2 transition"
+          >
+            <Github className="w-4 h-4" /> GitHub <ArrowUpRight className="w-3.5 h-3.5" />
+          </a>
+        </div>
       </motion.header>
 
       {/* hero */}

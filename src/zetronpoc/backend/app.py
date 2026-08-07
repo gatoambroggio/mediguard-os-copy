@@ -169,6 +169,15 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data); return
         if p == "/api/pbx": return jok(self, pbx_run(q.get("cmd", [""])[0]))
         if p == "/api/pbx/diagnose": return jok(self, diagnose())
+        if p == "/api/mmdvm/status":
+            bin_ok = os.path.exists("/usr/local/bin/MMDVM-Host")
+            svc = "unknown"
+            try:
+                r = subprocess.run(["systemctl", "is-active", "mmdvmhost"], capture_output=True, text=True, timeout=5)
+                svc = (r.stdout or "").strip() or "unknown"
+            except Exception:
+                pass
+            return jok(self, {"installed": bin_ok, "service": svc, "binary": "/usr/local/bin/MMDVM-Host" if bin_ok else None})
         return jtext(self, "no encontrado", 404)
 
     def do_POST(self):
@@ -200,6 +209,17 @@ class Handler(BaseHTTPRequestHandler):
                 svc_err = (r.stderr or r.stdout or "").strip()
                 return jok(self, {"ok": False, "error": "MMDVM.ini generado en %s, pero fallo reiniciar el servicio 'mmdvmhost': %s" % (db.MMDVM_INI, svc_err or "verifique que MMDVMHost este instalado")})
             return jok(self, {"ok": True, "salida": "MMDVM.ini generado en %s y servicio mmdvmhost reiniciado." % db.MMDVM_INI, "ini": db.MMDVM_INI})
+        if p == "/api/mmdvm/install":
+            url = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/instalador_mmdvm.sh"
+            try:
+                r = subprocess.run(["bash", "-c", "curl -fsSL %s | bash" % url],
+                                   capture_output=True, text=True, timeout=600)
+                out = (r.stdout or "") + (r.stderr or "")
+                return jok(self, {"ok": r.returncode == 0, "salida": out[-12000:], "code": r.returncode})
+            except subprocess.TimeoutExpired:
+                return jok(self, {"ok": False, "error": "La instalacion demoro mas de 10 minutos. Revisa: journalctl -u mmdvmhost"})
+            except Exception as e:
+                return jok(self, {"ok": False, "error": str(e)})
         if p == "/api/extensions":
             return jok(self, {"id": db.crear_extension(d)})
         if p == "/api/extensions/aplicar":

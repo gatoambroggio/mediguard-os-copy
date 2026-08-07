@@ -19,7 +19,7 @@ INSERT OR IGNORE INTO config(clave,valor) VALUES('mensaje_timeout','10');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('ptt_preactivo','0.5');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('digit_timeout','5');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('response_timeout','15');
-INSERT OR IGNORE INTO config(clave,valor) VALUES('test_mode','0');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('test_mode','1');
 
 -- === ZETRON 640 - Encoder POCSAG ===
 INSERT OR IGNORE INTO config(clave,valor) VALUES('baudios_default','1200');
@@ -54,6 +54,24 @@ INSERT OR IGNORE INTO config(clave,valor) VALUES('antenna_impedance','50');
 -- === GPIO / PTT ===
 INSERT OR IGNORE INTO config(clave,valor) VALUES('gpio_chip','gpiochip0');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('gpio_pin','17');
+
+-- === MMDVM (modulo serial) ===
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_callsign','LU1ABC');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_serial_port','/dev/ttyUSB0');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_baud','115200');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_frequency','433.800');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_duplex','0');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_pocsag_baud','1200');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_tx_invert','1');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_tx_level','50');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_tx_offset','0');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_ptt_delay','100');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_display','None');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_remote_port','7675');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_enable_pocsag','1');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_dapnet_enable','0');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_dapnet_address','');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_dapnet_passcode','');
 
 -- === Admin ===
 INSERT OR IGNORE INTO config(clave,valor) VALUES('admin_user','admin');

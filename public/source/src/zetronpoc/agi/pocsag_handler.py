@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""pocsag_handler.py - AGI que genera el WAV POCSAG y lo transmite por radio.
-test_mode=1: solo genera el WAV y lo reproduce por la tarjeta local (sin PTT/GPIO)."""
-import sys, os, subprocess, datetime
+"""pocsag_handler.py - AGI POCSAG (ZetronPOC v2.0).
+Sin POCSAG_WORKER (lo llama el IVR): encola el mensaje y retorna rapido.
+Con POCSAG_WORKER=1 (lo llama el worker de cola): genera el WAV y transmite.
+test_mode=1: solo registra en bitacora como enviado (sin PTT/GPIO), igual que
+el proyecto de referencia pocsag-server-client."""
+import sys, os, subprocess, datetime, time
 APP_DIR = os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc")
 sys.path.insert(0, APP_DIR)
 sys.path.insert(0, os.path.join(APP_DIR, "database"))
-from db_manager import resolver_destino, registrar_bitacora, get_config
+from db_manager import (resolver_destino, registrar_bitacora, encolar_mensaje, get_config,
+                        actualizar_bitacora_envio, marcar_bitacora_error)
 
 ENCODER = os.path.join(APP_DIR, "encoder/pocsag_gen.py")
 PTT_ON = os.path.join(APP_DIR, "scripts/ptt_on.sh")
@@ -27,45 +31,88 @@ def set_result(ok):
 def fail():
     try: subprocess.run([PTT_OFF], capture_output=True, timeout=5)
     except Exception: pass
+    set_result(False); sys.exit(1)
 
 def main():
     interno = sys.argv[1] if len(sys.argv) > 1 else ""
     codigo = sys.argv[2] if len(sys.argv) > 2 else ""
     mensaje = sys.argv[3] if len(sys.argv) > 3 else ""
+    qid_raw = sys.argv[4] if len(sys.argv) > 4 else ""
+    try:
+        qid = int(qid_raw) if qid_raw else None
+    except ValueError:
+        qid = None
+    worker = os.environ.get("POCSAG_WORKER") == "1"
     if not codigo or not mensaje:
+        log("Falta codigo o mensaje (worker=%s)" % worker)
+        if worker: sys.exit(1)
         set_result(False); return
     dest = resolver_destino(codigo)
     if not dest:
-        registrar_bitacora(interno, codigo, "", mensaje, 1200, "error", "codigo inexistente")
+        if worker and qid:
+            marcar_bitacora_error(qid, "codigo inexistente")
+        else:
+            registrar_bitacora(interno, codigo, "", mensaje, 1200, "error", "codigo inexistente")
+        log("Codigo no encontrado: %s" % codigo)
+        if worker: sys.exit(1)
         set_result(False); return
     caps, baudios, tipo = dest
-    test_mode = get_config("test_mode", "0") == "1"
-    pre = get_config("ptt_preactivo", "0.5")
-    os.makedirs(AUDIO_DIR, exist_ok=True)
-    wav = os.path.join(AUDIO_DIR, "msg_%d_%d.wav" % (os.getpid(), int(datetime.datetime.now().timestamp())))
-    try:
-        rc = subprocess.run([sys.executable, ENCODER, caps, mensaje, str(baudios), wav],
-                            capture_output=True, text=True, timeout=60)
-        log("encoder rc=%d %s" % (rc.returncode, (rc.stderr or rc.stdout or "")[:120]))
-        if rc.returncode != 0 or not os.path.exists(wav):
-            registrar_bitacora(interno, codigo, caps, mensaje, baudios, "error", (rc.stderr or rc.stdout or "")[:200])
-            set_result(False); return
-        if not test_mode:
-            subprocess.run([PTT_ON], capture_output=True, timeout=5)
-            subprocess.run(["sleep", str(pre)], capture_output=True, timeout=5)
-        subprocess.run(["aplay", "-q", wav], capture_output=True, timeout=30)
-        if not test_mode:
-            subprocess.run([PTT_OFF], capture_output=True, timeout=5)
-        registrar_bitacora(interno, codigo, caps, mensaje, baudios, "enviado", "")
+    cap_list = [c.strip() for c in str(caps).split(",") if c.strip()]
+
+    # --- IVR: solo encolar, el worker se encarga de transmitir ---
+    if not worker:
+        qid = encolar_mensaje(codigo, caps, mensaje, baudios, interno)
         set_result(True)
+        log("Mensaje encolado (IVR) id=%s interno=%s codigo=%s msg=%s" % (qid, interno, codigo, mensaje))
+        return
+
+    # --- Worker: transmitir ---
+    test_mode = get_config("test_mode", "1") == "1"
+    pre = float(get_config("ptt_preactivo", "0.5"))
+    os.makedirs(AUDIO_DIR, exist_ok=True)
+    if test_mode:
+        for cap in cap_list:
+            if qid:
+                actualizar_bitacora_envio(qid, cap, "enviado", "modo test")
+            else:
+                registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", "modo test")
+        log("Envio OK (TEST) codigo=%s caps=%s msg=%s" % (codigo, caps, mensaje))
+        return
+    wavs = []
+    for cap in cap_list:
+        wav = os.path.join(AUDIO_DIR, "out_%s.wav" % cap)
+        rc = subprocess.run([sys.executable, ENCODER, cap, mensaje, str(baudios), wav],
+                            capture_output=True, text=True, timeout=60)
+        if rc.returncode != 0 or not os.path.exists(wav):
+            log("Encoder fallo para %s: %s" % (cap, (rc.stderr or rc.stdout or "")[:120]))
+            if qid:
+                actualizar_bitacora_envio(qid, cap, "error", "encoder")
+            else:
+                registrar_bitacora(interno, codigo, cap, mensaje, baudios, "error", "encoder")
+            fail()
+        wavs.append(wav)
+    obs = []
+    try:
+        subprocess.run([PTT_ON], capture_output=True, timeout=5)
+        time.sleep(pre)
+        for wav in wavs:
+            r = subprocess.run(["aplay", "-q", wav], capture_output=True, text=True, timeout=30)
+            if r.returncode != 0:
+                obs.append("aplay: %s" % (r.stderr or "").strip()[:80])
+        subprocess.run([PTT_OFF], capture_output=True, timeout=5)
     except Exception as e:
-        fail()
-        registrar_bitacora(interno, codigo, caps, mensaje, baudios, "error", str(e)[:200])
-        set_result(False)
-    finally:
-        try:
-            if os.path.exists(wav): os.remove(wav)
-        except Exception: pass
+        obs.append("excepcion: %s" % str(e)[:80])
+    obs_txt = "; ".join(obs)
+    for cap in cap_list:
+        if qid:
+            actualizar_bitacora_envio(qid, cap, "enviado", obs_txt)
+        else:
+            registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", obs_txt)
+    log("Envio OK codigo=%s caps=%s msg=%s obs=%s" % (codigo, caps, mensaje, obs_txt or "ok"))
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        log("Excepcion: %s" % e)
+        fail()

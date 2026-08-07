@@ -9,6 +9,7 @@ import ScrollToTop from './components/ScrollToTop';
 // Add page imports here
 import Descarga from './pages/Descarga';
 import Codigo from './pages/Codigo';
+import Mmdvm from './pages/Mmdvm';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -40,6 +41,7 @@ const AuthenticatedApp = () => {
       <Route path="/" element={<Descarga />} />
       <Route path="/descarga" element={<Descarga />} />
       <Route path="/codigo" element={<Codigo />} />
+      <Route path="/mmdvm" element={<Mmdvm />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
