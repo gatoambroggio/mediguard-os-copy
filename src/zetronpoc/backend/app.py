@@ -454,9 +454,19 @@ class Handler(BaseHTTPRequestHandler):
 class Server(ThreadingHTTPServer):
     daemon_threads = True
 
+def _auto_init_db():
+    """Garantiza que la base y sus tablas existen al arrancar. Idempotente
+    (schema.sql usa CREATE TABLE IF NOT EXISTS). Nunca bloquea el arranque."""
+    try:
+        db.init_db()
+        print("[init] Base de datos verificada/creada.", flush=True)
+    except Exception as e:
+        print("[init] WARN: no se pudo inicializar la base: %s" % e, flush=True)
+
 if __name__ == "__main__":
     try:
         os.makedirs(os.path.join(APP_DIR, "logs"), exist_ok=True)
+        _auto_init_db()
         print("ZetronPOC v2.0 API en http://%s:%d" % (HOST, PORT), flush=True)
         Server((HOST, PORT), Handler).serve_forever()
     except Exception:
