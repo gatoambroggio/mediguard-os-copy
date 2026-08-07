@@ -218,9 +218,16 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/login":
             d = self._json()
             user = d.get("user", "")
-            tok = db.login_validar(user, d.get("pass", ""))
+            try:
+                tok = db.login_validar(user, d.get("pass", ""))
+            except Exception as e:
+                evlog(self, "error", "api", "login_validar fallo: %s" % str(e)[:120])
+                return jok(self, {"error": "error interno del servidor (db)"}, 500)
             ok = bool(tok)
-            db.registrar_auditoria(user or "?", "login", "auth", "", "ok" if ok else "credenciales invalidas", _ip(self))
+            try:
+                db.registrar_auditoria(user or "?", "login", "auth", "", "ok" if ok else "credenciales invalidas", _ip(self))
+            except Exception:
+                pass
             evlog(self, "info" if ok else "warn", "api", "login user=%s %s" % (user, "ok" if ok else "fail"))
             if tok: return jok(self, {"token": tok})
             return jok(self, {"error": "credenciales invalidas"}, 401)

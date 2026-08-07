@@ -562,10 +562,20 @@ def procesar_programados(db_path=DEFAULT_DB):
 
 # ===================== AUDITORIA / STATS / LOGS =====================
 def registrar_auditoria(usuario, accion, entidad, entidad_id, detalle, ip="", db_path=DEFAULT_DB):
-    with get_conn(db_path) as conn:
-        conn.execute("INSERT INTO auditoria (fecha_hora,usuario,accion,entidad,entidad_id,detalle,ip) VALUES (?,?,?,?,?,?,?)",
-            (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), usuario or "sistema", accion, entidad,
-             str(entidad_id or ""), detalle or "", ip or ""))
+    """Auditoria en SQLite. Best-effort: crea la tabla si no existe, nunca
+    rompe la peticion que lo invoca."""
+    try:
+        with get_conn(db_path) as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS auditoria ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "fecha_hora TEXT, usuario TEXT, accion TEXT, entidad TEXT, "
+                "entidad_id TEXT, detalle TEXT, ip TEXT)")
+            conn.execute("INSERT INTO auditoria (fecha_hora,usuario,accion,entidad,entidad_id,detalle,ip) VALUES (?,?,?,?,?,?,?)",
+                (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), usuario or "sistema", accion, entidad,
+                 str(entidad_id or ""), detalle or "", ip or ""))
+    except Exception:
+        pass
 
 def listar_auditoria(limit=200, offset=0, db_path=DEFAULT_DB):
     with get_conn(db_path) as conn:
