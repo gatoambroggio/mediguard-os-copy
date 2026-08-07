@@ -86,11 +86,22 @@ INSERT OR IGNORE INTO config(clave,valor) VALUES('smtp_from','');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('smtp_secure','tls');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('backup_email','');
 
--- === Tema (futurista) ===
-INSERT OR IGNORE INTO config(clave,valor) VALUES('theme_acc','#00f0ff');
-INSERT OR IGNORE INTO config(clave,valor) VALUES('theme_acc2','#ff00d4');
-INSERT OR IGNORE INTO config(clave,valor) VALUES('theme_bg','#05060f');
-INSERT OR IGNORE INTO config(clave,valor) VALUES('theme_panel','#0a0f1f');
+-- === Front (pagina publica) ===
+INSERT OR IGNORE INTO config(clave,valor) VALUES('front_titulo','MediGuard OS');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('front_subtitulo','Despacho de mensajeria');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('front_logo','⏧');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('front_color_primario','#1d4ed8');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('front_color_acento','#0ea5e9');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('front_color_fondo','#f1f5f9');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('front_color_texto','#0f172a');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('front_seccion_enviar','1');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('front_seccion_historial','1');
+
+-- === Tema admin (claro) ===
+INSERT OR IGNORE INTO config(clave,valor) VALUES('theme_acc','#1d4ed8');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('theme_acc2','#0ea5e9');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('theme_bg','#f1f5f9');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('theme_panel','#ffffff');
 
 -- === Extensiones 2000-2010 ===
 INSERT OR IGNORE INTO extensiones(numero,password,contexto,descripcion,activo) VALUES('2000','CAMBIAR_2000','from-hospital','Interno hospitalario 2000',1);

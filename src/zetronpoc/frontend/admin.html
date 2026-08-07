@@ -2,17 +2,13 @@
 <html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>ZetronPOC · MMDVM</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-:root{--bg:#05060f;--bg2:#080b1a;--panel:rgba(10,15,31,.72);--panel2:rgba(15,20,40,.85);--line:rgba(0,240,255,.18);--line2:rgba(255,0,212,.18);--txt:#d8e6ff;--mut:#5d7494;--acc:#00f0ff;--acc2:#ff00d4;--acc3:#7c5cff;--ok:#00ff9d;--err:#ff3b5c;--warn:#ffb800;--r:14px}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+:root{--bg:#f1f5f9;--bg2:#e2e8f0;--panel:#ffffff;--panel2:#f8fafc;--line:#e2e8f0;--line2:#cbd5e1;--txt:#0f172a;--mut:#64748b;--acc:#1d4ed8;--acc2:#0ea5e9;--acc3:#6366f1;--ok:#16a34a;--err:#dc2626;--warn:#d97706;--r:12px}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{font-family:'Rajdhani',sans-serif;color:var(--txt);background:var(--bg);overflow-x:hidden;position:relative}
-body::before{content:"";position:fixed;inset:0;background:
-  radial-gradient(900px 600px at 8% -10%,rgba(0,240,255,.10),transparent 60%),
-  radial-gradient(820px 520px at 102% 0%,rgba(255,0,212,.08),transparent 55%),
-  radial-gradient(760px 760px at 50% 120%,rgba(124,92,255,.07),transparent 60%);z-index:0;pointer-events:none}
-body::after{content:"";position:fixed;inset:0;background-image:linear-gradient(rgba(0,240,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,240,255,.04) 1px,transparent 1px);background-size:40px 40px;z-index:0;pointer-events:none;animation:gridm 30s linear infinite}
-@keyframes gridm{to{background-position:40px 40px}}
+body::before{display:none}
+body::after{display:none}
 h1,h2,h3,.brand,.btn,.nav-btn,.logo{font-family:'Orbitron',sans-serif;letter-spacing:.04em}
 .mono{font-family:'JetBrains Mono',monospace}
 ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:rgba(0,240,255,.25);border-radius:4px}::-webkit-scrollbar-track{background:transparent}
@@ -94,6 +90,19 @@ pre{background:rgba(4,6,13,.95);border:1px solid var(--line);border-radius:10px;
 .sec-title::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
 .burger{display:none;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:rgba(15,20,40,.7);color:var(--acc);font-size:20px;align-items:center;justify-content:center;cursor:pointer}
 @media(max-width:780px){.app{flex-direction:column}.side{width:100%;height:auto;position:sticky;top:0;z-index:30;flex-direction:row;align-items:center;justify-content:space-between;padding:.5rem 1rem}.side nav{display:none;position:absolute;top:100%;left:0;right:0;flex-direction:column;background:var(--panel2);border:1px solid var(--line);border-radius:0 0 14px 14px;padding:.4rem;max-height:70vh;overflow:auto}.side nav.open{display:flex}.side .bot{display:none}.content{padding:1rem}.burger{display:inline-flex}}
+/* === Light professional overrides === */
+body{font-family:'Inter',system-ui,sans-serif!important}
+h1,h2,h3,.brand,.btn,.nav-btn,.logo{font-family:'Inter',sans-serif!important;letter-spacing:-.01em!important}
+input,select,textarea{font-family:'Inter',sans-serif!important}
+input:focus,select:focus,textarea:focus{border-color:var(--acc)!important;box-shadow:0 0 0 3px rgba(29,78,216,.12)!important}
+.btn-pri{box-shadow:0 4px 12px rgba(29,78,216,.25)!important}
+.card{box-shadow:0 1px 3px rgba(15,23,42,.08)!important}
+.logo{box-shadow:0 6px 18px rgba(29,78,216,.2)!important}
+.nav-btn.active{box-shadow:none!important}
+th,td{border-bottom:1px solid var(--line)!important}
+tbody tr:hover{background:#f1f5f9!important}
+.sw.on{box-shadow:none!important}
+.hint{background:#eff6ff!important;border-color:#bfdbfe!important;color:#1e40af!important}
 </style></head>
 <body>
 <div class="login" id="login">
@@ -205,6 +214,14 @@ pre{background:rgba(4,6,13,.95);border:1px solid var(--line);border-radius:10px;
       <div class="row"><div><label>Usuario</label><input id="c_smtp_user"></div><div><label>Clave</label><input id="c_smtp_pass" type="password"></div><div><label>Remitente</label><input id="c_smtp_from"></div></div>
       <div class="row"><div><label>Email backups</label><input id="c_backup_email"></div></div>
 
+      <div class="sec-title">🖥 Front (página pública)</div>
+      <div class="hint">Configura lo que ve el usuario en la página principal. Los cambios aplican al recargar el front.</div>
+      <div class="row"><div><label>Título</label><input id="c_front_titulo"></div><div><label>Subtítulo</label><input id="c_front_subtitulo"></div></div>
+      <div class="row"><div><label>Logo (texto/emoji)</label><input id="c_front_logo"></div></div>
+      <div class="row"><div><label>Color primario</label><input id="c_front_color_primario" type="color" style="height:38px;padding:2px"></div><div><label>Color acento</label><input id="c_front_color_acento" type="color" style="height:38px;padding:2px"></div></div>
+      <div class="row"><div><label>Color fondo</label><input id="c_front_color_fondo" type="color" style="height:38px;padding:2px"></div><div><label>Color texto</label><input id="c_front_color_texto" type="color" style="height:38px;padding:2px"></div></div>
+      <div class="row"><div><label>Sección Enviar</label><select id="c_front_seccion_enviar"><option value="1">Visible</option><option value="0">Oculto</option></select></div><div><label>Sección Historial</label><select id="c_front_seccion_historial"><option value="1">Visible</option><option value="0">Oculto</option></select></div></div>
+
       <div class="sec-title">⚙ Todos los parametros (avanzado · dinamico)</div>
       <div class="hint">Cada clave de la base de datos, editable. Incluye <b>todo</b> lo del sistema que no este en los campos de arriba; lo que sumes aca se guarda tal cual.</div>
       <div id="cfg_extra" style="display:flex;flex-direction:column;gap:.6rem"></div>
@@ -303,7 +320,7 @@ pre{background:rgba(4,6,13,.95);border:1px solid var(--line);border-radius:10px;
 let TOKEN=localStorage.getItem('zetron_tok')||'';
 let editP=null,editG=null,editX=null,editPL=null,editPR=null; const HPG=50; let hoff=0,htot=0;
 let extTimer=null,histTimer=null,colaTimer=null; let curLogType='api';
-const CFG_KEYS=['admin_user','admin_pass','mensaje_timeout','ptt_preactivo','digit_timeout','response_timeout','test_mode','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','smtp_secure','backup_email','hospital_pbx_ip','hospital_pbx_port','pocsag_mode','transport_bind','transport_protocol','codecs','retry_interval','expiration','mmdvm_callsign','mmdvm_serial_port','mmdvm_baud','mmdvm_frequency','mmdvm_duplex','mmdvm_pocsag_baud','mmdvm_tx_invert','mmdvm_tx_level','mmdvm_tx_offset','mmdvm_ptt_delay','mmdvm_display','mmdvm_remote_port','mmdvm_enable_pocsag','mmdvm_dapnet_enable','mmdvm_dapnet_address','mmdvm_dapnet_passcode','gpio_chip','gpio_pin'];
+const CFG_KEYS=['admin_user','admin_pass','mensaje_timeout','ptt_preactivo','digit_timeout','response_timeout','test_mode','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','smtp_secure','backup_email','hospital_pbx_ip','hospital_pbx_port','pocsag_mode','transport_bind','transport_protocol','codecs','retry_interval','expiration','mmdvm_callsign','mmdvm_serial_port','mmdvm_baud','mmdvm_frequency','mmdvm_duplex','mmdvm_pocsag_baud','mmdvm_tx_invert','mmdvm_tx_level','mmdvm_tx_offset','mmdvm_ptt_delay','mmdvm_display','mmdvm_remote_port','mmdvm_enable_pocsag','mmdvm_dapnet_enable','mmdvm_dapnet_address','mmdvm_dapnet_passcode','gpio_chip','gpio_pin','front_titulo','front_subtitulo','front_logo','front_color_primario','front_color_acento','front_color_fondo','front_color_texto','front_seccion_enviar','front_seccion_historial'];
 
 function api(m,u,b,raw){const o={method:m,headers:{'Authorization':'Bearer '+TOKEN}};if(b!==undefined){if(raw){o.body=b;}else{o.headers['Content-Type']='application/json';o.body=JSON.stringify(b);}}return fetch(u,o).then(async r=>{if(r.status===401){logout(true);throw new Error('no autorizado');}const txt=await r.text();try{return JSON.parse(txt);}catch(e){return txt;}});}
 function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',hist:'Historial',cfg:'Parametros',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria'};document.getElementById('tit').textContent=t[id]||'';
