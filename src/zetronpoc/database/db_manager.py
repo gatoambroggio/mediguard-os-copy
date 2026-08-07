@@ -585,6 +585,22 @@ def estadisticas(db_path=DEFAULT_DB):
     return {"por_dia": por_dia, "por_hora": por_hora, "top_pagers": top_pagers,
             "total_enviados": total_env, "total_ok": total_ok, "total_err": total_err, "cola": estado_cola(db_path)}
 
+def registrar_log(nivel, origen, mensaje, db_path=DEFAULT_DB):
+    """Log centralizado en SQLite (tabla logs). Best-effort: crea la tabla si
+    no existe, nunca rompe la peticion que lo invoca."""
+    try:
+        with get_conn(db_path) as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS logs ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "fecha_hora TEXT, nivel TEXT, origen TEXT, mensaje TEXT)")
+            conn.execute(
+                "INSERT INTO logs (fecha_hora,nivel,origen,mensaje) VALUES (?,?,?,?)",
+                (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                 str(nivel)[:16], str(origen)[:32], str(mensaje)[:500]))
+    except Exception:
+        pass
+
 def leer_logs(tipo, limit=200, db_path=DEFAULT_DB):
     paths = {"asterisk": "/var/log/asterisk/messages", "api": "/opt/zetronpoc/logs/api.log",
              "cola": "/opt/zetronpoc/logs/cola.log", "install": "/var/log/zetronpoc-install.log",

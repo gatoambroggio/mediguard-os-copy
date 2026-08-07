@@ -105,6 +105,14 @@ CREATE TABLE IF NOT EXISTS auditoria (
   ip          TEXT
 );
 
+CREATE TABLE IF NOT EXISTS logs (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  fecha_hora TEXT,
+  nivel     TEXT,
+  origen    TEXT,
+  mensaje   TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_bitacora_fecha ON bitacora(fecha_hora);
 CREATE INDEX IF NOT EXISTS idx_bitacora_cola ON bitacora(cola_id);
 CREATE INDEX IF NOT EXISTS idx_cola_estado ON cola_envios(estado);
