@@ -183,6 +183,11 @@ def init_modem(fd, cfg):
     else:
         log("GET_VERSION resp cmd=0x%02X" % resp[0])
 
+    # 1b. SET_MODE IDLE — forzar estado IDLE antes de reconfigurar
+    log("SET_MODE IDLE (preconfig)...")
+    send_and_wait(fd, CMD_SET_MODE, bytes([STATE_IDLE]), timeout=2.0)
+    time.sleep(0.2)
+
     # 2. SET_CONFIG
     log("SET_CONFIG...")
     flags = 0x00
@@ -190,7 +195,8 @@ def init_modem(fd, cfg):
     if cfg.get("mmdvm_tx_invert", "0") == "1": flags |= 0x02
     if cfg.get("mmdvm_ptt_invert", "0") == "1": flags |= 0x04
     if cfg.get("mmdvm_duplex", "0") == "0": flags |= 0x80
-    pocsag_en = 0x01 if cfg.get("mmdvm_enable_pocsag", "1") == "1" else 0x00
+    # POCSAG es el bit 5 (0x20) en el byte de modos del MMDVM, NO 0x01 (D-STAR)
+    pocsag_en = 0x20 if cfg.get("mmdvm_enable_pocsag", "1") == "1" else 0x00
     tx_delay = min(safe_int(cfg.get("mmdvm_ptt_delay", "50"), 50), 50)
     rx_level = safe_int(cfg.get("mmdvm_rx_level", "50"), 50)
     tx_level = safe_int(cfg.get("mmdvm_tx_level", "50"), 50)
