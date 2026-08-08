@@ -211,7 +211,7 @@ def send_and_wait(fd, cmd, data=b"", timeout=3.0):
     return read_frame(fd, timeout)
 
 
-def init_modem(fd, txdelay_ms, pocsag_level, freq_hz):
+def init_modem(fd, txdelay_ms, pocsag_level, freq_hz, tx_invert=1, rx_invert=0, ptt_invert=0):
     # GET_VERSION
     r = send_and_wait(fd, CMD_GET_VERSION, timeout=3.0)
     if not r or len(r) < 2:
@@ -226,8 +226,10 @@ def init_modem(fd, txdelay_ms, pocsag_level, freq_hz):
     time.sleep(0.2)
 
     # SET_CONFIG (23 bytes, layout MMDVM_HS)
+    # Flag byte: bit0=RXInvert, bit1=TXInvert, bit2=PTTInvert, bit7=simplex
+    # Jumbospot/MMDVM_HS necesita TXInvert=1 (ADF7021 polaridad invertida)
     cfg = bytearray(23)
-    cfg[0] = 0x80          # simplex (duplex=0)
+    cfg[0] = 0x80 | (rx_invert & 1) | ((tx_invert & 1) << 1) | ((ptt_invert & 1) << 2)
     cfg[1] = 0x20          # POCSAG enable
     cfg[2] = max(1, min(255, txdelay_ms // 10))
     cfg[3] = STATE_IDLE
@@ -297,7 +299,7 @@ def send_pocsag(fd, cap, message, func_mode, baud):
 
 def main():
     if len(sys.argv) < 3:
-        print("Uso: test_pocsag.py <capcode> <mensaje> [baud] [txdelay_ms] [pocsag_level] [freq_hz] [func_mode]")
+        print("Uso: test_pocsag.py <capcode> <mensaje> [baud] [txdelay_ms] [pocsag_level] [freq_hz] [func_mode] [tx_invert] [rx_invert]")
         sys.exit(1)
     cap = int(str(sys.argv[1]).strip().lstrip("0") or "0")
     message = str(sys.argv[2])
@@ -306,17 +308,19 @@ def main():
     pocsag_level = int(sys.argv[5]) if len(sys.argv) > 5 and sys.argv[5] else 50
     freq_hz = int(sys.argv[6]) if len(sys.argv) > 6 and sys.argv[6] else 149255000
     func_mode = sys.argv[7] if len(sys.argv) > 7 and sys.argv[7] else "alphanumeric"
+    tx_invert = int(sys.argv[8]) if len(sys.argv) > 8 and sys.argv[8] else 1
+    rx_invert = int(sys.argv[9]) if len(sys.argv) > 9 and sys.argv[9] else 0
     port = "/dev/ttyUSB1"
     serial_baud = 115200
 
-    log("=== TEST cap=%d msg=%r baud=%d txdelay=%dms level=%d freq=%d mode=%s ===" %
-        (cap, message, baud, txdelay_ms, pocsag_level, freq_hz, func_mode))
-    print("cap=%d msg=%r baud=%d txdelay=%dms pocsag_level=%d freq=%dHz mode=%s" %
-          (cap, message, baud, txdelay_ms, pocsag_level, freq_hz, func_mode))
+    log("=== TEST cap=%d msg=%r baud=%d txdelay=%dms level=%d freq=%d mode=%s txinv=%d rxinv=%d ===" %
+        (cap, message, baud, txdelay_ms, pocsag_level, freq_hz, func_mode, tx_invert, rx_invert))
+    print("cap=%d msg=%r baud=%d txdelay=%dms pocsag_level=%d freq=%dHz mode=%s txinv=%d rxinv=%d" %
+          (cap, message, baud, txdelay_ms, pocsag_level, freq_hz, func_mode, tx_invert, rx_invert))
 
     fd = open_serial(port, serial_baud)
     try:
-        ok, msg = init_modem(fd, txdelay_ms, pocsag_level, freq_hz)
+        ok, msg = init_modem(fd, txdelay_ms, pocsag_level, freq_hz, tx_invert, rx_invert)
         if not ok:
             print("ERROR: %s" % msg)
             sys.exit(1)
