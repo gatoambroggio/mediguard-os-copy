@@ -248,6 +248,8 @@ def init_modem(fd, cfg):
         freq_hz = int(float(freq_mhz) * 1000000)
     except (ValueError, TypeError):
         freq_hz = 433800000
+    # Clamp to unsigned 32-bit range para struct.pack(">I")
+    freq_hz = max(0, min(freq_hz, 4294967295))
     freq_data = struct.pack(">II", freq_hz, freq_hz) + struct.pack(">hh", 0, 0)
 
     resp = send_and_wait(fd, CMD_SET_FREQ, freq_data, timeout=3.0)
