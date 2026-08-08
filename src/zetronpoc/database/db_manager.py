@@ -483,7 +483,10 @@ def login_validar(user, passw, db_path=DEFAULT_DB):
 def verificar_token(tok):
     v = _TOKENS.get(tok)
     if not v: return False
-    if time.time() > v["exp"]:
+    exp = v.get("exp") if isinstance(v, dict) else None
+    if not isinstance(exp, (int, float)):
+        _TOKENS.pop(tok, None); return False
+    if time.time() > exp:
         _TOKENS.pop(tok, None); return False
     return True
 
@@ -491,7 +494,10 @@ def token_user(tok, default="sistema"):
     """Devuelve el nombre del operador asociado al token (para auditoria)."""
     v = _TOKENS.get(tok)
     if not v: return default
-    if time.time() > v["exp"]:
+    exp = v.get("exp") if isinstance(v, dict) else None
+    if not isinstance(exp, (int, float)):
+        _TOKENS.pop(tok, None); return default
+    if time.time() > exp:
         _TOKENS.pop(tok, None); return default
     return v.get("user") or default
 
