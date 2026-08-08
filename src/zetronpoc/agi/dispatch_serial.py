@@ -170,12 +170,13 @@ def safe_int(val, default=50):
 
 def init_modem(fd, cfg):
     """Secuencia completa de inicialización del módem MMDVM."""
-    # 1. GET_VERSION
+    # 1. GET_VERSION — detectar version de protocolo (1=MMDVM_HS/Jumbospot, 2=G4KLX)
     log("GET_VERSION...")
     resp = send_and_wait(fd, CMD_GET_VERSION, timeout=3.0)
     if not resp or len(resp) < 2:
         log("ERROR: módem no responde a GET_VERSION")
         return False, "modem no responde (GET_VERSION)"
+    proto = 0
     if resp[0] == CMD_GET_VERSION:
         proto = resp[1] if len(resp) > 1 else 0
         ver = resp[2:].decode("ascii", errors="replace") if len(resp) > 2 else ""
@@ -188,31 +189,46 @@ def init_modem(fd, cfg):
     send_and_wait(fd, CMD_SET_MODE, bytes([STATE_IDLE]), timeout=2.0)
     time.sleep(0.2)
 
-    # 2. SET_CONFIG
-    log("SET_CONFIG...")
+    # 2. SET_CONFIG — layout DISTINTO segun firmware
+    #    proto=1 (MMDVM_HS / Jumbospot): 23 bytes min
+    #      data[0]=flags, data[1]=modos(POCSAG=0x20), data[2]=txDelay,
+    #      data[3]=modemState, data[6]=colorCode(0-15), data[17]=pocsagTXLevel
+    #    proto=2 (G4KLX MMDVM): 37 bytes min
+    #      data[0]=flags, data[1]=modos1, data[2]=modos2(POCSAG=0x01),
+    #      data[3]=txDelay, data[4]=modemState, data[5]=rxLevel, data[6]=txLevel
+    log("SET_CONFIG (proto=%d)..." % proto)
     flags = 0x00
     if cfg.get("mmdvm_rx_invert", "0") == "1": flags |= 0x01
     if cfg.get("mmdvm_tx_invert", "0") == "1": flags |= 0x02
     if cfg.get("mmdvm_ptt_invert", "0") == "1": flags |= 0x04
     if cfg.get("mmdvm_duplex", "0") == "0": flags |= 0x80
-    # VALORES HARDCODEADOS — ignoran la base de datos para garantizar config valida.
-    # Segun firmware G4KLX SerialPort.cpp: POCSAG enable = data[2] bit 0 (0x01).
-    # NAK razon=4 si txDelay>50 o largo del paquete<37 bytes.
-    pocsag_en = 0x01
-    tx_delay = 50
-    rx_level = 50
-    tx_level = 50
 
-    config_data = bytearray(37)
-    config_data[0] = flags
-    config_data[1] = 0x00
-    config_data[2] = pocsag_en
-    config_data[3] = tx_delay
-    config_data[4] = STATE_IDLE
-    config_data[5] = rx_level
-    config_data[6] = tx_level
-    for i in range(7, 37):
-        config_data[i] = 50
+    if proto == 1:
+        # MMDVM_HS (Jumbospot) — colorCode data[6] DEBE ser 0-15 o NAK razon=4
+        config_data = bytearray(23)
+        config_data[0] = flags
+        config_data[1] = 0x20          # POCSAG enable (bit 5)
+        config_data[2] = 50            # txDelay (max 50)
+        config_data[3] = STATE_IDLE    # modemState
+        config_data[4] = 50            # rxLevel
+        config_data[5] = 0             # cwIdTXLevel (data[5]>>2)
+        config_data[6] = 1             # colorCode (0-15) — CRITICO
+        config_data[7] = 0             # dmrDelay
+        for i in range(8, 23):
+            config_data[i] = 50
+        config_data[17] = 50           # pocsagTXLevel
+    else:
+        # G4KLX MMDVM v2 — 37 bytes, POCSAG=data[2] bit 0
+        config_data = bytearray(37)
+        config_data[0] = flags
+        config_data[1] = 0x00
+        config_data[2] = 0x01          # POCSAG enable (bit 0)
+        config_data[3] = 50            # txDelay (max 50)
+        config_data[4] = STATE_IDLE    # modemState
+        config_data[5] = 50            # rxLevel
+        config_data[6] = 50            # txLevel
+        for i in range(7, 37):
+            config_data[i] = 50
 
     log("SET_CONFIG bytes: %s" % " ".join("%02X" % b for b in config_data))
     resp = send_and_wait(fd, CMD_SET_CONFIG, bytes(config_data), timeout=3.0)
