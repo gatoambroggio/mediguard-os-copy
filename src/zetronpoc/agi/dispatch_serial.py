@@ -367,8 +367,15 @@ def main():
         for cap in cap_list:
             total += send_pocsag(fd, cap, message, func_mode)
 
-        # Esperar a que termine la transmision y liberar PTT (SET_MODE IDLE)
-        time.sleep(1.0)
+        # Esperar a que el firmware termine de transmitir TODOS los frames
+        # antes de liberar PTT. Un frame POCSAG ~= 1120 bits (576 preamble +
+        # 544 datos). A 1200 baud son ~0.9s/frame; a 512 baud ~2.2s/frame. Si se
+        # manda SET_MODE IDLE antes de tiempo, el firmware aborta la TX y el
+        # pager recibe solo un fragmento ("suena y se corta"). Por eso el wait
+        # se calcula segun baud y nro de frames, no fijo.
+        wait_sec = (total * 1120.0 / max(baud, 1)) + 2.0
+        log("Esperando %.1fs (%d frame(s) @ %d baud) antes de liberar PTT..." % (wait_sec, total, baud))
+        time.sleep(wait_sec)
         log("SET_MODE IDLE (post-envio, liberar PTT)...")
         send_and_wait(fd, CMD_SET_MODE, bytes([STATE_IDLE]), timeout=2.0)
 
