@@ -260,21 +260,32 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
     callsign = g("mmdvm_callsign", "LU1ABC")
     port = g("mmdvm_serial_port", "/dev/ttyUSB0")
     baud = g("mmdvm_baud", "115200")
-    freq = g("mmdvm_frequency", "433.800")
+    freq_mhz = g("mmdvm_frequency", "433.800")
+    try:
+        freq_hz = str(int(float(freq_mhz) * 1000000))
+    except (ValueError, TypeError):
+        freq_hz = "433800000"
     pocsag_baud = g("mmdvm_pocsag_baud", "1200")
     duplex = g("mmdvm_duplex", "0")
-    tx_invert = g("mmdvm_tx_invert", "1")
+    tx_invert = g("mmdvm_tx_invert", "0")
+    rx_invert = g("mmdvm_rx_invert", "0")
+    ptt_invert = g("mmdvm_ptt_invert", "0")
     tx_level = g("mmdvm_tx_level", "50")
+    rx_level = g("mmdvm_rx_level", "50")
     tx_offset = g("mmdvm_tx_offset", "0")
-    ptt_delay = g("mmdvm_ptt_delay", "100")
+    rx_offset = g("mmdvm_rx_offset", "0")
+    ptt_delay = g("mmdvm_ptt_delay", "500")
+    rf_level = g("mmdvm_rf_level", "100")
+    oscillator = g("mmdvm_oscillator_speed", "14745600")
     display = g("mmdvm_display", "None")
     enable_pocsag = "1" if g("mmdvm_enable_pocsag", "1") == "1" else "0"
     dapnet_enable = "1" if g("mmdvm_dapnet_enable", "0") == "1" else "0"
     dapnet_address = g("mmdvm_dapnet_address", "")
     dapnet_passcode = g("mmdvm_dapnet_passcode", "")
+    remote_port = (cfg.get("mmdvm_remote_port", "7642") or "7642").strip() or "7642"
     ini = (
         "# MMDVM.ini - generado por ZetronPOC / MediGuard OS\n"
-        "# Modulo MMDVM por puerto serie (sin .wav)\n\n"
+        "# Modulo MMDVM por puerto serie UART (Protocol=uart)\n\n"
         "[General]\n"
         "Callsign=%s\n"
         "Id=%s000\n"
@@ -285,18 +296,28 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
         "POCSAG=%s\n"
         "Display=%s\n\n"
         "[Modem]\n"
-        "Port=%s\n"
-        "BaudeRate=%s\n"
+        "Protocol=uart\n"
+        "UARTPort=%s\n"
+        "UARTSpeed=%s\n"
+        "RXFrequency=%s\n"
+        "TXFrequency=%s\n"
         "TXInvert=%s\n"
-        "RXInvert=0\n"
-        "PTTInvert=0\n"
+        "RXInvert=%s\n"
+        "PTTInvert=%s\n"
         "TXDelay=%s\n"
-        "RXLevel=50\n"
-        "POCSAGTXLevel=%s\n"
-        "TXOffset=%s\n"
         "RXOffset=%s\n"
-        "RSSIMapping=0:0,100:100\n"
-        "UseCOSAsLockout=0\n\n"
+        "TXOffset=%s\n"
+        "DMRDelay=0\n"
+        "RXLevel=%s\n"
+        "TXLevel=%s\n"
+        "RXDCOffset=0\n"
+        "TXDCOffset=0\n"
+        "RFLevel=%s\n"
+        "RSSIMappingFile=RSSI.dat\n"
+        "UseCOSAsLockout=0\n"
+        "Trace=0\n"
+        "Debug=0\n"
+        "OscillatorSpeed=%s\n\n"
         "[POCSAG]\n"
         "Enable=%s\n"
         "Callsign=%s\n\n"
@@ -310,14 +331,15 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
         "[Info]\nEnabled=0\n\n"
         "[Log]\nDisplayLevel=1\nFileLevel=1\nFilePath=/var/log/mmdvm\nFileRoot=MMDVM\n"
     ) % (callsign, callsign.replace(" ", ""), duplex, enable_pocsag, display,
-         port, baud, tx_invert, ptt_delay, tx_level, tx_offset, tx_offset,
-         enable_pocsag, callsign, (cfg.get("mmdvm_remote_port", "7642") or "7642").strip() or "7642",
+         port, baud, freq_hz, freq_hz, tx_invert, rx_invert, ptt_invert, ptt_delay,
+         rx_offset, tx_offset, rx_level, tx_level, rf_level, oscillator,
+         enable_pocsag, callsign, remote_port,
          dapnet_enable, dapnet_address, dapnet_passcode)
     try:
         os.makedirs(os.path.dirname(MMDVM_INI), exist_ok=True)
         with open(MMDVM_INI, "w") as f:
             f.write(ini)
-        return True, "MMDVM.ini generado en %s (frec=%s MHz, baud=%s, puerto=%s)" % (MMDVM_INI, freq, pocsag_baud, port)
+        return True, "MMDVM.ini generado en %s (frec=%s Hz, puerto=%s, baud=%s)" % (MMDVM_INI, freq_hz, port, baud)
     except PermissionError:
         return False, "sin permisos para escribir %s (ejecute el servicio como root)" % MMDVM_INI
     except Exception as e:
