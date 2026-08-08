@@ -243,14 +243,11 @@ def init_modem(fd, cfg):
 
     # 3. SET_FREQ
     log("SET_FREQ...")
-    freq_mhz = cfg.get("mmdvm_frequency", "433.800") or "433.800"
-    try:
-        freq_hz = int(float(freq_mhz) * 1000000)
-    except (ValueError, TypeError):
-        freq_hz = 433800000
-    # Clamp to unsigned 32-bit range para struct.pack(">I")
-    freq_hz = max(0, min(freq_hz, 4294967295))
-    freq_data = struct.pack(">II", freq_hz, freq_hz) + struct.pack(">hh", 0, 0)
+    # FRECUENCIA HARDCODEADA — 149.255 MHz (VHF) segun hardware del usuario.
+    # Frame SET_FREQ (MMDVM_HS): RX(4) + TX(4) + power(1) + pocsag_freq(4) = 13 bytes.
+    # Sin power y pocsag_freq el firmware recibe potencia=0 y freq POCSAG=0 -> sin RF.
+    freq_hz = 149255000
+    freq_data = struct.pack(">II", freq_hz, freq_hz) + bytes([100]) + struct.pack(">I", freq_hz)
 
     resp = send_and_wait(fd, CMD_SET_FREQ, freq_data, timeout=3.0)
     if resp and resp[0] == CMD_ACK:
@@ -338,6 +335,11 @@ def main():
         total = 0
         for cap in cap_list:
             total += send_pocsag(fd, cap, message, func_mode)
+
+        # Esperar a que termine la transmision y liberar PTT (SET_MODE IDLE)
+        time.sleep(1.0)
+        log("SET_MODE IDLE (post-envio, liberar PTT)...")
+        send_and_wait(fd, CMD_SET_MODE, bytes([STATE_IDLE]), timeout=2.0)
 
         log("Envio completado: %d frame(s) a %d cap(s)" % (total, len(cap_list)))
         print("OK: %d frame(s) POCSAG a %d destinatario(s)" % (total, len(cap_list)))
