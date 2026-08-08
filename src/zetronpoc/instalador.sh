@@ -251,8 +251,11 @@ if ! asterisk -rx "pjsip show transports" 2>/dev/null | grep -q "transport-udp";
   sleep 1
 fi
 asterisk -rx "pjsip show transports" 2>/dev/null | head -6 || true
-systemctl enable --now zetronpoc-api 2>/dev/null || warn "API no pudo activarse"
-systemctl enable --now zetronpoc-cola 2>/dev/null || true
+systemctl enable zetronpoc-api 2>/dev/null || true
+systemctl enable zetronpoc-cola 2>/dev/null || true
+# Forzar reinicio SIEMPRE para cargar codigo nuevo (enable --now no reinicia un servicio ya activo)
+systemctl restart zetronpoc-api 2>/dev/null || warn "No se pudo reiniciar zetronpoc-api"
+systemctl restart zetronpoc-cola 2>/dev/null || true
 sleep 2
 
 # ============================ 10. CHEQUEO =================================
