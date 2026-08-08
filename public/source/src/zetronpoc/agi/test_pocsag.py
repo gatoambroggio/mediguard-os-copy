@@ -78,7 +78,7 @@ def numeric_bits(msg):
         idx = NUM_CHARS.find(ch)
         if idx < 0:
             idx = 12
-        for i in range(4):
+        for i in range(3, -1, -1):  # MSB-first por digito BCD
             bits.append((idx >> i) & 1)
     return bits
 
@@ -89,7 +89,9 @@ def bits_to_words(bits, width=20):
     words = []
     for i in range(0, len(bits), width):
         chunk = bits[i:i + width]
-        words.append(sum(b << j for j, b in enumerate(chunk)))
+        # POCSAG: primer bit del stream va en MSB del data field (bit 30 del cw)
+        data20 = sum(b << (width - 1 - j) for j, b in enumerate(chunk))
+        words.append(data20)
     return words
 
 
