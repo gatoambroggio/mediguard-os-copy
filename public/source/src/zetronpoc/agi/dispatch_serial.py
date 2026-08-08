@@ -214,7 +214,7 @@ def init_modem(fd, cfg):
         config_data = bytearray(23)
         config_data[0] = flags
         config_data[1] = 0x20          # POCSAG enable (bit 5 de CAP1)
-        config_data[2] = 100            # txDelay/10 = 1000ms (igual que .ini [POCSAG] TXDelay=1000, para que el NP88 despierte del modo ahorro)
+        config_data[2] = 50             # txDelay/10 = 500ms (igual que .ini [Modem] TXDelay=500, valor efectivo que hacia sonar el beeper)
         config_data[3] = STATE_IDLE    # modemState
         config_data[4] = 50            # rxLevel
         config_data[5] = 0             # cwIdTXLevel
