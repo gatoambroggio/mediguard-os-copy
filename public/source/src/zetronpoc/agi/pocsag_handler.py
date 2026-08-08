@@ -76,41 +76,36 @@ def main():
                 registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", "modo test")
         log("Envio OK (TEST) codigo=%s caps=%s msg=%s" % (codigo, caps, mensaje))
         return
-    port = (get_config("mmdvm_remote_port", "7642") or "7642").strip() or "7642"
-    rc_bin = get_config("mmdvm_remote_cmd", "/usr/local/bin/RemoteCommand")
+    dispatch_script = os.path.join(APP_DIR, "agi", "dispatch_serial.py")
     obs = []
-    for cap in cap_list:
-        try:
-            r = subprocess.run([rc_bin, port, "page", cap, mensaje],
-                               capture_output=True, text=True, timeout=15)
-            if r.returncode == 0:
+    try:
+        env = dict(os.environ, ZETRONPOC_DIR=APP_DIR)
+        r = subprocess.run([sys.executable, dispatch_script, caps, mensaje, str(baudios)],
+                           capture_output=True, text=True, timeout=60, env=env)
+        if r.returncode == 0:
+            for cap in cap_list:
                 if qid:
-                    actualizar_bitacora_envio(qid, cap, "enviado", "")
+                    actualizar_bitacora_envio(qid, cap, "enviado", "serial directo")
                 else:
-                    registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", "")
-            else:
-                err = "RemoteCommand: %s" % (r.stderr or r.stdout or "").strip()[:80]
+                    registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", "serial directo")
+        else:
+            err = (r.stderr or r.stdout or "fallo").strip()[:200]
+            for cap in cap_list:
                 if qid:
                     actualizar_bitacora_envio(qid, cap, "error", err)
                 else:
                     registrar_bitacora(interno, codigo, cap, mensaje, baudios, "error", err)
-                obs.append("%s: %s" % (cap, err))
-        except FileNotFoundError:
-            err = "RemoteCommand no instalado"
+            obs.append(err)
+    except Exception as e:
+        err = "excepcion serial: %s" % str(e)[:200]
+        for cap in cap_list:
             if qid:
                 actualizar_bitacora_envio(qid, cap, "error", err)
             else:
                 registrar_bitacora(interno, codigo, cap, mensaje, baudios, "error", err)
-            obs.append("%s: %s" % (cap, err))
-        except Exception as e:
-            err = "excepcion: %s" % str(e)[:80]
-            if qid:
-                actualizar_bitacora_envio(qid, cap, "error", err)
-            else:
-                registrar_bitacora(interno, codigo, cap, mensaje, baudios, "error", err)
-            obs.append("%s: %s" % (cap, err))
+        obs.append(err)
     obs_txt = "; ".join(obs)
-    log("Envio MMDVM codigo=%s caps=%s port=%s msg=%s obs=%s" % (codigo, caps, port, mensaje, obs_txt or "ok"))
+    log("Envio serial directo codigo=%s caps=%s msg=%s obs=%s" % (codigo, caps, mensaje, obs_txt or "ok"))
 
 if __name__ == "__main__":
     try:
