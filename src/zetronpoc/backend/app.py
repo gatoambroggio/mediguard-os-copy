@@ -153,8 +153,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try: return self._get()
         except Exception as e:
-            import traceback; traceback.print_exc()
-            try: return jok(self, {"error": str(e)}, 500)
+            import traceback; tb=traceback.format_exc()
+            try: return jok(self, {"error": str(e), "traceback": tb[-2000:]}, 500)
             except Exception: pass
     def _get(self):
         u = urllib.parse.urlparse(self.path); p = u.path; q = urllib.parse.parse_qs(u.query)
@@ -235,8 +235,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try: return self._post()
         except Exception as e:
-            import traceback; traceback.print_exc()
-            try: return jok(self, {"error": str(e)}, 500)
+            import traceback; tb=traceback.format_exc()
+            try: return jok(self, {"error": str(e), "traceback": tb[-2000:]}, 500)
             except Exception: pass
     def _post(self):
         u = urllib.parse.urlparse(self.path); p = u.path
@@ -408,8 +408,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_PUT(self):
         try: return self._put()
         except Exception as e:
-            import traceback; traceback.print_exc()
-            try: return jok(self, {"error": str(e)}, 500)
+            import traceback; tb=traceback.format_exc()
+            try: return jok(self, {"error": str(e), "traceback": tb[-2000:]}, 500)
             except Exception: pass
     def _put(self):
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
@@ -455,8 +455,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_DELETE(self):
         try: return self._delete()
         except Exception as e:
-            import traceback; traceback.print_exc()
-            try: return jok(self, {"error": str(e)}, 500)
+            import traceback; tb=traceback.format_exc()
+            try: return jok(self, {"error": str(e), "traceback": tb[-2000:]}, 500)
             except Exception: pass
     def _delete(self):
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
