@@ -229,7 +229,7 @@ def init_modem(fd, cfg):
         config_data[14] = 128          # rxDCOffset + 128
         config_data[15] = 0            # nxdnTXLevel
         config_data[16] = 0            # ysfTXHang
-        config_data[17] = 80           # pocsagTXLevel (desviacion FM POCSAG)
+        config_data[17] = 50           # pocsagTXLevel -> +-4.5kHz (stock). 80 daba +-7.2kHz (sobredesviacion): el pager 512 no decodifica.
         # data[18..22]: niveles RX restantes en 0
     else:
         # G4KLX MMDVM v2 — 37 bytes, POCSAG=data[2] bit 0
