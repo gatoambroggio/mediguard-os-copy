@@ -93,12 +93,24 @@ pre{background:rgba(4,6,13,.95);border:1px solid var(--line);border-radius:10px;
 /* === Light professional overrides === */
 body{font-family:'Inter',system-ui,sans-serif!important}
 h1,h2,h3,.brand,.btn,.nav-btn,.logo{font-family:'Inter',sans-serif!important;letter-spacing:-.01em!important}
-input,select,textarea{font-family:'Inter',sans-serif!important}
+input,select,textarea{font-family:'Inter',sans-serif!important;background:#fff!important;color:var(--txt)!important}
 input:focus,select:focus,textarea:focus{border-color:var(--acc)!important;box-shadow:0 0 0 3px rgba(29,78,216,.12)!important}
+.btn{background:#fff!important;color:var(--txt)!important;border:1px solid var(--line)!important}
+.btn-sec{background:#fff!important;border:1px solid var(--line)!important}
 .btn-pri{box-shadow:0 4px 12px rgba(29,78,216,.25)!important}
-.card{box-shadow:0 1px 3px rgba(15,23,42,.08)!important}
+.card{background:var(--panel)!important;box-shadow:0 1px 3px rgba(15,23,42,.08)!important;border:1px solid var(--line)!important}
 .logo{box-shadow:0 6px 18px rgba(29,78,216,.2)!important}
-.nav-btn.active{box-shadow:none!important}
+.nav-btn:hover{background:#f1f5f9!important;color:var(--txt)!important}
+.nav-btn.active{background:#eff6ff!important;color:var(--acc)!important;border-color:#bfdbfe!important;box-shadow:none!important}
+.stat{background:#fff!important;border:1px solid var(--line)!important}
+.stat .v{font-family:'Inter',sans-serif!important}
+.modal{background:rgba(15,23,42,.45)!important;backdrop-filter:blur(4px)!important}
+pre{background:#f8fafc!important;color:#0f172a!important;border:1px solid var(--line)!important}
+.pager button{background:#fff!important;border:1px solid var(--line)!important;color:var(--txt)!important}
+.burger{background:#fff!important;color:var(--acc)!important}
+.sw{background:#cbd5e1!important}
+.sw::after{background:#fff!important}
+::-webkit-scrollbar-thumb{background:rgba(29,78,216,.25)!important}
 th,td{border-bottom:1px solid var(--line)!important}
 tbody tr:hover{background:#f1f5f9!important}
 .sw.on{box-shadow:none!important}

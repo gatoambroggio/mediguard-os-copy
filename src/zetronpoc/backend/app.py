@@ -43,6 +43,7 @@ def serve_file(handler, path, ct):
     handler.send_response(200)
     handler.send_header("Content-Type", ct)
     handler.send_header("Content-Length", str(len(data)))
+    handler.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
     handler.end_headers()
     handler.wfile.write(data)
 
