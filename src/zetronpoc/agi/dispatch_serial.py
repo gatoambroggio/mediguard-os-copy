@@ -195,12 +195,13 @@ def init_modem(fd, cfg):
     if cfg.get("mmdvm_tx_invert", "0") == "1": flags |= 0x02
     if cfg.get("mmdvm_ptt_invert", "0") == "1": flags |= 0x04
     if cfg.get("mmdvm_duplex", "0") == "0": flags |= 0x80
+    # VALORES HARDCODEADOS — ignoran la base de datos para garantizar config valida.
     # Segun firmware G4KLX SerialPort.cpp: POCSAG enable = data[2] bit 0 (0x01).
-    # NO es 0x20 (eso es FM en data[1]). NAK razon=4 si txDelay>50 o largo<37.
-    pocsag_en = 0x01 if cfg.get("mmdvm_enable_pocsag", "1") == "1" else 0x00
-    tx_delay = min(safe_int(cfg.get("mmdvm_ptt_delay", "50"), 50), 50)
-    rx_level = safe_int(cfg.get("mmdvm_rx_level", "50"), 50)
-    tx_level = safe_int(cfg.get("mmdvm_tx_level", "50"), 50)
+    # NAK razon=4 si txDelay>50 o largo del paquete<37 bytes.
+    pocsag_en = 0x01
+    tx_delay = 50
+    rx_level = 50
+    tx_level = 50
 
     config_data = bytearray(37)
     config_data[0] = flags
@@ -283,8 +284,9 @@ def main():
     baud = safe_int(sys.argv[3], safe_int(get_config("mmdvm_pocsag_baud", "1200"), 1200))
     func_mode = get_config("function_mode", "alphanumeric") or "alphanumeric"
 
-    port = get_config("mmdvm_serial_port", "/dev/ttyUSB0") or "/dev/ttyUSB0"
-    serial_baud = safe_int(get_config("mmdvm_baud", "115200"), 115200)
+    # PUERTO HARDCODEADO — ignorar la base de datos para evitar errores de config.
+    port = "/dev/ttyUSB1"
+    serial_baud = 115200
 
     log("=== Envio directo serial ===")
     log("Port=%s baud=%d caps=%s msg=%r" % (port, serial_baud, cap_list, message))
