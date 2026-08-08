@@ -204,19 +204,33 @@ def init_modem(fd, cfg):
     if cfg.get("mmdvm_duplex", "0") == "0": flags |= 0x80
 
     if proto == 1:
-        # MMDVM_HS (Jumbospot) — colorCode data[6] DEBE ser 0-15 o NAK razon=4
+        # MMDVM_HS (Jumbospot) — layout exacto de MMDVMHost setConfig1 (23 bytes).
+        #   data[0]=flags, data[1]=CAP1 (POCSAG=0x20), data[2]=txDelay/10,
+        #   data[3]=MODE_IDLE, data[4]=rxLevel, data[5]=cwIdTXLevel,
+        #   data[6]=dmrColorCode(0-15), data[7]=dmrDelay, data[8]=OscOffset(128),
+        #   data[9]=dstarTXLevel, data[10]=dmrTXLevel, data[11]=ysfTXLevel,
+        #   data[12]=p25TXLevel, data[13]=txDCOffset+128, data[14]=rxDCOffset+128,
+        #   data[15]=nxdnTXLevel, data[16]=ysfTXHang, data[17]=pocsagTXLevel.
         config_data = bytearray(23)
         config_data[0] = flags
-        config_data[1] = 0x20          # POCSAG enable (bit 5)
-        config_data[2] = 50            # txDelay (max 50)
+        config_data[1] = 0x20          # POCSAG enable (bit 5 de CAP1)
+        config_data[2] = 5              # txDelay/10 (50 ms)
         config_data[3] = STATE_IDLE    # modemState
         config_data[4] = 50            # rxLevel
-        config_data[5] = 0             # cwIdTXLevel (data[5]>>2)
-        config_data[6] = 1             # colorCode (0-15) — CRITICO
+        config_data[5] = 0             # cwIdTXLevel
+        config_data[6] = 0             # dmrColorCode (sin DMR)
         config_data[7] = 0             # dmrDelay
-        for i in range(8, 23):
-            config_data[i] = 50
-        config_data[17] = 50           # pocsagTXLevel
+        config_data[8] = 128           # OscOffset (debe ser 128, no 0)
+        config_data[9] = 0             # dstarTXLevel
+        config_data[10] = 0            # dmrTXLevel
+        config_data[11] = 0            # ysfTXLevel
+        config_data[12] = 0            # p25TXLevel
+        config_data[13] = 128          # txDCOffset + 128
+        config_data[14] = 128          # rxDCOffset + 128
+        config_data[15] = 0            # nxdnTXLevel
+        config_data[16] = 0            # ysfTXHang
+        config_data[17] = 50           # pocsagTXLevel (NO 0 o no hay audio POCSAG)
+        # data[18..22]: niveles RX restantes en 0
     else:
         # G4KLX MMDVM v2 — 37 bytes, POCSAG=data[2] bit 0
         config_data = bytearray(37)
@@ -244,17 +258,34 @@ def init_modem(fd, cfg):
     # 3. SET_FREQ
     log("SET_FREQ...")
     # FRECUENCIA HARDCODEADA — 149.255 MHz (VHF) segun hardware del usuario.
-    # Frame SET_FREQ (MMDVM_HS): RX(4) + TX(4) + power(1) + pocsag_freq(4) = 13 bytes.
-    # Sin power y pocsag_freq el firmware recibe potencia=0 y freq POCSAG=0 -> sin RF.
+    # Frame SET_FREQ EXACTO (segun MMDVMHost setFrequency, proto 1):
+    #   data[0]    = 0x00 (byte reserved)
+    #   data[1..4] = RX frequency  (LITTLE-ENDIAN, Hz)
+    #   data[5..8] = TX frequency  (LITTLE-ENDIAN, Hz)
+    #   data[9]    = RF power      (0-255, = rfLevel*2.55)
+    #   data[10..13]= POCSAG freq  (LITTLE-ENDIAN, Hz)
+    #   Total = 14 bytes.
+    # CRITICO: endianness LITTLE y byte reserved 0x00. Con big-endian o sin el
+    # byte reserved, el firmware parsea frecuencias basura -> NAK razon 4 -> sin RF.
+    # (Confirmado en g4klx/MMDVM-Host Modem.cpp setFrequency().)
     freq_hz = 149255000
-    freq_data = struct.pack(">II", freq_hz, freq_hz) + bytes([100]) + struct.pack(">I", freq_hz)
+    power = 255  # 100% RF level
+    freq_data = (bytes([0x00])
+                 + struct.pack("<I", freq_hz)
+                 + struct.pack("<I", freq_hz)
+                 + bytes([power])
+                 + struct.pack("<I", freq_hz))
 
     resp = send_and_wait(fd, CMD_SET_FREQ, freq_data, timeout=3.0)
     if resp and resp[0] == CMD_ACK:
-        log("SET_FREQ OK (ACK) %d Hz" % freq_hz)
+        log("SET_FREQ OK (ACK) %d Hz power=%d" % (freq_hz, power))
     elif resp and resp[0] == CMD_NAK:
-        log("ERROR: SET_FREQ NAK")
-        return False, "SET_FREQ rechazado (NAK)"
+        reason = resp[2] if len(resp) > 2 else -1
+        log("ERROR: SET_FREQ NAK razon=%d" % reason)
+        hint = ""
+        if reason == 4:
+            hint = " — freq fuera de rango: el firmware MMDVM_HS solo acepta 144-148 / 219-225 / 420-475 / 842-950 MHz salvo DISABLE_FREQ_CHECK. 149.255 MHz queda fuera de 144-148."
+        return False, "SET_FREQ rechazado (NAK razon=%d)%s" % (reason, hint)
     else:
         log("WARN: SET_FREQ sin respuesta")
 
