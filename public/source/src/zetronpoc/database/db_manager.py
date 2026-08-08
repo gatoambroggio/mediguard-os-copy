@@ -300,6 +300,9 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
         "[POCSAG]\n"
         "Enable=%s\n"
         "Callsign=%s\n\n"
+        "[RemoteControl]\n"
+        "Enable=1\n"
+        "Port=%s\n\n"
         "[DAPNET]\n"
         "Enable=%s\n"
         "Address=%s\n"
@@ -308,7 +311,8 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
         "[Log]\nDisplayLevel=1\nFileLevel=1\nFilePath=/var/log/mmdvm\nFileRoot=MMDVM\n"
     ) % (callsign, callsign.replace(" ", ""), duplex, enable_pocsag, display,
          port, baud, tx_invert, ptt_delay, tx_level, tx_offset, tx_offset,
-         enable_pocsag, callsign, dapnet_enable, dapnet_address, dapnet_passcode)
+         enable_pocsag, callsign, (cfg.get("mmdvm_remote_port", "7642") or "7642").strip() or "7642",
+         dapnet_enable, dapnet_address, dapnet_passcode)
     try:
         os.makedirs(os.path.dirname(MMDVM_INI), exist_ok=True)
         with open(MMDVM_INI, "w") as f:
@@ -459,17 +463,37 @@ def historial(filtros, limit=50, offset=0, db_path=DEFAULT_DB):
 
 # ===================== AUTH =====================
 def login_validar(user, passw, db_path=DEFAULT_DB):
-    au = get_config("admin_user", "admin"); ap = get_config("admin_pass", "admin123")
+    """Autentica al operador. Auto-repara la BD si falta la tabla config y
+    nunca lanza: si la BD es inaccesible, usa admin/admin123 para que el panel
+    nunca quede bloqueado por un problema de base de datos."""
+    try:
+        with get_conn(db_path) as conn:
+            conn.execute("CREATE TABLE IF NOT EXISTS config (clave TEXT PRIMARY KEY, valor TEXT)")
+            conn.execute("INSERT OR IGNORE INTO config (clave,valor) VALUES ('admin_user','admin')")
+            conn.execute("INSERT OR IGNORE INTO config (clave,valor) VALUES ('admin_pass','admin123')")
+        au = get_config("admin_user", "admin", db_path)
+        ap = get_config("admin_pass", "admin123", db_path)
+    except Exception:
+        au, ap = "admin", "admin123"
     if user == au and passw == ap:
-        tok = secrets.token_hex(16); _TOKENS[tok] = time.time() + 86400; return tok
+        tok = secrets.token_hex(16); _TOKENS[tok] = {"user": user, "exp": time.time() + 86400}
+        return tok
     return None
 
 def verificar_token(tok):
-    exp = _TOKENS.get(tok)
-    if not exp: return False
-    if time.time() > exp:
+    v = _TOKENS.get(tok)
+    if not v: return False
+    if time.time() > v["exp"]:
         _TOKENS.pop(tok, None); return False
     return True
+
+def token_user(tok, default="sistema"):
+    """Devuelve el nombre del operador asociado al token (para auditoria)."""
+    v = _TOKENS.get(tok)
+    if not v: return default
+    if time.time() > v["exp"]:
+        _TOKENS.pop(tok, None); return default
+    return v.get("user") or default
 
 def cerrar_sesion(tok):
     _TOKENS.pop(tok, None)
@@ -549,10 +573,20 @@ def procesar_programados(db_path=DEFAULT_DB):
 
 # ===================== AUDITORIA / STATS / LOGS =====================
 def registrar_auditoria(usuario, accion, entidad, entidad_id, detalle, ip="", db_path=DEFAULT_DB):
-    with get_conn(db_path) as conn:
-        conn.execute("INSERT INTO auditoria (fecha_hora,usuario,accion,entidad,entidad_id,detalle,ip) VALUES (?,?,?,?,?,?,?)",
-            (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), usuario or "sistema", accion, entidad,
-             str(entidad_id or ""), detalle or "", ip or ""))
+    """Auditoria en SQLite. Best-effort: crea la tabla si no existe, nunca
+    rompe la peticion que lo invoca."""
+    try:
+        with get_conn(db_path) as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS auditoria ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "fecha_hora TEXT, usuario TEXT, accion TEXT, entidad TEXT, "
+                "entidad_id TEXT, detalle TEXT, ip TEXT)")
+            conn.execute("INSERT INTO auditoria (fecha_hora,usuario,accion,entidad,entidad_id,detalle,ip) VALUES (?,?,?,?,?,?,?)",
+                (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), usuario or "sistema", accion, entidad,
+                 str(entidad_id or ""), detalle or "", ip or ""))
+    except Exception:
+        pass
 
 def listar_auditoria(limit=200, offset=0, db_path=DEFAULT_DB):
     with get_conn(db_path) as conn:
@@ -580,6 +614,22 @@ def estadisticas(db_path=DEFAULT_DB):
         total_err = conn.execute("SELECT COUNT(*) AS c FROM bitacora WHERE estado='error'").fetchone()["c"]
     return {"por_dia": por_dia, "por_hora": por_hora, "top_pagers": top_pagers,
             "total_enviados": total_env, "total_ok": total_ok, "total_err": total_err, "cola": estado_cola(db_path)}
+
+def registrar_log(nivel, origen, mensaje, db_path=DEFAULT_DB):
+    """Log centralizado en SQLite (tabla logs). Best-effort: crea la tabla si
+    no existe, nunca rompe la peticion que lo invoca."""
+    try:
+        with get_conn(db_path) as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS logs ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "fecha_hora TEXT, nivel TEXT, origen TEXT, mensaje TEXT)")
+            conn.execute(
+                "INSERT INTO logs (fecha_hora,nivel,origen,mensaje) VALUES (?,?,?,?)",
+                (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                 str(nivel)[:16], str(origen)[:32], str(mensaje)[:500]))
+    except Exception:
+        pass
 
 def leer_logs(tipo, limit=200, db_path=DEFAULT_DB):
     paths = {"asterisk": "/var/log/asterisk/messages", "api": "/opt/zetronpoc/logs/api.log",

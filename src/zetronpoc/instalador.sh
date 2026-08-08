@@ -155,6 +155,44 @@ PYEOF
 chmod 640 "${DB}" 2>/dev/null || true
 chown "${AST_USER}:${AST_USER}" "${DB}" 2>/dev/null || true
 
+# Seed demo data so Dashboard/Historial/Logs/Auditoria show content on a fresh install
+python3 - <<'PYEOF'
+import sqlite3, datetime
+DB='/opt/zetronpoc/database/zetronpoc.db'
+try:
+    c=sqlite3.connect(DB)
+    n=c.execute("SELECT COUNT(*) FROM bitacora").fetchone()[0]
+    if n==0:
+        now=datetime.datetime.now()
+        for i in range(6):
+            ts=(now-datetime.timedelta(days=i, hours=i)).strftime("%Y-%m-%d %H:%M:%S")
+            est='enviado' if i%3==0 else ('encolado' if i%3==1 else 'error')
+            c.execute("INSERT INTO bitacora (fecha_hora,interno_origen,codigo,cap_code,mensaje,baudios,estado,observaciones,cola_id) VALUES (?,?,?,?,?,?,?,?,?)",
+                (ts,'200'+str(i%3),'TEST0'+str(i+1),'1234567','Mensaje de prueba '+str(i+1),512,est,'',None))
+        c.commit(); print("[seed] 6 mensajes demo en bitacora")
+    nl=c.execute("SELECT COUNT(*) FROM logs").fetchone()[0]
+    if nl==0:
+        now=datetime.datetime.now()
+        for i in range(8):
+            ts=(now-datetime.timedelta(hours=i)).strftime("%Y-%m-%d %H:%M:%S")
+            nivel=['info','info','warn','error'][i%4]
+            orig=['api','cola','mmdvm','pbx'][i%4]
+            c.execute("INSERT INTO logs (fecha_hora,nivel,origen,mensaje) VALUES (?,?,?,?)",
+                (ts,nivel,orig,'Evento de demostracion #%d'%i))
+        c.commit(); print("[seed] 8 logs demo")
+    na=c.execute("SELECT COUNT(*) FROM auditoria").fetchone()[0]
+    if na==0:
+        now=datetime.datetime.now()
+        for i in range(4):
+            ts=(now-datetime.timedelta(hours=i)).strftime("%Y-%m-%d %H:%M:%S")
+            c.execute("INSERT INTO auditoria (fecha_hora,usuario,accion,entidad,entidad_id,detalle,ip) VALUES (?,?,?,?,?,?,?)",
+                (ts,'admin',['login','guardar','aplicar','enviar'][i%4],['auth','config','mmdvm','mensaje'][i%4],'','demo','127.0.0.1'))
+        c.commit(); print("[seed] 4 auditoria demo")
+    c.close()
+except Exception as e:
+    print("[seed] WARN: %s" % e)
+PYEOF
+
 # ============================ 6. GENERAR PJSIP DESDE BD ====================
 echo "==> 6/10 Generando pjsip_zetronpoc.conf desde la base de datos..."
 python3 - <<'PYEOF'

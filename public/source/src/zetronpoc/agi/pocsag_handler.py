@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """pocsag_handler.py - AGI POCSAG (ZetronPOC v2.0).
 Sin POCSAG_WORKER (lo llama el IVR): encola el mensaje y retorna rapido.
-Con POCSAG_WORKER=1 (lo llama el worker de cola): genera el WAV y transmite.
-test_mode=1: solo registra en bitacora como enviado (sin PTT/GPIO), igual que
-el proyecto de referencia pocsag-server-client."""
+Con POCSAG_WORKER=1 (lo llama el worker de cola): transmite por la placa MMDVM
+via RemoteCommand (TCP), sin audio/WAV/GPIO. test_mode=1: solo registra en
+bitacora como enviado."""
 import sys, os, subprocess, datetime, time
 APP_DIR = os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc")
 sys.path.insert(0, APP_DIR)
@@ -66,10 +66,8 @@ def main():
         log("Mensaje encolado (IVR) id=%s interno=%s codigo=%s msg=%s" % (qid, interno, codigo, mensaje))
         return
 
-    # --- Worker: transmitir ---
+    # --- Worker: transmitir SOLO por MMDVM (RemoteCommand, sin audio/PTT) ---
     test_mode = get_config("test_mode", "1") == "1"
-    pre = float(get_config("ptt_preactivo", "0.5"))
-    os.makedirs(AUDIO_DIR, exist_ok=True)
     if test_mode:
         for cap in cap_list:
             if qid:
@@ -78,37 +76,41 @@ def main():
                 registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", "modo test")
         log("Envio OK (TEST) codigo=%s caps=%s msg=%s" % (codigo, caps, mensaje))
         return
-    wavs = []
-    for cap in cap_list:
-        wav = os.path.join(AUDIO_DIR, "out_%s.wav" % cap)
-        rc = subprocess.run([sys.executable, ENCODER, cap, mensaje, str(baudios), wav],
-                            capture_output=True, text=True, timeout=60)
-        if rc.returncode != 0 or not os.path.exists(wav):
-            log("Encoder fallo para %s: %s" % (cap, (rc.stderr or rc.stdout or "")[:120]))
-            if qid:
-                actualizar_bitacora_envio(qid, cap, "error", "encoder")
-            else:
-                registrar_bitacora(interno, codigo, cap, mensaje, baudios, "error", "encoder")
-            fail()
-        wavs.append(wav)
+    port = (get_config("mmdvm_remote_port", "7642") or "7642").strip() or "7642"
+    rc_bin = get_config("mmdvm_remote_cmd", "/usr/local/bin/RemoteCommand")
     obs = []
-    try:
-        subprocess.run([PTT_ON], capture_output=True, timeout=5)
-        time.sleep(pre)
-        for wav in wavs:
-            r = subprocess.run(["aplay", "-q", wav], capture_output=True, text=True, timeout=30)
-            if r.returncode != 0:
-                obs.append("aplay: %s" % (r.stderr or "").strip()[:80])
-        subprocess.run([PTT_OFF], capture_output=True, timeout=5)
-    except Exception as e:
-        obs.append("excepcion: %s" % str(e)[:80])
-    obs_txt = "; ".join(obs)
     for cap in cap_list:
-        if qid:
-            actualizar_bitacora_envio(qid, cap, "enviado", obs_txt)
-        else:
-            registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", obs_txt)
-    log("Envio OK codigo=%s caps=%s msg=%s obs=%s" % (codigo, caps, mensaje, obs_txt or "ok"))
+        try:
+            r = subprocess.run([rc_bin, port, "page", cap, mensaje],
+                               capture_output=True, text=True, timeout=15)
+            if r.returncode == 0:
+                if qid:
+                    actualizar_bitacora_envio(qid, cap, "enviado", "")
+                else:
+                    registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", "")
+            else:
+                err = "RemoteCommand: %s" % (r.stderr or r.stdout or "").strip()[:80]
+                if qid:
+                    actualizar_bitacora_envio(qid, cap, "error", err)
+                else:
+                    registrar_bitacora(interno, codigo, cap, mensaje, baudios, "error", err)
+                obs.append("%s: %s" % (cap, err))
+        except FileNotFoundError:
+            err = "RemoteCommand no instalado"
+            if qid:
+                actualizar_bitacora_envio(qid, cap, "error", err)
+            else:
+                registrar_bitacora(interno, codigo, cap, mensaje, baudios, "error", err)
+            obs.append("%s: %s" % (cap, err))
+        except Exception as e:
+            err = "excepcion: %s" % str(e)[:80]
+            if qid:
+                actualizar_bitacora_envio(qid, cap, "error", err)
+            else:
+                registrar_bitacora(interno, codigo, cap, mensaje, baudios, "error", err)
+            obs.append("%s: %s" % (cap, err))
+    obs_txt = "; ".join(obs)
+    log("Envio MMDVM codigo=%s caps=%s port=%s msg=%s obs=%s" % (codigo, caps, port, mensaje, obs_txt or "ok"))
 
 if __name__ == "__main__":
     try:

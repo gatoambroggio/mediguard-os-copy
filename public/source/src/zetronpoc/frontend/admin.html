@@ -2,26 +2,22 @@
 <html lang="es"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>ZetronPOC · MMDVM</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-:root{--bg:#05060f;--bg2:#080b1a;--panel:rgba(10,15,31,.72);--panel2:rgba(15,20,40,.85);--line:rgba(0,240,255,.18);--line2:rgba(255,0,212,.18);--txt:#d8e6ff;--mut:#5d7494;--acc:#00f0ff;--acc2:#ff00d4;--acc3:#7c5cff;--ok:#00ff9d;--err:#ff3b5c;--warn:#ffb800;--r:14px}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+:root{--bg:#f1f5f9;--bg2:#e2e8f0;--panel:#ffffff;--panel2:#f8fafc;--line:#e2e8f0;--line2:#cbd5e1;--txt:#0f172a;--mut:#64748b;--acc:#1d4ed8;--acc2:#0ea5e9;--acc3:#6366f1;--ok:#16a34a;--err:#dc2626;--warn:#d97706;--r:12px}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{font-family:'Rajdhani',sans-serif;color:var(--txt);background:var(--bg);overflow-x:hidden;position:relative}
-body::before{content:"";position:fixed;inset:0;background:
-  radial-gradient(900px 600px at 8% -10%,rgba(0,240,255,.10),transparent 60%),
-  radial-gradient(820px 520px at 102% 0%,rgba(255,0,212,.08),transparent 55%),
-  radial-gradient(760px 760px at 50% 120%,rgba(124,92,255,.07),transparent 60%);z-index:0;pointer-events:none}
-body::after{content:"";position:fixed;inset:0;background-image:linear-gradient(rgba(0,240,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,240,255,.04) 1px,transparent 1px);background-size:40px 40px;z-index:0;pointer-events:none;animation:gridm 30s linear infinite}
-@keyframes gridm{to{background-position:40px 40px}}
+body::before{display:none}
+body::after{display:none}
 h1,h2,h3,.brand,.btn,.nav-btn,.logo{font-family:'Orbitron',sans-serif;letter-spacing:.04em}
 .mono{font-family:'JetBrains Mono',monospace}
 ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:rgba(0,240,255,.25);border-radius:4px}::-webkit-scrollbar-track{background:transparent}
 .login{min-height:100vh;display:grid;place-items:center;padding:1rem;position:relative;z-index:1}
-.login .box{background:var(--panel);backdrop-filter:blur(20px) saturate(140%);border:1px solid var(--line);border-radius:20px;padding:2.4rem;width:100%;max-width:400px;box-shadow:0 0 60px rgba(0,240,255,.15),inset 0 0 30px rgba(0,240,255,.03);position:relative}
-.login .box::before{content:"";position:absolute;inset:-1px;border-radius:20px;padding:1px;background:linear-gradient(135deg,var(--acc),transparent 40%,var(--acc2));-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
-.logo{width:64px;height:64px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(135deg,var(--acc),var(--acc3),var(--acc2));font-size:30px;margin:0 auto .8rem;box-shadow:0 0 30px rgba(0,240,255,.5);color:#05060f;font-weight:900}
-.login h1{text-align:center;font-size:1.15rem;margin:.2rem 0;background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
-.login p{text-align:center;color:var(--mut);font-size:.78rem;margin:0 0 1.6rem;letter-spacing:.2em}
+.login .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:2.4rem;width:100%;max-width:380px;box-shadow:0 1px 3px rgba(15,23,42,.08),0 8px 24px rgba(15,23,42,.06);position:relative}
+.login .box::before{display:none}
+.logo{width:56px;height:56px;border-radius:12px;display:grid;place-items:center;background:var(--acc);font-size:26px;margin:0 auto .8rem;box-shadow:0 4px 12px rgba(29,78,216,.18);color:#fff;font-weight:800}
+.login h1{text-align:center;font-size:1.2rem;margin:.2rem 0;color:var(--txt);background:none;-webkit-text-fill-color:var(--txt)}
+.login p{text-align:center;color:var(--mut);font-size:.72rem;margin:0 0 1.6rem;letter-spacing:.18em;text-transform:uppercase}
 .app{display:flex;min-height:100vh;position:relative;z-index:1}
 .side{width:240px;background:var(--panel);backdrop-filter:blur(20px);border-right:1px solid var(--line);padding:1rem 0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
 .side .brand{display:flex;align-items:center;gap:.6rem;padding:.2rem 1rem 1rem;font-weight:700;font-size:.95rem}
@@ -94,6 +90,19 @@ pre{background:rgba(4,6,13,.95);border:1px solid var(--line);border-radius:10px;
 .sec-title::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
 .burger{display:none;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:rgba(15,20,40,.7);color:var(--acc);font-size:20px;align-items:center;justify-content:center;cursor:pointer}
 @media(max-width:780px){.app{flex-direction:column}.side{width:100%;height:auto;position:sticky;top:0;z-index:30;flex-direction:row;align-items:center;justify-content:space-between;padding:.5rem 1rem}.side nav{display:none;position:absolute;top:100%;left:0;right:0;flex-direction:column;background:var(--panel2);border:1px solid var(--line);border-radius:0 0 14px 14px;padding:.4rem;max-height:70vh;overflow:auto}.side nav.open{display:flex}.side .bot{display:none}.content{padding:1rem}.burger{display:inline-flex}}
+/* === Light professional overrides === */
+body{font-family:'Inter',system-ui,sans-serif!important}
+h1,h2,h3,.brand,.btn,.nav-btn,.logo{font-family:'Inter',sans-serif!important;letter-spacing:-.01em!important}
+input,select,textarea{font-family:'Inter',sans-serif!important}
+input:focus,select:focus,textarea:focus{border-color:var(--acc)!important;box-shadow:0 0 0 3px rgba(29,78,216,.12)!important}
+.btn-pri{box-shadow:0 4px 12px rgba(29,78,216,.25)!important}
+.card{box-shadow:0 1px 3px rgba(15,23,42,.08)!important}
+.logo{box-shadow:0 6px 18px rgba(29,78,216,.2)!important}
+.nav-btn.active{box-shadow:none!important}
+th,td{border-bottom:1px solid var(--line)!important}
+tbody tr:hover{background:#f1f5f9!important}
+.sw.on{box-shadow:none!important}
+.hint{background:#eff6ff!important;border-color:#bfdbfe!important;color:#1e40af!important}
 </style></head>
 <body>
 <div class="login" id="login">
@@ -204,6 +213,19 @@ pre{background:rgba(4,6,13,.95);border:1px solid var(--line);border-radius:10px;
       <div class="row"><div><label>Servidor</label><input id="c_smtp_host"></div><div><label>Puerto</label><input id="c_smtp_port" type="number"></div><div><label>Seguridad</label><select id="c_smtp_secure"><option value="tls">TLS</option><option value="ssl">SSL</option><option value="none">Ninguna</option></select></div></div>
       <div class="row"><div><label>Usuario</label><input id="c_smtp_user"></div><div><label>Clave</label><input id="c_smtp_pass" type="password"></div><div><label>Remitente</label><input id="c_smtp_from"></div></div>
       <div class="row"><div><label>Email backups</label><input id="c_backup_email"></div></div>
+
+      <div class="sec-title">🖥 Front (página pública)</div>
+      <div class="hint">Configura lo que ve el usuario en la página principal. Los cambios aplican al recargar el front.</div>
+      <div class="row"><div><label>Título</label><input id="c_front_titulo"></div><div><label>Subtítulo</label><input id="c_front_subtitulo"></div></div>
+      <div class="row"><div><label>Logo (texto/emoji)</label><input id="c_front_logo"></div></div>
+      <div class="row"><div><label>Color primario</label><input id="c_front_color_primario" type="color" style="height:38px;padding:2px"></div><div><label>Color acento</label><input id="c_front_color_acento" type="color" style="height:38px;padding:2px"></div></div>
+      <div class="row"><div><label>Color fondo</label><input id="c_front_color_fondo" type="color" style="height:38px;padding:2px"></div><div><label>Color texto</label><input id="c_front_color_texto" type="color" style="height:38px;padding:2px"></div></div>
+      <div class="row"><div><label>Sección Enviar</label><select id="c_front_seccion_enviar"><option value="1">Visible</option><option value="0">Oculto</option></select></div><div><label>Sección Historial</label><select id="c_front_seccion_historial"><option value="1">Visible</option><option value="0">Oculto</option></select></div></div>
+
+      <div class="sec-title">⚙ Todos los parametros (avanzado · dinamico)</div>
+      <div class="hint">Cada clave de la base de datos, editable. Incluye <b>todo</b> lo del sistema que no este en los campos de arriba; lo que sumes aca se guarda tal cual.</div>
+      <div id="cfg_extra" style="display:flex;flex-direction:column;gap:.6rem"></div>
+
       <button class="btn btn-pri" style="margin-top:1rem" onclick="saveConfig()">Guardar parametros</button>
       <button class="btn btn-sec" onclick="smtpTest()">Probar SMTP</button>
       <div id="cfg_res" class="toast"></div></div></div>
@@ -256,6 +278,7 @@ pre{background:rgba(4,6,13,.95);border:1px solid var(--line);border-radius:10px;
         <button class="btn btn-sec btn-sm" onclick="loadLogs('asterisk')">Asterisk</button>
         <button class="btn btn-sec btn-sm" onclick="loadLogs('cola')">Cola</button>
         <button class="btn btn-sec btn-sm" onclick="loadLogs('install')">Instalador</button>
+        <button class="btn btn-ok btn-sm" onclick="loadLogs('db')">Logs DB (sistema)</button>
         <button class="btn btn-ok btn-sm" onclick="loadLogs(curLogType)">↻ Recargar</button>
       </div>
       <pre id="log_out">Seleccione un log.</pre></div></div>
@@ -297,7 +320,7 @@ pre{background:rgba(4,6,13,.95);border:1px solid var(--line);border-radius:10px;
 let TOKEN=localStorage.getItem('zetron_tok')||'';
 let editP=null,editG=null,editX=null,editPL=null,editPR=null; const HPG=50; let hoff=0,htot=0;
 let extTimer=null,histTimer=null,colaTimer=null; let curLogType='api';
-const CFG_KEYS=['admin_user','admin_pass','mensaje_timeout','ptt_preactivo','digit_timeout','response_timeout','test_mode','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','smtp_secure','backup_email','hospital_pbx_ip','hospital_pbx_port','pocsag_mode','transport_bind','transport_protocol','codecs','retry_interval','expiration','mmdvm_callsign','mmdvm_serial_port','mmdvm_baud','mmdvm_frequency','mmdvm_duplex','mmdvm_pocsag_baud','mmdvm_tx_invert','mmdvm_tx_level','mmdvm_tx_offset','mmdvm_ptt_delay','mmdvm_display','mmdvm_remote_port','mmdvm_enable_pocsag','mmdvm_dapnet_enable','mmdvm_dapnet_address','mmdvm_dapnet_passcode','gpio_chip','gpio_pin'];
+const CFG_KEYS=['admin_user','admin_pass','mensaje_timeout','ptt_preactivo','digit_timeout','response_timeout','test_mode','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','smtp_secure','backup_email','hospital_pbx_ip','hospital_pbx_port','pocsag_mode','transport_bind','transport_protocol','codecs','retry_interval','expiration','mmdvm_callsign','mmdvm_serial_port','mmdvm_baud','mmdvm_frequency','mmdvm_duplex','mmdvm_pocsag_baud','mmdvm_tx_invert','mmdvm_tx_level','mmdvm_tx_offset','mmdvm_ptt_delay','mmdvm_display','mmdvm_remote_port','mmdvm_enable_pocsag','mmdvm_dapnet_enable','mmdvm_dapnet_address','mmdvm_dapnet_passcode','gpio_chip','gpio_pin','front_titulo','front_subtitulo','front_logo','front_color_primario','front_color_acento','front_color_fondo','front_color_texto','front_seccion_enviar','front_seccion_historial'];
 
 function api(m,u,b,raw){const o={method:m,headers:{'Authorization':'Bearer '+TOKEN}};if(b!==undefined){if(raw){o.body=b;}else{o.headers['Content-Type']='application/json';o.body=JSON.stringify(b);}}return fetch(u,o).then(async r=>{if(r.status===401){logout(true);throw new Error('no autorizado');}const txt=await r.text();try{return JSON.parse(txt);}catch(e){return txt;}});}
 function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',hist:'Historial',cfg:'Parametros',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria'};document.getElementById('tit').textContent=t[id]||'';
@@ -309,7 +332,7 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 function toggleMenu(){document.querySelector('.side nav').classList.toggle('open');}
 document.addEventListener('click',e=>{const n=document.querySelector('.side nav');if(n&&!n.contains(e.target)&&!e.target.closest('.burger'))n.classList.remove('open');});
 
-async function doLogin(){const u=document.getElementById('lu').value,p=document.getElementById('lp').value;const err=document.getElementById('lerr');err.className='toast err';err.textContent='';try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:u,pass:p})}).then(r=>r.json());if(r.token){TOKEN=r.token;localStorage.setItem('zetron_tok',TOKEN);showApp();}else{err.classList.add('show');err.textContent=r.error||'error';}}catch(e){err.classList.add('show');err.textContent='error de conexion';}}
+async function doLogin(){const u=document.getElementById('lu').value,p=document.getElementById('lp').value;const err=document.getElementById('lerr');err.className='toast err';err.textContent='';try{const resp=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:u,pass:p})});const txt=await resp.text();let r;try{r=JSON.parse(txt);}catch(e){r={error:'Respuesta no JSON (HTTP '+resp.status+'). ¿Backend caído o desactualizado?'};}if(resp.ok&&r.token){TOKEN=r.token;localStorage.setItem('zetron_tok',TOKEN);showApp();}else{err.classList.add('show');err.textContent=r.error||('Error HTTP '+resp.status);}}catch(e){err.classList.add('show');err.textContent='Sin conexion al backend ('+e.message+'). Verifique que el servicio zetronpoc-api este activo.';}}
 document.getElementById('lp').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 function logout(silent){TOKEN='';localStorage.removeItem('zetron_tok');document.getElementById('app').style.display='none';document.getElementById('login').style.display='grid';if(!silent)document.getElementById('lp').value='';}
 function showApp(){document.getElementById('login').style.display='none';document.getElementById('app').style.display='flex';tab('ext',document.querySelector('.nav-btn'));}
@@ -363,8 +386,10 @@ function hgGo(d){loadHist(Math.max(0,hoff+d*HPG));}
 function exportHist(){const p=new URLSearchParams();['h_desde','h_hasta','h_codigo','h_interno','h_estado'].forEach(k=>{const v=document.getElementById(k).value;if(v){if(k==='h_hasta')p.set('fecha_hasta',v+'T23:59:59');else if(k==='h_desde')p.set('fecha_desde',v);else p.set(k.replace('h_',''),v);}});window.open('/api/historial/export?'+p,'_blank');}
 
 // Config
-async function loadConfig(){const c=await api('GET','/api/config');CFG_KEYS.forEach(k=>{const el=document.getElementById('c_'+k);if(el&&c[k]!=null)el.value=c[k];});}
-async function saveConfig(){const d={};CFG_KEYS.forEach(k=>{const el=document.getElementById('c_'+k);if(el)d[k]=el.value;});await api('PUT','/api/config',d);const t=document.getElementById('cfg_res');t.className='toast show ok';t.textContent='Guardado. Pulsa Aplicar a Asterisk en Extensiones.';setTimeout(()=>t.className='toast',4000);}
+function cfgGroupOf(k){const i=k.indexOf('_');return i>0?k.slice(0,i):'general';}
+function renderConfigExtra(c){const box=document.getElementById('cfg_extra');if(!box)return;const set=new Set(CFG_KEYS);const groups={};Object.keys(c).filter(k=>!set.has(k)).sort().forEach(k=>{const g=cfgGroupOf(k);(groups[g]=groups[g]||[]).push(k);});if(!Object.keys(groups).length){box.innerHTML='<div style="color:var(--mut);font-size:.82rem">No hay parametros adicionales.</div>';return;}let html='';for(const g of Object.keys(groups).sort()){html+='<div><div style="font-size:.66rem;color:var(--acc);letter-spacing:.1em;text-transform:uppercase;font-family:JetBrains Mono,monospace;margin:.3rem 0">'+g+'</div><div class="row">';groups[g].forEach(k=>{const v=c[k]!=null?String(c[k]):'';html+='<div><label>'+k+'</label><input class="cfg-x" data-k="'+k+'" value="'+v.replace(/"/g,'&quot;').replace(/</g,'&lt;')+'"></div>';});html+='</div></div>';}box.innerHTML=html;}
+async function loadConfig(){const c=await api('GET','/api/config');CFG_KEYS.forEach(k=>{const el=document.getElementById('c_'+k);if(el&&c[k]!=null)el.value=c[k];});renderConfigExtra(c);}
+async function saveConfig(){const d={};CFG_KEYS.forEach(k=>{const el=document.getElementById('c_'+k);if(el)d[k]=el.value;});document.querySelectorAll('.cfg-x').forEach(el=>{d[el.dataset.k]=el.value;});await api('PUT','/api/config',d);const t=document.getElementById('cfg_res');t.className='toast show ok';t.textContent='Guardado. Pulsa Aplicar a Asterisk en Extensiones.';setTimeout(()=>t.className='toast',4000);}
 async function applyMmdvm(){const d={};CFG_KEYS.filter(k=>k.startsWith('mmdvm_')).forEach(k=>{const el=document.getElementById('c_'+k);if(el)d[k]=el.value;});const t=document.getElementById('mmdvm_res');t.className='toast show ok';t.textContent='Aplicando a la placa MMDVM...';const r=await api('POST','/api/mmdvm/apply',d);if(r.ok){t.className='toast show ok';t.textContent='OK: '+(r.salida||'');}else{t.className='toast show err';t.textContent='Error: '+(r.error||'fallo');}}
 async function mmdvmStatus(){try{const r=await api('GET','/api/mmdvm/status');const el=document.getElementById('mmdvm_st');if(!el)return;const ok=r.installed;el.className='badge '+(ok?(r.service==='active'?'ok':'mut'):'err');el.textContent=ok?('Instalado · svc '+r.service):'No instalado';}catch(e){}}
 async function installMmdvm(){if(!confirm('Instalar MMDVMHost en este servidor? Compila y deja el servicio corriendo (1-3 min).'))return;const t=document.getElementById('mmdvm_inst');t.className='toast show ok';t.textContent='Instalando... (puede tardar 1-3 min)';const r=await api('POST','/api/mmdvm/install');if(r.ok){t.className='toast show ok';t.textContent='Instalacion OK. '+(r.salida||'').slice(-500);mmdvmStatus();}else{t.className='toast show err';t.textContent='Error: '+(r.error||'')+'\\n'+(r.salida||'').slice(-500);mmdvmStatus();}}
