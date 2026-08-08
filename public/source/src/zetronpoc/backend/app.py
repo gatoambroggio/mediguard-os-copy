@@ -43,6 +43,7 @@ def serve_file(handler, path, ct):
     handler.send_response(200)
     handler.send_header("Content-Type", ct)
     handler.send_header("Content-Length", str(len(data)))
+    handler.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
     handler.end_headers()
     handler.wfile.write(data)
 
@@ -150,10 +151,28 @@ class Handler(BaseHTTPRequestHandler):
         except Exception: return {}
 
     def do_GET(self):
+        try: return self._get()
+        except Exception as e:
+            import traceback; tb=traceback.format_exc()
+            try: return jok(self, {"error": str(e), "traceback": tb[-2000:]}, 500)
+            except Exception: pass
+    def _get(self):
         u = urllib.parse.urlparse(self.path); p = u.path; q = urllib.parse.parse_qs(u.query)
         if p == "/" or p == "/index.html": return serve_file(self, os.path.join(FRONT, "index.html"), "text/html; charset=utf-8")
         if p == "/admin" or p == "/admin.html": return serve_file(self, os.path.join(FRONT, "admin.html"), "text/html; charset=utf-8")
         if p == "/api/health": return jok(self, {"status": "ok", "ts": int(time.time())})
+        if p == "/api/diag":
+            out = {"db_path": db.DEFAULT_DB, "exists": os.path.exists(db.DEFAULT_DB)}
+            tables = ["config","extensiones","pagers","grupos","grupo_miembros","bitacora","cola_envios","plantillas","envios_programados","auditoria","logs"]
+            errs = []; counts = {}
+            for t in tables:
+                try:
+                    with db.get_conn() as conn:
+                        counts[t] = conn.execute("SELECT COUNT(*) FROM %s" % t).fetchone()[0]
+                except Exception as e:
+                    errs.append("%s: %s" % (t, str(e)[:160])); counts[t] = None
+            out["counts"] = counts; out["errors"] = errs; out["db_ok"] = not errs
+            return jok(self, out)
         if p == "/api/version": return jok(self, {"version": db.get_config("version", "2.0")})
         if p == "/api/theme": return jok(self, db.all_config())
         if p == "/api/pagers": return jok(self, db.buscar_pagers(q.get("q", [""])[0]))
@@ -214,6 +233,12 @@ class Handler(BaseHTTPRequestHandler):
         return jtext(self, "no encontrado", 404)
 
     def do_POST(self):
+        try: return self._post()
+        except Exception as e:
+            import traceback; tb=traceback.format_exc()
+            try: return jok(self, {"error": str(e), "traceback": tb[-2000:]}, 500)
+            except Exception: pass
+    def _post(self):
         u = urllib.parse.urlparse(self.path); p = u.path
         if p == "/api/login":
             d = self._json()
@@ -381,6 +406,12 @@ class Handler(BaseHTTPRequestHandler):
         return jtext(self, "no encontrado", 404)
 
     def do_PUT(self):
+        try: return self._put()
+        except Exception as e:
+            import traceback; tb=traceback.format_exc()
+            try: return jok(self, {"error": str(e), "traceback": tb[-2000:]}, 500)
+            except Exception: pass
+    def _put(self):
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
         u = urllib.parse.urlparse(self.path); p = u.path; d = self._json()
         if p == "/api/config":
@@ -422,6 +453,12 @@ class Handler(BaseHTTPRequestHandler):
         return jtext(self, "no encontrado", 404)
 
     def do_DELETE(self):
+        try: return self._delete()
+        except Exception as e:
+            import traceback; tb=traceback.format_exc()
+            try: return jok(self, {"error": str(e), "traceback": tb[-2000:]}, 500)
+            except Exception: pass
+    def _delete(self):
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
         p = urllib.parse.urlparse(self.path).path
         m = re.match(r'/api/extensions/(\d+)$', p)

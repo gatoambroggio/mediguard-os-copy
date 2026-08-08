@@ -261,6 +261,7 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
     port = g("mmdvm_serial_port", "/dev/ttyUSB0")
     baud = g("mmdvm_baud", "115200")
     freq_mhz = g("mmdvm_frequency", "433.800")
+    # MMDVMHost espera RXFrequency/TXFrequency en Hz (ej: 149.255 MHz -> 149255000)
     try:
         freq_hz = str(int(float(freq_mhz) * 1000000))
     except (ValueError, TypeError):
@@ -274,6 +275,7 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
     rx_level = g("mmdvm_rx_level", "50")
     tx_offset = g("mmdvm_tx_offset", "0")
     rx_offset = g("mmdvm_rx_offset", "0")
+    # TXDelay aumentado por defecto a 500ms para estabilizar PTT en VHF
     ptt_delay = g("mmdvm_ptt_delay", "500")
     rf_level = g("mmdvm_rf_level", "100")
     oscillator = g("mmdvm_oscillator_speed", "14745600")
@@ -505,7 +507,10 @@ def login_validar(user, passw, db_path=DEFAULT_DB):
 def verificar_token(tok):
     v = _TOKENS.get(tok)
     if not v: return False
-    if time.time() > v["exp"]:
+    exp = v.get("exp") if isinstance(v, dict) else None
+    if not isinstance(exp, (int, float)):
+        _TOKENS.pop(tok, None); return False
+    if time.time() > exp:
         _TOKENS.pop(tok, None); return False
     return True
 
@@ -513,7 +518,10 @@ def token_user(tok, default="sistema"):
     """Devuelve el nombre del operador asociado al token (para auditoria)."""
     v = _TOKENS.get(tok)
     if not v: return default
-    if time.time() > v["exp"]:
+    exp = v.get("exp") if isinstance(v, dict) else None
+    if not isinstance(exp, (int, float)):
+        _TOKENS.pop(tok, None); return default
+    if time.time() > exp:
         _TOKENS.pop(tok, None); return default
     return v.get("user") or default
 

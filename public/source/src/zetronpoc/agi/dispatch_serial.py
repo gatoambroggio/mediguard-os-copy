@@ -130,6 +130,7 @@ def read_frame(fd, timeout_sec=3.0):
                 out.append(FRAME_START)
                 prev_e0 = False
             else:
+                # Nuevo frame start
                 out = bytearray()
                 out.append(byte)
                 prev_e0 = False
@@ -194,8 +195,9 @@ def init_modem(fd, cfg):
     if cfg.get("mmdvm_tx_invert", "0") == "1": flags |= 0x02
     if cfg.get("mmdvm_ptt_invert", "0") == "1": flags |= 0x04
     if cfg.get("mmdvm_duplex", "0") == "0": flags |= 0x80
-    # POCSAG es el bit 5 (0x20) en el byte de modos del MMDVM, NO 0x01 (D-STAR)
-    pocsag_en = 0x20 if cfg.get("mmdvm_enable_pocsag", "1") == "1" else 0x00
+    # Segun firmware G4KLX SerialPort.cpp: POCSAG enable = data[2] bit 0 (0x01).
+    # NO es 0x20 (eso es FM en data[1]). NAK razon=4 si txDelay>50 o largo<37.
+    pocsag_en = 0x01 if cfg.get("mmdvm_enable_pocsag", "1") == "1" else 0x00
     tx_delay = min(safe_int(cfg.get("mmdvm_ptt_delay", "50"), 50), 50)
     rx_level = safe_int(cfg.get("mmdvm_rx_level", "50"), 50)
     tx_level = safe_int(cfg.get("mmdvm_tx_level", "50"), 50)
@@ -211,6 +213,7 @@ def init_modem(fd, cfg):
     for i in range(7, 37):
         config_data[i] = 50
 
+    log("SET_CONFIG bytes: %s" % " ".join("%02X" % b for b in config_data))
     resp = send_and_wait(fd, CMD_SET_CONFIG, bytes(config_data), timeout=3.0)
     if resp and resp[0] == CMD_ACK:
         log("SET_CONFIG OK (ACK)")
