@@ -136,7 +136,7 @@ tbody tr:hover{background:#f1f5f9!important}
       <button class="nav-btn" onclick="tab('cola',this)"><span class="ic">≡</span>Cola</button>
       <button class="nav-btn" onclick="tab('bd',this)"><span class="ic">⛁</span>Base datos</button>
     </nav>
-    <div class="bot"><span id="h" class="pill">SISTEMA…</span><br><button class="btn btn-sec btn-sm" style="margin-top:.6rem;width:100%;justify-content:center" onclick="logout()">Desconectar</button></div>
+    <div class="bot"><span id="h" class="pill">SISTEMA…</span><div id="diagBox" style="margin-top:.5rem;display:none"></div><button class="btn btn-sec btn-sm" style="margin-top:.6rem;width:100%;justify-content:center" onclick="logout()">Desconectar</button></div>
   </div>
   <div class="content">
     <div class="topbar"><h1 id="tit">Extensiones</h1><span id="ver" class="badge mut">v2.0</span></div>
@@ -437,8 +437,9 @@ async function loadAud(){const r=await api('GET','/api/auditoria?limit=200');doc
 
 // Health
 async function health(){try{const h=await fetch('/api/health').then(r=>r.json());const p=document.getElementById('h');p.textContent=h.status==='ok'?'EN LINEA':'CAIDO';p.className='pill '+(h.status==='ok'?'':'off');}catch(e){}}
+async function runDiag(){try{const d=await fetch('/api/diag').then(r=>r.json());const box=document.getElementById('diagBox');if(!box)return;if(d.errors&&d.errors.length){box.style.display='block';box.innerHTML='<div style="background:rgba(255,59,92,.12);border:1px solid rgba(255,59,92,.4);color:#dc2626;padding:.5rem .6rem;border-radius:8px;font-size:.72rem;line-height:1.4"><b>BD con errores:</b><br>'+d.errors.map(e=>e.replace(/</g,'&lt;')).join('<br>')+'</div>';}else{box.style.display='none';box.innerHTML='';}}catch(e){const box=document.getElementById('diagBox');if(box){box.style.display='block';box.innerHTML='<div style="background:rgba(255,59,92,.12);border:1px solid rgba(255,59,92,.4);color:#dc2626;padding:.5rem .6rem;border-radius:8px;font-size:.72rem">Backend no responde a /api/diag</div>';}}}
 
-checkTok();health();setInterval(health,20000);
+checkTok();health();runDiag();setInterval(health,20000);setInterval(runDiag,30000);
 async function loadVer(){try{const v=await fetch('/api/version').then(r=>r.json());const el=document.getElementById('ver');if(el)el.textContent='v'+(v.version||'2.0');}catch(e){}}
 loadVer();
 </script>

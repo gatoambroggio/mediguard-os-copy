@@ -160,6 +160,18 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/" or p == "/index.html": return serve_file(self, os.path.join(FRONT, "index.html"), "text/html; charset=utf-8")
         if p == "/admin" or p == "/admin.html": return serve_file(self, os.path.join(FRONT, "admin.html"), "text/html; charset=utf-8")
         if p == "/api/health": return jok(self, {"status": "ok", "ts": int(time.time())})
+        if p == "/api/diag":
+            out = {"db_path": db.DEFAULT_DB, "exists": os.path.exists(db.DEFAULT_DB)}
+            tables = ["config","extensiones","pagers","grupos","grupo_miembros","bitacora","cola_envios","plantillas","envios_programados","auditoria","logs"]
+            errs = []; counts = {}
+            for t in tables:
+                try:
+                    with db.get_conn() as conn:
+                        counts[t] = conn.execute("SELECT COUNT(*) FROM %s" % t).fetchone()[0]
+                except Exception as e:
+                    errs.append("%s: %s" % (t, str(e)[:160])); counts[t] = None
+            out["counts"] = counts; out["errors"] = errs; out["db_ok"] = not errs
+            return jok(self, out)
         if p == "/api/version": return jok(self, {"version": db.get_config("version", "2.0")})
         if p == "/api/theme": return jok(self, db.all_config())
         if p == "/api/pagers": return jok(self, db.buscar_pagers(q.get("q", [""])[0]))
