@@ -157,6 +157,16 @@ def send_and_wait(fd, command, data=b"", timeout=3.0):
     return read_frame(fd, timeout)
 
 
+def safe_int(val, default=50):
+    """Convierte a int de forma segura, devolviendo default si está vacío o es inválido."""
+    try:
+        if val is None or str(val).strip() == "":
+            return default
+        return int(val)
+    except (ValueError, TypeError):
+        return default
+
+
 def init_modem(fd, cfg):
     """Secuencia completa de inicialización del módem MMDVM."""
     # 1. GET_VERSION
@@ -180,9 +190,9 @@ def init_modem(fd, cfg):
     if cfg.get("mmdvm_ptt_invert", "0") == "1": flags |= 0x04
     if cfg.get("mmdvm_duplex", "0") == "0": flags |= 0x80
     pocsag_en = 0x01 if cfg.get("mmdvm_enable_pocsag", "1") == "1" else 0x00
-    tx_delay = min(int(cfg.get("mmdvm_ptt_delay", "50")), 50)
-    rx_level = int(cfg.get("mmdvm_rx_level", "50"))
-    tx_level = int(cfg.get("mmdvm_tx_level", "50"))
+    tx_delay = min(safe_int(cfg.get("mmdvm_ptt_delay", "50"), 50), 50)
+    rx_level = safe_int(cfg.get("mmdvm_rx_level", "50"), 50)
+    tx_level = safe_int(cfg.get("mmdvm_tx_level", "50"), 50)
 
     config_data = bytearray(37)
     config_data[0] = flags
@@ -207,7 +217,7 @@ def init_modem(fd, cfg):
 
     # 3. SET_FREQ
     log("SET_FREQ...")
-    freq_mhz = cfg.get("mmdvm_frequency", "433.800")
+    freq_mhz = cfg.get("mmdvm_frequency", "433.800") or "433.800"
     try:
         freq_hz = int(float(freq_mhz) * 1000000)
     except (ValueError, TypeError):
@@ -261,11 +271,11 @@ def main():
     caps_str = str(sys.argv[1])
     cap_list = [int(c.strip()) for c in caps_str.split(",") if c.strip()]
     message = str(sys.argv[2])
-    baud = int(sys.argv[3]) if len(sys.argv) > 3 and sys.argv[3] else int(get_config("mmdvm_pocsag_baud", "1200"))
-    func_mode = get_config("function_mode", "alphanumeric")
+    baud = safe_int(sys.argv[3], safe_int(get_config("mmdvm_pocsag_baud", "1200"), 1200))
+    func_mode = get_config("function_mode", "alphanumeric") or "alphanumeric"
 
-    port = get_config("mmdvm_serial_port", "/dev/ttyUSB0")
-    serial_baud = int(get_config("mmdvm_baud", "115200"))
+    port = get_config("mmdvm_serial_port", "/dev/ttyUSB0") or "/dev/ttyUSB0"
+    serial_baud = safe_int(get_config("mmdvm_baud", "115200"), 115200)
 
     log("=== Envio directo serial ===")
     log("Port=%s baud=%d caps=%s msg=%r" % (port, serial_baud, cap_list, message))
