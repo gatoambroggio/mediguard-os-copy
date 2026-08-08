@@ -81,7 +81,7 @@ def main():
     try:
         env = dict(os.environ, ZETRONPOC_DIR=APP_DIR)
         r = subprocess.run([sys.executable, dispatch_script, caps, mensaje, str(baudios)],
-                           capture_output=True, text=True, timeout=60, env=env)
+                           capture_output=True, text=True, timeout=180, env=env)
         if r.returncode == 0:
             for cap in cap_list:
                 if qid:

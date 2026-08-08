@@ -300,12 +300,18 @@ def init_modem(fd, cfg):
     return True, "inicializacion OK"
 
 
-def send_pocsag(fd, cap_code, message, func_mode="alphanumeric"):
+def send_pocsag(fd, cap_code, message, func_mode="alphanumeric", baud=1200):
     """Genera codewords POCSAG y los envía como frames MMDVM al módem."""
     func = 0x3 if func_mode == "alphanumeric" else (0x0 if func_mode == "numeric" else 0x1)
     cws = build_codewords(cap_code, func, message, func_mode)
     log("Codewords: %d para cap=%d func=%s" % (len(cws), cap_code, func_mode))
 
+    # Paceo entre frames segun baud: un frame POCSAG = 544 bits. A baudios bajos
+    # (512) el firmware demora ~1.06s/frame en vaciar el buffer de 1000 bytes del
+    # STM32; si el host envia cada 0.15s, el buffer se llena y se pierden frames
+    # -> el pager recibe un fragmento ("suena y se corta"). Se espera lo que tarda
+    # un frame en salir del aire antes de mandar el siguiente.
+    frame_tx_sec = 544.0 / max(baud, 1)
     frames_sent = 0
     for i in range(0, len(cws), POCSAG_FRAME_WORDS):
         chunk = cws[i:i + POCSAG_FRAME_WORDS]
@@ -314,7 +320,7 @@ def send_pocsag(fd, cap_code, message, func_mode="alphanumeric"):
         data = b"".join(struct.pack(">I", cw) for cw in chunk)
         log("Frame POCSAG %d (%d cws)" % (frames_sent + 1, len(chunk)))
         send_frame(fd, CMD_POCSAG_DATA, data)
-        time.sleep(0.15)
+        time.sleep(frame_tx_sec + 0.05)
         frames_sent += 1
     return frames_sent
 
@@ -365,7 +371,7 @@ def main():
 
         total = 0
         for cap in cap_list:
-            total += send_pocsag(fd, cap, message, func_mode)
+            total += send_pocsag(fd, cap, message, func_mode, baud)
 
         # Esperar a que el firmware termine de transmitir TODOS los frames
         # antes de liberar PTT. Un frame POCSAG ~= 1120 bits (576 preamble +
