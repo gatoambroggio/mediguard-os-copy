@@ -139,6 +139,127 @@ def diagnose():
             "transportes": pbx_run("pjsip show transports")["salida"],
             "log_pjsip": ""}
 
+# ===================== DIAGNOSTICO POCSAG EN VIVO =====================
+MMDVM_LOG_DIR = "/var/log/mmdvm"
+
+def diag_mqtt_response():
+    """Captura on-demand las respuestas OK/KO que publica MMDVMHost en
+    <name>/response. Lanza mosquitto_sub con timeout 2s y -C 5 (max 5 msgs)."""
+    host = (db.get_config("mmdvm_mqtt_host", "127.0.0.1") or "127.0.0.1").strip() or "127.0.0.1"
+    port = str(db.get_config("mmdvm_mqtt_port", "1883") or "1883").strip() or "1883"
+    name = (db.get_config("mmdvm_mqtt_name", "host") or "host").strip() or "host"
+    topic = "%s/response" % name
+    try:
+        r = subprocess.run(["timeout", "2", "mosquitto_sub", "-h", host, "-p", port,
+                            "-t", topic, "-C", "5"], capture_output=True, text=True, timeout=4)
+        lineas = [l for l in (r.stdout or "").splitlines() if l.strip()]
+        return {"topic": topic, "host": host, "port": port, "lineas": lineas, "ok": True}
+    except FileNotFoundError:
+        return {"topic": topic, "host": host, "port": port, "lineas": [], "ok": False,
+                "error": "mosquitto_sub no instalado"}
+    except Exception as e:
+        return {"topic": topic, "host": host, "port": port, "lineas": [], "ok": False,
+                "error": str(e)[:200]}
+
+def diag_mmdvm_log(lines=100):
+    """Tail del MMDVM-*.log mas reciente filtrado a POCSAG/remote/NAK/Transmitted."""
+    try:
+        import glob
+        files = sorted(glob.glob(os.path.join(MMDVM_LOG_DIR, "MMDVM-*.log")), reverse=True)
+    except Exception:
+        files = []
+    if not files:
+        return {"path": MMDVM_LOG_DIR, "lineas": [], "ok": False,
+                "error": "no hay logs MMDVM-*.log en %s" % MMDVM_LOG_DIR}
+    path = files[0]
+    try:
+        r = subprocess.run(["bash", "-c", "tail -n %d %s | grep -Ei 'pocsag|remote command|nak|transmitted|page'" % (int(lines), path)],
+                           capture_output=True, text=True, timeout=3)
+        lineas = [l for l in (r.stdout or "").splitlines() if l.strip()]
+        return {"path": path, "lineas": lineas, "ok": True}
+    except Exception as e:
+        return {"path": path, "lineas": [], "ok": False, "error": str(e)[:200]}
+
+def diag_dispatch_log(lines=50):
+    """Tail del dispatch_mqtt.log para ver el payload exacto enviado."""
+    path = os.path.join(APP_DIR, "logs", "dispatch_mqtt.log")
+    if not os.path.exists(path):
+        return {"path": path, "lineas": [], "ok": False, "error": "no existe el log (todavia no se despacho nada)"}
+    try:
+        with open(path, "r", errors="replace") as f:
+            all_lines = f.readlines()
+        lineas = [l.rstrip() for l in all_lines[-int(lines):] if l.strip()]
+        return {"path": path, "lineas": lineas, "ok": True}
+    except Exception as e:
+        return {"path": path, "lineas": [], "ok": False, "error": str(e)[:200]}
+
+def diag_config_check():
+    """Parsea el MMDVM.ini real y valida valores criticos para Jumbospot."""
+    import configparser
+    ini_path = db.MMDVM_INI
+    out = {"path": ini_path, "exists": os.path.exists(ini_path), "checks": []}
+    if not out["exists"]:
+        out["error"] = "MMDVM.ini no existe en %s (aplica config desde Parametros primero)" % ini_path
+        return out
+    cp = configparser.ConfigParser()
+    try:
+        cp.read(ini_path)
+    except Exception as e:
+        out["error"] = "no se pudo parsear: %s" % str(e)[:120]
+        return out
+    def g(section, key, default=""):
+        try:
+            return cp.get(section, key).strip()
+        except Exception:
+            return default
+    dapnet = g("DAPNET", "Enable", "0")
+    out["checks"].append({"k": "DAPNET Enable", "v": dapnet or "0", "ok": (dapnet == "0"),
+                          "hint": "debe ser 0: si esta en 1, DAPNET transmite pages ajenos en la misma frecuencia y mezcla basura"})
+    pocsag_baud = g("POCSAG", "Baud", "")
+    out["checks"].append({"k": "POCSAG baud en .ini", "v": pocsag_baud or "(ausente)", "ok": bool(pocsag_baud),
+                          "hint": "si el pager es 512 y MMDVMHost envia 1200 (default), llega basura con audio limpio"})
+    txinvert = g("Modem", "TXInvert", "0")
+    out["checks"].append({"k": "Modem TXInvert", "v": txinvert, "ok": (txinvert == "1"),
+                          "hint": "Jumbospot requiere 1 (polaridad FSK)"})
+    pttinvert = g("Modem", "PTTInvert", "0")
+    out["checks"].append({"k": "Modem PTTInvert", "v": pttinvert, "ok": (pttinvert == "1"),
+                          "hint": "Jumbospot requiere 1"})
+    txlevel = g("Modem", "TXLevel", "50")
+    out["checks"].append({"k": "Modem TXLevel", "v": txlevel, "ok": True,
+                          "hint": "si hay over-deviation, probar 25-35"})
+    # version MMDVMHost
+    ver = "no disponible"
+    for cand in ["/usr/local/bin/MMDVM-Host", "MMDVMHost", "MMDVM-Host"]:
+        try:
+            r = subprocess.run([cand, "-v"], capture_output=True, text=True, timeout=3)
+            raw = ((r.stdout or "") + (r.stderr or "")).strip()
+            if raw:
+                ver = raw.splitlines()[0]
+                break
+        except Exception:
+            continue
+    out["checks"].append({"k": "MMDVMHost version", "v": ver, "ok": True,
+                          "hint": "soporte MQTT page es reciente; version muy vieja puede no procesar el comando"})
+    return out
+
+def diag_test_page(cap, mensaje):
+    """Dispara un page real via dispatch_mqtt.py para observar la respuesta OK/KO."""
+    script = os.path.join(APP_DIR, "agi", "dispatch_mqtt.py")
+    if not os.path.exists(script):
+        return {"ok": False, "error": "dispatch_mqtt.py no encontrado en %s" % script}
+    try:
+        cap_int = int(str(cap).split(",")[0])
+    except (ValueError, TypeError):
+        return {"ok": False, "error": "cap invalido: %s" % str(cap)[:80]}
+    try:
+        env = dict(os.environ, ZETRONPOC_DIR=APP_DIR)
+        r = subprocess.run([sys.executable, script, str(cap_int), str(mensaje or "TEST"), "1200"],
+                           capture_output=True, text=True, timeout=15, env=env)
+        return {"ok": r.returncode == 0, "stdout": (r.stdout or "").strip()[:500],
+                "stderr": (r.stderr or "").strip()[:500], "rc": r.returncode}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:200]}
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
@@ -181,6 +302,11 @@ class Handler(BaseHTTPRequestHandler):
             return jok(self, db.historial({}, 100, 0))
         if p == "/api/login": return jtext(self, "use POST", 405)
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
+
+        if p == "/api/diagnostico/mqtt_response": return jok(self, diag_mqtt_response())
+        if p == "/api/diagnostico/mmdvm_log": return jok(self, diag_mmdvm_log(int(q.get("lines", ["100"])[0])))
+        if p == "/api/diagnostico/dispatch_log": return jok(self, diag_dispatch_log(int(q.get("lines", ["50"])[0])))
+        if p == "/api/diagnostico/config_check": return jok(self, diag_config_check())
 
         if p == "/api/config": return jok(self, db.all_config())
         if p == "/api/mmdvm/config": return jok(self, {k: v for k, v in db.all_config().items() if k.startswith("mmdvm_")})
@@ -270,6 +396,13 @@ class Handler(BaseHTTPRequestHandler):
             return jok(self, res)
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
         d = self._json()
+        if p == "/api/diagnostico/test_page":
+            cap = d.get("cap", "1234567")
+            msg = d.get("mensaje", "TEST")
+            res = diag_test_page(cap, msg)
+            aud(self, "test_page", "diagnostico", str(cap), "rc=%s ok=%s" % (res.get("rc", "-"), res.get("ok")))
+            evlog(self, "info", "diag", "test_page cap=%s ok=%s" % (cap, res.get("ok")))
+            return jok(self, res)
         if p == "/api/mmdvm/apply":
             for k, v in d.items():
                 if k.startswith("mmdvm_"):

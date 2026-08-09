@@ -24,6 +24,7 @@ import {
 import JSZip from "jszip";
 import { Link } from "react-router-dom";
 import { CircuitBoard } from "lucide-react";
+import GithubPublishCard from "@/components/GithubPublishCard";
 
 const REPO = "https://github.com/gatoambroggio/ubntpagingsystem.git";
 const RAW = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/src/zetronpoc/instalador.sh";
@@ -294,6 +295,7 @@ export default function Descarga() {
 
       {/* bento */}
       <section className="relative z-10 max-w-5xl mx-auto px-6 mt-8 grid md:grid-cols-3 gap-4">
+        <GithubPublishCard />
         {/* big download card */}
         <motion.div
           custom={0}
