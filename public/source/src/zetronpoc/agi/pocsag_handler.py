@@ -71,6 +71,7 @@ def main():
     # --- Worker: transmitir SOLO por MMDVM (MQTT, sin audio/PTT/serial) ---
     test_mode = get_config("test_mode", "1") == "1"
     if test_mode:
+        log(">>> MODO TEST (test_mode=1): NO se transmite por MMDVM. Set test_mode=0 en admin. <<<")
         for cap in cap_list:
             if qid:
                 actualizar_bitacora_envio(qid, cap, "enviado", "modo test")

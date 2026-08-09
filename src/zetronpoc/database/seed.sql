@@ -72,6 +72,10 @@ INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_enable_pocsag','1');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_dapnet_enable','0');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_dapnet_address','');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_dapnet_passcode','');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_mqtt_enable','1');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_mqtt_host','127.0.0.1');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_mqtt_port','1883');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_mqtt_name','host');
 
 -- === Admin ===
 INSERT OR IGNORE INTO config(clave,valor) VALUES('admin_user','admin');

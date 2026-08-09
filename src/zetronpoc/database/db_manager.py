@@ -302,6 +302,10 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
     dapnet_address = g("mmdvm_dapnet_address", "")
     dapnet_passcode = g("mmdvm_dapnet_passcode", "")
     remote_port = (cfg.get("mmdvm_remote_port", "7642") or "7642").strip() or "7642"
+    mqtt_enable = "1" if g("mmdvm_mqtt_enable", "1") == "1" else "0"
+    mqtt_host = g("mmdvm_mqtt_host", "127.0.0.1")
+    mqtt_port = g("mmdvm_mqtt_port", "1883")
+    mqtt_name = g("mmdvm_mqtt_name", "host")
     ini = (
         "# MMDVM.ini - generado por ZetronPOC / MediGuard OS\n"
         "# Modulo MMDVM por puerto serie UART (Protocol=uart)\n\n"
@@ -340,6 +344,11 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
         "[POCSAG]\n"
         "Enable=%s\n"
         "Callsign=%s\n\n"
+        "[MQTT]\n"
+        "Enable=%s\n"
+        "Host=%s\n"
+        "Port=%s\n"
+        "Name=%s\n\n"
         "[RemoteControl]\n"
         "Enable=1\n"
         "Port=%s\n\n"
@@ -352,7 +361,7 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
     ) % (callsign, callsign.replace(" ", ""), duplex, enable_pocsag, display,
          port, baud, freq_hz, freq_hz, tx_invert, rx_invert, ptt_invert, ptt_delay,
          rx_offset, tx_offset, rx_level, tx_level, rf_level, oscillator,
-         enable_pocsag, callsign, remote_port,
+         enable_pocsag, callsign, mqtt_enable, mqtt_host, mqtt_port, mqtt_name, remote_port,
          dapnet_enable, dapnet_address, dapnet_passcode)
     try:
         os.makedirs(os.path.dirname(MMDVM_INI), exist_ok=True)

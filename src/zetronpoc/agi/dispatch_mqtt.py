@@ -13,13 +13,16 @@ import sys, os, subprocess, time
 APP_DIR = os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc")
 sys.path.insert(0, APP_DIR)
 sys.path.insert(0, os.path.join(APP_DIR, "database"))
+from db_manager import get_config
 
 LOG = os.path.join(APP_DIR, "logs", "dispatch_mqtt.log")
 
-# Config MQTT — debe coincidir con [MQTT] de MMDVM.ini
-MQTT_HOST = "127.0.0.1"
-MQTT_PORT = 1883
-MQTT_TOPIC = "host/command"
+# Config MQTT — leido de la BD (debe coincidir con [MQTT] de MMDVM.ini)
+def _mqtt_cfg():
+    host = get_config("mmdvm_mqtt_host", "127.0.0.1")
+    port = int(get_config("mmdvm_mqtt_port", "1883") or "1883")
+    name = get_config("mmdvm_mqtt_name", "host")
+    return host, port, "%s/command" % name
 
 
 def log(m):
@@ -33,8 +36,9 @@ def log(m):
 
 def publish_page(cap, message):
     """Publica un comando 'page' por MQTT usando mosquitto_pub."""
-    cmd = ["mosquitto_pub", "-h", MQTT_HOST, "-p", str(MQTT_PORT),
-           "-t", MQTT_TOPIC, "-m", "page %s %s" % (str(cap).zfill(7), message)]
+    host, port, topic = _mqtt_cfg()
+    cmd = ["mosquitto_pub", "-h", host, "-p", str(port),
+           "-t", topic, "-m", "page %s %s" % (str(cap).zfill(7), message)]
     log("MQTT pub: %s" % " ".join(cmd))
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
     if r.returncode != 0:
