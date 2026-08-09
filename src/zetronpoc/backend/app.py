@@ -169,8 +169,17 @@ def diag_mmdvm_log(lines=100):
     except Exception:
         files = []
     if not files:
-        return {"path": MMDVM_LOG_DIR, "lineas": [], "ok": False,
-                "error": "no hay logs MMDVM-*.log en %s" % MMDVM_LOG_DIR}
+        # fallback: journalctl del servicio mmdvmhost
+        try:
+            r = subprocess.run(["journalctl", "-u", "mmdvmhost", "-n", str(int(lines)), "--no-pager"],
+                               capture_output=True, text=True, timeout=5)
+            lineas = [l for l in (r.stdout or "").splitlines()
+                      if l.strip() and any(k in l.lower() for k in ("pocsag", "remote command", "nak", "transmitted", "page"))]
+            return {"path": "journalctl -u mmdvmhost", "lineas": lineas, "ok": True,
+                    "note": "no hay MMDVM-*.log en %s; usando journalctl" % MMDVM_LOG_DIR}
+        except Exception as e:
+            return {"path": MMDVM_LOG_DIR, "lineas": [], "ok": False,
+                    "error": "no hay logs MMDVM-*.log en %s y journalctl fallo: %s" % (MMDVM_LOG_DIR, str(e)[:120])}
     path = files[0]
     try:
         r = subprocess.run(["bash", "-c", "tail -n %d %s | grep -Ei 'pocsag|remote command|nak|transmitted|page'" % (int(lines), path)],
@@ -240,6 +249,19 @@ def diag_config_check():
             continue
     out["checks"].append({"k": "MMDVMHost version", "v": ver, "ok": True,
                           "hint": "soporte MQTT page es reciente; version muy vieja puede no procesar el comando"})
+    # [MQTT] section — si no esta habilitado o el Name no coincide, dispatch_mqtt publica al vacio
+    mqtt_en = g("MQTT", "Enable", "0")
+    out["checks"].append({"k": "MQTT Enable", "v": mqtt_en or "0", "ok": (mqtt_en == "1"),
+                          "hint": "debe ser 1: si esta en 0, MMDVMHost ignora los page de dispatch_mqtt (no hay respuesta en host/response)"})
+    mqtt_name = g("MQTT", "Name", "")
+    out["checks"].append({"k": "MQTT Name", "v": mqtt_name or "(ausente)", "ok": (mqtt_name == "host"),
+                          "hint": "debe ser 'host': dispatch_mqtt publica a host/command; si difiere, el comando no llega"})
+    mqtt_host = g("MQTT", "Host", "")
+    out["checks"].append({"k": "MQTT Host", "v": mqtt_host or "(ausente)", "ok": (mqtt_host == "127.0.0.1"),
+                          "hint": "debe apuntar al broker local (127.0.0.1)"})
+    mqtt_port = g("MQTT", "Port", "")
+    out["checks"].append({"k": "MQTT Port", "v": mqtt_port or "(ausente)", "ok": (mqtt_port == "1883"),
+                          "hint": "puerto del broker mosquitto (1883)"})
     return out
 
 def diag_test_page(cap, mensaje):
