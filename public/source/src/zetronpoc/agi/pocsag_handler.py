@@ -2,8 +2,8 @@
 """pocsag_handler.py - AGI POCSAG (ZetronPOC v2.0).
 Sin POCSAG_WORKER (lo llama el IVR): encola el mensaje y retorna rapido.
 Con POCSAG_WORKER=1 (lo llama el worker de cola): transmite por la placa MMDVM
-via RemoteCommand (TCP), sin audio/WAV/GPIO. test_mode=1: solo registra en
-bitacora como enviado."""
+via MQTT (mosquitto_pub -> MMDVMHost RemoteControl), sin audio/WAV/GPIO ni
+serial directo. test_mode=1: solo registra en bitacora como enviado."""
 import sys, os, subprocess, datetime, time
 APP_DIR = os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc")
 sys.path.insert(0, APP_DIR)
@@ -66,7 +66,7 @@ def main():
         log("Mensaje encolado (IVR) id=%s interno=%s codigo=%s msg=%s" % (qid, interno, codigo, mensaje))
         return
 
-    # --- Worker: transmitir SOLO por MMDVM (RemoteCommand, sin audio/PTT) ---
+    # --- Worker: transmitir SOLO por MMDVM (MQTT, sin audio/PTT/serial) ---
     test_mode = get_config("test_mode", "1") == "1"
     if test_mode:
         for cap in cap_list:
@@ -76,7 +76,7 @@ def main():
                 registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", "modo test")
         log("Envio OK (TEST) codigo=%s caps=%s msg=%s" % (codigo, caps, mensaje))
         return
-    dispatch_script = os.path.join(APP_DIR, "agi", "dispatch_serial.py")
+    dispatch_script = os.path.join(APP_DIR, "agi", "dispatch_mqtt.py")
     obs = []
     try:
         env = dict(os.environ, ZETRONPOC_DIR=APP_DIR)
@@ -85,9 +85,9 @@ def main():
         if r.returncode == 0:
             for cap in cap_list:
                 if qid:
-                    actualizar_bitacora_envio(qid, cap, "enviado", "serial directo")
+                    actualizar_bitacora_envio(qid, cap, "enviado", "mqtt mmdvmhost")
                 else:
-                    registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", "serial directo")
+                    registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", "mqtt mmdvmhost")
         else:
             err = (r.stderr or r.stdout or "fallo").strip()[:200]
             for cap in cap_list:
@@ -97,7 +97,7 @@ def main():
                     registrar_bitacora(interno, codigo, cap, mensaje, baudios, "error", err)
             obs.append(err)
     except Exception as e:
-        err = "excepcion serial: %s" % str(e)[:200]
+        err = "excepcion mqtt: %s" % str(e)[:200]
         for cap in cap_list:
             if qid:
                 actualizar_bitacora_envio(qid, cap, "error", err)
@@ -105,7 +105,7 @@ def main():
                 registrar_bitacora(interno, codigo, cap, mensaje, baudios, "error", err)
         obs.append(err)
     obs_txt = "; ".join(obs)
-    log("Envio serial directo codigo=%s caps=%s msg=%s obs=%s" % (codigo, caps, mensaje, obs_txt or "ok"))
+    log("Envio MQTT codigo=%s caps=%s msg=%s obs=%s" % (codigo, caps, mensaje, obs_txt or "ok"))
 
 if __name__ == "__main__":
     try:
