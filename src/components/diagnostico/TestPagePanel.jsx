@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Copy, Check, Send, Binary, Hash, FlaskConical, ListChecks } from "lucide-react";
+// TestPagePanel — panel de diagnóstico de bit-packing POCSAG (no-op comment to bust stale module cache)
 
 // Patrones numéricos (page_bcd): un solo bit puesto por pasada para aislar cada
 // bit del campo de mensaje de 20 bits (5 nibbles).
