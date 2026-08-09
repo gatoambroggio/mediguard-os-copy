@@ -435,9 +435,9 @@ def limpiar_cola(db_path=DEFAULT_DB):
         conn.execute("DELETE FROM cola_envios WHERE estado='enviado'")
 
 def procesar_siguiente_cola(db_path=DEFAULT_DB):
-    handler = "/var/lib/asterisk/agi-bin/pocsag_handler.py"
+    handler = os.path.join(os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc"), "agi", "pocsag_handler.py")
     if not os.path.exists(handler):
-        handler = os.path.join(os.path.dirname(__file__), "..", "agi", "pocsag_handler.py")
+        handler = "/var/lib/asterisk/agi-bin/pocsag_handler.py"
     with get_conn(db_path) as conn:
         row = conn.execute(
             "SELECT * FROM cola_envios WHERE estado='pendiente' AND "

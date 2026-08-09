@@ -29,6 +29,8 @@ def set_result(ok):
     sys.stdout.write('SET VARIABLE POCSAG_RESULT "%s"\n' % ("ok" if ok else "fail")); sys.stdout.flush()
 
 def fail():
+    if os.environ.get("POCSAG_WORKER") == "1":
+        sys.stderr.write("POCSAG_FAIL\n"); sys.exit(1)
     try: subprocess.run([PTT_OFF], capture_output=True, timeout=5)
     except Exception: pass
     set_result(False); sys.exit(1)
@@ -112,4 +114,5 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         log("Excepcion: %s" % e)
+        sys.stderr.write("Excepcion: %s\n" % str(e)[:200])
         fail()
