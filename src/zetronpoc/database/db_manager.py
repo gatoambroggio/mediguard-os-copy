@@ -399,15 +399,18 @@ def encolar_mensaje(codigo, caps, mensaje, baudios, origen, db_path=DEFAULT_DB):
         return cur.lastrowid
 
 def enviar_mensaje(codigo, mensaje, origen="web", db_path=DEFAULT_DB):
-    if not codigo or not mensaje:
-        return {"status": "error", "detalle": "falta codigo o mensaje"}
-    dest = resolver_destino(codigo, db_path)
-    if not dest:
-        return {"status": "error", "detalle": "codigo inactivo o inexistente"}
-    caps, baudios, tipo = dest
-    qid = encolar_mensaje(codigo, caps, mensaje, baudios, origen, db_path)
-    registrar_envio_encolado(qid, codigo, caps, mensaje, baudios, origen, db_path)
-    return {"status": "encolado", "detalle": "mensaje encolado (id=%d)" % qid, "id": qid}
+    try:
+        if not codigo or not mensaje:
+            return {"status": "error", "detalle": "falta codigo o mensaje"}
+        dest = resolver_destino(codigo, db_path)
+        if not dest:
+            return {"status": "error", "detalle": "codigo inactivo o inexistente"}
+        caps, baudios, tipo = dest
+        qid = encolar_mensaje(codigo, caps, mensaje, baudios, origen, db_path)
+        registrar_envio_encolado(qid, codigo, caps, mensaje, baudios, origen, db_path)
+        return {"status": "encolado", "detalle": "mensaje encolado (id=%d)" % qid, "id": qid}
+    except Exception as e:
+        return {"status": "error", "detalle": "error interno: %s" % str(e)[:200]}
 
 def listar_cola(estado=None, limit=200, db_path=DEFAULT_DB):
     with get_conn(db_path) as conn:
