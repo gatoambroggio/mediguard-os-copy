@@ -147,6 +147,7 @@ tbody tr:hover{background:#f1f5f9!important}
       <button class="nav-btn" onclick="tab('pbx',this)"><span class="ic">⇄</span>PBX</button>
       <button class="nav-btn" onclick="tab('cola',this)"><span class="ic">≡</span>Cola</button>
       <button class="nav-btn" onclick="tab('bd',this)"><span class="ic">⛁</span>Base datos</button>
+      <button class="nav-btn" onclick="tab('diag',this)"><span class="ic">🔬</span>Diagnostico</button>
     </nav>
     <div class="bot"><span id="h" class="pill">SISTEMA…</span><div id="diagBox" style="margin-top:.5rem;display:none"></div><button class="btn btn-sec btn-sm" style="margin-top:.6rem;width:100%;justify-content:center" onclick="logout()">Desconectar</button></div>
   </div>
@@ -297,6 +298,52 @@ tbody tr:hover{background:#f1f5f9!important}
     <div class="tab" id="t-aud"><div class="card"><h2>◉ Auditoria</h2>
       <div style="overflow-x:auto"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Accion</th><th>Entidad</th><th>ID</th><th>Detalle</th><th>IP</th></tr></thead><tbody id="tb_aud"></tbody></table></div>
       <button class="btn btn-sec btn-sm" onclick="loadAud()" style="margin-top:1rem">↻ Actualizar</button></div></div>
+
+    <div class="tab" id="t-diag">
+      <div class="hint">Diagnostico en vivo del pipeline POCSAG. Confirma en segundos si un <b>page</b> llego a MMDVMHost (OK/KO), si salio al aire sin <b>NAK</b>, y si la config del .ini real coincide con Jumbospot. Todo corre en el servidor MMDVM, sin SSH ni SDR.</div>
+      <div class="row" style="margin-bottom:1rem;align-items:center">
+        <label style="margin:0;flex:0 0 auto">Auto-refresh 3s</label>
+        <div class="sw on" id="diagAuto" onclick="toggleDiagAuto()"></div>
+        <span id="diagTs" class="badge mut" style="margin-left:auto">—</span>
+      </div>
+
+      <div class="row" style="align-items:stretch">
+        <!-- Tarjeta 1: Respuestas MQTT + page de prueba -->
+        <div class="card" style="margin-bottom:0">
+          <h2><span>📡 Respuestas MQTT (host/response)</span><button class="btn btn-sec btn-sm" onclick="loadDiagMqtt()">↻</button></h2>
+          <div class="hint" style="margin-bottom:.7rem">Captura 2s on-demand. <b>OK</b>=comando aceptado por MMDVMHost · <b>KO</b>=rechazado.</div>
+          <div class="row" style="margin-bottom:.6rem">
+            <div><label>Cap (RIC)</label><input id="diag_cap" value="1234567"></div>
+            <div><label>Mensaje</label><input id="diag_msg" value="TEST"></div>
+          </div>
+          <button class="btn btn-pri btn-sm" style="margin-bottom:.6rem" onclick="diagTestPage()">🚀 Disparar page de prueba</button>
+          <pre id="diag_mqtt_out">Esperando…</pre>
+        </div>
+
+        <!-- Tarjeta 2: Log MMDVMHost -->
+        <div class="card" style="margin-bottom:0">
+          <h2><span>📜 Log MMDVMHost</span><button class="btn btn-sec btn-sm" onclick="loadDiagMmdvm()">↻</button></h2>
+          <div class="hint" style="margin-bottom:.7rem">Filtrado: <b>pocsag / remote command / NAK / transmitted / page</b>. Busca <b>Valid remote command ... Transmitted POCSAG</b> sin NAK.</div>
+          <pre id="diag_mmdvm_out">Esperando…</pre>
+        </div>
+      </div>
+
+      <div class="row" style="align-items:stretch;margin-top:1.2rem">
+        <!-- Tarjeta 3: Check de config -->
+        <div class="card" style="margin-bottom:0">
+          <h2><span>⚙ Check de config (.ini real)</span><button class="btn btn-sec btn-sm" onclick="loadDiagConfig()">↻</button></h2>
+          <div class="hint" style="margin-bottom:.7rem">Valida el MMDVM.ini aplicado. <b style="color:var(--err)">Rojo</b>=desviacion respecto a Jumbospot.</div>
+          <div id="diag_cfg_out" style="display:flex;flex-direction:column;gap:.5rem">Esperando…</div>
+        </div>
+
+        <!-- Tarjeta 4: Log dispatch -->
+        <div class="card" style="margin-bottom:0">
+          <h2><span>📤 Log dispatch_mqtt</span><button class="btn btn-sec btn-sm" onclick="loadDiagDispatch()">↻</button></h2>
+          <div class="hint" style="margin-bottom:.7rem">Payload exacto enviado: <b>page &lt;cap&gt; &lt;msg&gt;</b>. Detecta truncamientos o errores de mosquitto_pub.</div>
+          <pre id="diag_dispatch_out">Esperando…</pre>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -331,15 +378,15 @@ tbody tr:hover{background:#f1f5f9!important}
 <script>
 let TOKEN=localStorage.getItem('zetron_tok')||'';
 let editP=null,editG=null,editX=null,editPL=null,editPR=null; const HPG=50; let hoff=0,htot=0;
-let extTimer=null,histTimer=null,colaTimer=null; let curLogType='api';
+let extTimer=null,histTimer=null,colaTimer=null,diagTimer=null; let curLogType='api';
 const CFG_KEYS=['admin_user','admin_pass','mensaje_timeout','ptt_preactivo','digit_timeout','response_timeout','test_mode','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','smtp_secure','backup_email','hospital_pbx_ip','hospital_pbx_port','pocsag_mode','transport_bind','transport_protocol','codecs','retry_interval','expiration','mmdvm_callsign','mmdvm_serial_port','mmdvm_baud','mmdvm_frequency','mmdvm_duplex','mmdvm_pocsag_baud','mmdvm_tx_invert','mmdvm_tx_level','mmdvm_tx_offset','mmdvm_ptt_delay','mmdvm_display','mmdvm_remote_port','mmdvm_enable_pocsag','mmdvm_dapnet_enable','mmdvm_dapnet_address','mmdvm_dapnet_passcode','gpio_chip','gpio_pin','front_titulo','front_subtitulo','front_logo','front_color_primario','front_color_acento','front_color_fondo','front_color_texto','front_seccion_enviar','front_seccion_historial'];
 
 function api(m,u,b,raw){const o={method:m,headers:{'Authorization':'Bearer '+TOKEN}};if(b!==undefined){if(raw){o.body=b;}else{o.headers['Content-Type']='application/json';o.body=JSON.stringify(b);}}return fetch(u,o).then(async r=>{if(r.status===401){logout(true);throw new Error('no autorizado');}const txt=await r.text();try{return JSON.parse(txt);}catch(e){return txt;}});}
 function showErr(r,ctx){const e=r&&(r.error||r.detalle);if(e){alert((ctx?ctx+': ':'')+'Error: '+e+(r.traceback?'\n\n--- traceback ---\n'+r.traceback:''));return true;}return false;}
-function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',hist:'Historial',cfg:'Parametros',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria'};document.getElementById('tit').textContent=t[id]||'';
-if(extTimer){clearInterval(extTimer);extTimer=null;}if(histTimer){clearInterval(histTimer);histTimer=null;}if(colaTimer){clearInterval(colaTimer);colaTimer=null;}
+function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',hist:'Historial',cfg:'Parametros',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria',diag:'Diagnostico'};document.getElementById('tit').textContent=t[id]||'';
+if(extTimer){clearInterval(extTimer);extTimer=null;}if(histTimer){clearInterval(histTimer);histTimer=null;}if(colaTimer){clearInterval(colaTimer);colaTimer=null;}if(diagTimer){clearInterval(diagTimer);diagTimer=null;}
 if(id==='ext'){loadExt();extTimer=setInterval(loadExt,5000);}
-if(id==='pagers')loadPagers();if(id==='grupos')loadGrupos();if(id==='cfg'){loadConfig();mmdvmStatus();}if(id==='hist'){loadHist(0);histTimer=setInterval(()=>loadHist(hoff),8000);}if(id==='pbx')pbx('status');if(id==='cola'){loadCola();colaTimer=setInterval(loadCola,4000);}if(id==='enviar')initSend();if(id==='dash')loadDash();if(id==='plantillas')loadPlantillas();if(id==='programados')loadProgramados();if(id==='logs')loadLogs('api');if(id==='aud')loadAud();}
+if(id==='pagers')loadPagers();if(id==='grupos')loadGrupos();if(id==='cfg'){loadConfig();mmdvmStatus();}if(id==='hist'){loadHist(0);histTimer=setInterval(()=>loadHist(hoff),8000);}if(id==='pbx')pbx('status');if(id==='cola'){loadCola();colaTimer=setInterval(loadCola,4000);}if(id==='enviar')initSend();if(id==='dash')loadDash();if(id==='plantillas')loadPlantillas();if(id==='programados')loadProgramados();if(id==='logs')loadLogs('api');if(id==='aud')loadAud();if(id==='diag'){loadDiagAll();diagTimer=setInterval(refreshDiagAll,3000);}}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function toggleMenu(){document.querySelector('.side nav').classList.toggle('open');}
@@ -447,6 +494,19 @@ async function delProgramado(id){if(confirm('Eliminar?')){await api('DELETE','/a
 // Logs / Auditoria
 async function loadLogs(t){curLogType=t;const r=await api('GET','/api/logs?tipo='+t+'&limit=300');if(r&&r.error){document.getElementById('log_out').textContent='Error: '+r.error;return;}document.getElementById('log_out').textContent=(r.lineas||[]).join('\n')||'(vacio)';}
 async function loadAud(){const r=await api('GET','/api/auditoria?limit=200');document.getElementById('tb_aud').innerHTML=(r.rows||[]).map(x=>`<tr><td class="mono">${x.fecha_hora}</td><td>${x.usuario||''}</td><td>${x.accion||''}</td><td>${x.entidad||''}</td><td>${x.entidad_id||''}</td><td>${(x.detalle||'').slice(0,50)}</td><td>${x.ip||''}</td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:1rem">Sin registros</td></tr>';}
+
+// Diagnostico POCSAG en vivo
+let diagAutoOn=true;
+function toggleDiagAuto(){diagAutoOn=!diagAutoOn;document.getElementById('diagAuto').classList.toggle('on',diagAutoOn);}
+function diagStamp(){document.getElementById('diagTs').textContent=new Date().toLocaleTimeString();}
+async function loadDiagMqtt(){try{const r=await api('GET','/api/diagnostico/mqtt_response');const el=document.getElementById('diag_mqtt_out');if(r&&r.ok){el.textContent=r.lineas.length?('['+r.topic+']\n'+r.lineas.join('\n')):'(sin respuestas en 2s)';}else{el.textContent='No disponible: '+(r&&r.error||'?');}}catch(e){document.getElementById('diag_mqtt_out').textContent='Error: '+e.message;}}
+async function loadDiagMmdvm(){try{const r=await api('GET','/api/diagnostico/mmdvm_log?lines=100');const el=document.getElementById('diag_mmdvm_out');if(r&&r.ok){el.textContent=r.lineas.length?r.lineas.join('\n'):'(sin lineas POCSAG/NAK/transmitted en '+r.path+')';}else{el.textContent='No disponible: '+(r&&r.error||'?');}}catch(e){document.getElementById('diag_mmdvm_out').textContent='Error: '+e.message;}}
+async function loadDiagDispatch(){try{const r=await api('GET','/api/diagnostico/dispatch_log?lines=50');const el=document.getElementById('diag_dispatch_out');if(r&&r.ok){el.textContent=r.lineas.length?r.lineas.join('\n'):'(log vacio)';}else{el.textContent='No disponible: '+(r&&r.error||'?');}}catch(e){document.getElementById('diag_dispatch_out').textContent='Error: '+e.message;}}
+async function loadDiagConfig(){try{const r=await api('GET','/api/diagnostico/config_check');const el=document.getElementById('diag_cfg_out');if(r&&r.error&&!r.exists){el.innerHTML='<div style="color:var(--err);font-size:.82rem">'+r.error+'</div>';return;}if(!r||!r.checks){el.innerHTML='<div style="color:var(--err);font-size:.82rem">'+(r&&r.error||'no disponible')+'</div>';return;}el.innerHTML=(r.checks||[]).map(c=>{const col=c.ok?'var(--ok)':'var(--err)';const bg=c.ok?'rgba(0,255,157,.06)':'rgba(255,59,92,.06)';return '<div style="border:1px solid '+col+';background:'+bg+';border-radius:9px;padding:.55rem .7rem"><div style="display:flex;justify-content:space-between;gap:.5rem;align-items:center"><span style="font-weight:700;font-size:.82rem">'+c.k+'</span><span class="mono" style="color:'+col+';font-size:.82rem;font-weight:700">'+c.v+'</span></div><div style="font-size:.72rem;color:var(--mut);margin-top:.25rem">'+c.hint+'</div></div>';}).join('');}catch(e){document.getElementById('diag_cfg_out').innerHTML='<div style="color:var(--err);font-size:.82rem">Error: '+e.message+'</div>';}}
+function loadDiagAll(){loadDiagMqtt();loadDiagMmdvm();loadDiagConfig();loadDiagDispatch();diagStamp();}
+function refreshDiagAll(){if(diagAutoOn)loadDiagAll();}
+async function diagTestPage(){const cap=document.getElementById('diag_cap').value.trim()||'1234567';const msg=document.getElementById('diag_msg').value.trim()||'TEST';const el=document.getElementById('diag_mqtt_out');el.textContent='Disparando page '+cap+' "'+msg+'"...';try{const r=await api('POST','/api/diagnostico/test_page',{cap:cap,mensaje:msg});el.textContent='>>> page '+cap+' '+msg+'\nrc='+(r&&r.rc!=null?r.rc:'-')+' ok='+(r&&r.ok)+'\nstdout: '+(r&&r.stdout||'')+'\nstderr: '+(r&&r.stderr||'')+(r&&r.error?'\nerror: '+r.error:'');}catch(e){el.textContent='Error: '+e.message;}// refresca todo para capturar la respuesta MQTT
+setTimeout(()=>{loadDiagAll();},800);setTimeout(()=>{loadDiagAll();},2500);}
 
 // Health
 async function health(){try{const h=await fetch('/api/health').then(r=>r.json());const p=document.getElementById('h');p.textContent=h.status==='ok'?'EN LINEA':'CAIDO';p.className='pill '+(h.status==='ok'?'':'off');}catch(e){}}

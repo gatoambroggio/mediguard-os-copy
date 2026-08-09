@@ -2,8 +2,8 @@
 """pocsag_handler.py - AGI POCSAG (ZetronPOC v2.0).
 Sin POCSAG_WORKER (lo llama el IVR): encola el mensaje y retorna rapido.
 Con POCSAG_WORKER=1 (lo llama el worker de cola): transmite por la placa MMDVM
-via MQTT (mosquitto_pub -> MMDVMHost RemoteControl), sin audio/WAV/GPIO ni
-serial directo. test_mode=1: solo registra en bitacora como enviado."""
+via RemoteCommand (TCP), sin audio/WAV/GPIO. test_mode=1: solo registra en
+bitacora como enviado."""
 import sys, os, subprocess, datetime, time
 APP_DIR = os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc")
 sys.path.insert(0, APP_DIR)
@@ -68,7 +68,7 @@ def main():
         log("Mensaje encolado (IVR) id=%s interno=%s codigo=%s msg=%s" % (qid, interno, codigo, mensaje))
         return
 
-    # --- Worker: transmitir SOLO por MMDVM (MQTT, sin audio/PTT/serial) ---
+    # --- Worker: transmitir SOLO por MMDVM (RemoteCommand, sin audio/PTT) ---
     test_mode = get_config("test_mode", "1") == "1"
     if test_mode:
         log(">>> MODO TEST (test_mode=1): NO se transmite por MMDVM. Set test_mode=0 en admin. <<<")
