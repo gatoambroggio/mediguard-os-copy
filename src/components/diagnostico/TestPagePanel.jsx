@@ -126,7 +126,7 @@ export default function TestPagePanel() {
         {patterns.map((p) => {
           const c = buildCmd(cap, mode, p.msg);
           const id = "p-" + p.msg + "-" + p.note;
-          const shown = p.msg === "     " ? "␣␣␣␣␣" : p.msg;
+          const shown = p.msg === "     " ? "[5 espacios]" : p.msg;
           return (
             <div
               key={id}
