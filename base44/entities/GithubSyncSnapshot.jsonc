@@ -1,0 +1,24 @@
+{
+  "name": "GithubSyncSnapshot",
+  "type": "object",
+  "properties": {
+    "file_url": {
+      "type": "string",
+      "title": "File URL",
+      "description": "URL del JSON subido con UploadFile que contiene el snapshot del source"
+    },
+    "file_count": {
+      "type": "number",
+      "title": "File Count",
+      "description": "Cantidad de archivos incluidos en el snapshot"
+    },
+    "label": {
+      "type": "string",
+      "title": "Label",
+      "description": "Etiqueta del staging (auto-stage / manual)"
+    }
+  },
+  "required": [
+    "file_url"
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "publish_to_github_on_publish",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "publish_pr": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "publishToGithub",
+            "args": {
+              "source": "workflow",
+              "commit_message": "chore: auto sync ZetronPOC source on app publish"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Abrir PR en GitHub",
+            "description": "Sincroniza el ultimo snapshot staged del source"
+          }
+        }
+      }
+    ]
+  },
+  "name": "Publish To Github On Publish",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "app_publish",
+      "events": [
+        "published"
+      ]
+    }
+  },
+  "description": "Al publicar la app, abre un PR en GitHub con el ultimo snapshot staged del source ZetronPOC"
+}
