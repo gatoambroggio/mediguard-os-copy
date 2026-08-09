@@ -5,8 +5,9 @@ Reemplaza a dispatch_serial.py: en lugar de hablar el protocolo binario
 MMDVM por serial, publica el comando "page <cap> <mensaje>" en el topic
 MQTT que MMDVMHost escucha (Name=host -> topic "host/command").
 
-Uso: dispatch_mqtt.py <cap_code(s)> <mensaje> [baudios]
-  cap_code(s): un cap_code o varios separados por coma (para grupos)
+Uso: dispatch_mqtt.py [--bcd] <cap_code(s)> <mensaje> [baudios]
+  --bcd       : modo numerico (page_bcd) en vez de alfanumerico (page)
+  cap_code(s) : un cap_code o varios separados por coma (para grupos)
 """
 import sys, os, subprocess, time
 
@@ -34,11 +35,13 @@ def log(m):
         pass
 
 
-def publish_page(cap, message):
-    """Publica un comando 'page' por MQTT usando mosquitto_pub."""
+def publish_page(cap, message, bcd=False):
+    """Publica 'page' (alfanumerico) o 'page_bcd' (numerico) por MQTT."""
     host, port, topic = _mqtt_cfg()
+    cmd_word = "page_bcd" if bcd else "page"
+    payload = "%s %s %s" % (cmd_word, str(cap).zfill(7), message)
     cmd = ["mosquitto_pub", "-h", host, "-p", str(port),
-           "-t", topic, "-m", "page %s %s" % (str(cap).zfill(7), message)]
+           "-t", topic, "-m", payload]
     log("MQTT pub: %s" % " ".join(cmd))
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
     if r.returncode != 0:
@@ -49,13 +52,17 @@ def publish_page(cap, message):
 
 
 def main():
-    if len(sys.argv) < 3:
-        print("Uso: dispatch_mqtt.py <cap_code(s)> <mensaje> [baudios]")
+    raw = list(sys.argv[1:])
+    bcd = "--bcd" in raw
+    args = [a for a in raw if a != "--bcd"]
+    if len(args) < 2:
+        print("Uso: dispatch_mqtt.py [--bcd] <cap_code(s)> <mensaje> [baudios]")
+        print("  --bcd : pagina en modo numerico (page_bcd) en vez de alfanumerico (page)")
         sys.exit(1)
 
-    caps_str = str(sys.argv[1])
+    caps_str = str(args[0])
     cap_list = [c.strip() for c in caps_str.split(",") if c.strip()]
-    message = str(sys.argv[2])
+    message = str(args[1])
 
     if not cap_list:
         log("ERROR: no hay cap codes validos")
@@ -72,7 +79,7 @@ def main():
         except ValueError:
             log("ERROR cap invalido: %s" % cap)
             continue
-        if publish_page(cap_int, message):
+        if publish_page(cap_int, message, bcd=bcd):
             sent += 1
         # Pausa entre caps para no saturar el modulo
         if len(cap_list) > 1:
