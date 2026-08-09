@@ -5,7 +5,7 @@ import sys, os, time
 APP_DIR = os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc")
 sys.path.insert(0, APP_DIR)
 sys.path.insert(0, os.path.join(APP_DIR, "database"))
-from db_manager import procesar_siguiente_cola, get_conn, DEFAULT_DB
+from db_manager import procesar_siguiente_cola, get_conn, DEFAULT_DB, init_db
 
 LOG = os.path.join(APP_DIR, "logs/cola.log")
 
@@ -22,6 +22,11 @@ def recuperar_enviando():
         conn.execute("UPDATE cola_envios SET estado='pendiente' WHERE estado='enviando'")
 
 def main():
+    try:
+        init_db()
+        clog("[START] Base de datos verificada/migrada")
+    except Exception as e:
+        clog("[WARN] init_db: %s" % e)
     recuperar_enviando()
     clog("[START] Worker de cola ZetronPOC iniciado")
     while True:

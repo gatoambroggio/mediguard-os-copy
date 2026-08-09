@@ -21,6 +21,22 @@ def get_conn(db_path=DEFAULT_DB):
     finally:
         conn.close()
 
+def _migrate_schema(conn):
+    """Auto-migracion: agrega columnas faltantes a tablas existentes.
+    CREATE TABLE IF NOT EXISTS no modifica tablas que ya existen, asi que
+    las bases creadas con esquemas viejos necesitan ALTER TABLE."""
+    # bitacora.cola_id (agregado en v2.0)
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(bitacora)")}
+    if "cola_id" not in cols:
+        conn.execute("ALTER TABLE bitacora ADD COLUMN cola_id INTEGER")
+    # cola_envios: columnas que pueden faltar en bases viejas
+    cols_cola = {r[1] for r in conn.execute("PRAGMA table_info(cola_envios)")}
+    for col, defn in [("fecha_encola", "TEXT"), ("fecha_procesado", "TEXT"),
+                      ("proximo_intento", "TEXT"), ("intentos", "INTEGER DEFAULT 0"),
+                      ("observaciones", "TEXT DEFAULT ''")]:
+        if col not in cols_cola:
+            conn.execute("ALTER TABLE cola_envios ADD COLUMN %s %s" % (col, defn))
+
 def init_db(db_path=DEFAULT_DB):
     base = os.path.dirname(__file__)
     with get_conn(db_path) as conn:
@@ -28,6 +44,7 @@ def init_db(db_path=DEFAULT_DB):
             conn.executescript(f.read())
         with open(os.path.join(base, "seed.sql"), encoding="utf-8") as f:
             conn.executescript(f.read())
+        _migrate_schema(conn)
 
 def get_config(clave, default="", db_path=DEFAULT_DB):
     with get_conn(db_path) as conn:
