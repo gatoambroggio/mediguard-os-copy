@@ -330,7 +330,7 @@ class Handler(BaseHTTPRequestHandler):
             except Exception: pass
     def _get(self):
         u = urllib.parse.urlparse(self.path); p = u.path; q = urllib.parse.parse_qs(u.query)
-        if p == "/" or p == "/index.html": return serve_file(self, os.path.join(FRONT, "index.html"), "text/html; charset=utf-8")
+        if p == "/" or p == "/index.html": return serve_file(self, os.path.join(FRONT, "public.html"), "text/html; charset=utf-8")
         if p == "/admin" or p == "/admin.html": return serve_file(self, os.path.join(FRONT, "admin.html"), "text/html; charset=utf-8")
         if p == "/api/health": return jok(self, {"status": "ok", "ts": int(time.time())})
         if p == "/api/diag":
