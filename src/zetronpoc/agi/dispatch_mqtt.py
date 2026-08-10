@@ -36,9 +36,9 @@ def log(m):
 
 
 def publish_page(cap, message, bcd=False):
-    """Publica 'page' (alfanumerico) o 'page_bcd' (numerico) por MQTT."""
+    """Publica 'page' por MQTT para todos los modos (page_bcd no prende PTT en el MMDVMHost instalado)."""
     host, port, topic = _mqtt_cfg()
-    cmd_word = "page_bcd" if bcd else "page"
+    cmd_word = "page"
     payload = "%s %s %s" % (cmd_word, str(cap).zfill(7), message)
     cmd = ["mosquitto_pub", "-h", host, "-p", str(port),
            "-t", topic, "-m", payload]
