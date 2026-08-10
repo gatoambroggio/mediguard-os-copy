@@ -91,7 +91,7 @@ function fmtEstado(e){ return ({enviado:"b-env",encolado:"b-enc",error:"b-err",f
 async function loadCatalog(){
   try{
     const [ps, gs, pls] = await Promise.all([
-      fetch("/api/parsers?q=").then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch("/api/pagers?q=").then(r=>r.ok?r.json():[]).catch(()=>[]),
       fetch("/api/grupos?q=").then(r=>r.ok?r.json():[]).catch(()=>[]),
       fetch("/api/plantillas").then(r=>r.ok?r.json():[]).catch(()=>[])
     ]);

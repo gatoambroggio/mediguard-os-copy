@@ -22,7 +22,7 @@ INSERT OR IGNORE INTO config(clave,valor) VALUES('response_timeout','15');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('test_mode','1');
 
 -- === ZETRON 640 - Encoder POCSAG ===
-INSERT OR IGNORE INTO config(clave,valor) VALUES('baudios_default','1200');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('baudios_default','512');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('preamble_bits','576');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('warmup_512_ms','750');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('warmup_1200_ms','1500');
@@ -61,7 +61,7 @@ INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_serial_port','/dev/ttyUS
 INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_baud','115200');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_frequency','433.800');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_duplex','0');
-INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_pocsag_baud','1200');
+INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_pocsag_baud','512');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_tx_invert','1');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_tx_level','50');
 INSERT OR IGNORE INTO config(clave,valor) VALUES('mmdvm_tx_offset','0');
@@ -122,10 +122,10 @@ INSERT OR IGNORE INTO extensiones(numero,password,contexto,descripcion,activo) V
 
 -- === Pager de prueba ===
 INSERT OR IGNORE INTO pagers(codigo,cap_code,nombre,apellido,area,baudios,funcion,descripcion,activo)
-  VALUES('100','1234567','Guardia','Medica','Emergencias',1200,'alphanumeric','Pager de prueba',1);
+  VALUES('100','1234567','Guardia','Medica','Emergencias',512,'alphanumeric','Pager de prueba',1);
 
 -- === Grupo de prueba ===
-INSERT OR IGNORE INTO grupos(codigo,nombre,baudios,activo) VALUES('CODE','Codigo unico',1200,1);
+INSERT OR IGNORE INTO grupos(codigo,nombre,baudios,activo) VALUES('CODE','Codigo unico',512,1);
 INSERT OR IGNORE INTO grupo_miembros(grupo_id,cap_code,orden)
   SELECT g.id,'1234567',0 FROM grupos g WHERE g.codigo='CODE';
 

@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS pagers (
   nombre      TEXT DEFAULT '',
   apellido    TEXT DEFAULT '',
   area        TEXT DEFAULT '',
-  baudios     INTEGER DEFAULT 1200,
+  baudios     INTEGER DEFAULT 512,
   funcion     TEXT DEFAULT 'alphanumeric',
   descripcion TEXT DEFAULT '',
   activo      INTEGER DEFAULT 1
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS grupos (
   id      INTEGER PRIMARY KEY AUTOINCREMENT,
   codigo  TEXT UNIQUE NOT NULL,
   nombre  TEXT DEFAULT '',
-  baudios INTEGER DEFAULT 1200,
+  baudios INTEGER DEFAULT 512,
   activo  INTEGER DEFAULT 1
 );
 

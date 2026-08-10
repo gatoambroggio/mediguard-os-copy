@@ -35,15 +35,40 @@ def log(m):
         pass
 
 
+def _to_ascii(s):
+    """Normaliza a ASCII 7-bit imprimible (POCSAG alphanumeric): quita acentos,
+    descarta bytes no-ASCII y reemplaza saltos de linea/tabulaciones por espacios.
+    packASCII de MMDVMHost empaqueta char por char; un acento UTF-8 ('á' = 0xC3 0xA1)
+    o un \n pasan como bytes de control y el pager muestra basura."""
+    import unicodedata
+    try:
+        out = unicodedata.normalize("NFKD", str(s)).encode("ascii", "ignore").decode("ascii")
+    except Exception:
+        out = str(s)
+    out = "".join(c if c.isprintable() else " " for c in out)
+    return " ".join(out.split())
+
+
 def publish_page(cap, message, bcd=False):
-    """Publica 'page <cap> <msg>' por MQTT (mosquitto_pub) al topic que
-    MMDVMHost escucha ([MQTT] Name=host -> host/command). Siempre usa 'page'
-    (alfanumerico): page_bcd no prende el PTT en versiones legacy."""
+    """Publica el comando POCSAG por MQTT a host/command.
+    bcd=False (alfanumerico) -> 'page <ric> <msg ASCII>'     (func ALPHANUMERIC, packASCII)
+    bcd=True  (numerico)     -> 'page_bcd <ric> <digits>'    (func NUMERIC, packNumeric/BCD)
+    MMDVMHost master soporta ambos (RemoteControl.cpp: PAGE y PAGE_BCD). page_bcd
+    necesita >=3 tokens; si el mensaje no tiene digitos cae a page para que al menos
+    salga al aire (PTT) y el diagnostico muestre 'Valid remote command'. El ric se
+    zfill(7) (POCSAG RIC de 7 digitos)."""
     host, port, topic = _mqtt_cfg()
-    cmd_word = "page"
-    payload = "%s %s %s" % (cmd_word, str(cap).zfill(7), message)
-    cmd = ["mosquitto_pub", "-h", host, "-p", str(port),
-           "-t", topic, "-m", payload]
+    ric = str(cap).zfill(7)
+    if bcd:
+        digits = "".join(c for c in str(message) if c.isdigit())
+        if digits:
+            payload = "page_bcd %s %s" % (ric, digits)
+        else:
+            payload = "page %s %s" % (ric, _to_ascii(message).strip() or "TEST")
+    else:
+        msg = _to_ascii(message).strip() or "TEST"
+        payload = "page %s %s" % (ric, msg)
+    cmd = ["mosquitto_pub", "-h", host, "-p", str(port), "-t", topic, "-m", payload]
     log("MQTT pub: %s" % " ".join(cmd))
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
     if r.returncode != 0:
@@ -51,7 +76,7 @@ def publish_page(cap, message, bcd=False):
         log("ERROR mosquitto_pub: %s" % err)
         sys.stderr.write("mosquitto_pub FALLO (host=%s port=%s topic=%s): %s\n" % (host, port, topic, err))
         return False
-    log("MQTT OK cap=%s msg=%s" % (cap, message))
+    log("MQTT OK: %s" % payload)
     return True
 
 
@@ -73,13 +98,11 @@ def main():
         print("ERROR: cap codes invalidos")
         sys.exit(1)
 
-    # BCD solo acepta digitos. Si el mensaje trae otra cosa (texto libre),
-    # page_bcd seria invalido y MMDVMHost lo descarta sin transmitir pero
-    # mosquitto_pub devuelve 0 -> la bitacora quedaria "enviado" sin salir al aire.
-    # En ese caso caemos a modo alfanumerico (page) y lo dejamos asentado en el log.
-    if bcd and not message.isdigit():
-        log("WARN: --bcd solicitado pero mensaje no numerico (%r) -> cae a page (alfanumerico)" % message)
-        bcd = False
+    # El modo (page vs page_bcd) y la normalizacion del mensaje los decide
+    # publish_page: page_bcd para numeric (BCD), page para alphanumeric (ASCII).
+    # page_bcd requiere >=3 tokens (page_bcd <ric> <digits>); si no hay digitos,
+    # cae a page para que al menos salga al aire (PTT) y el diagnostico muestre
+    # "Valid remote command".
 
     log("=== Envio MQTT ===")
     log("caps=%s msg=%r bcd=%s" % (cap_list, message, bcd))

@@ -80,7 +80,7 @@ def crear_pager(data, db_path=DEFAULT_DB):
             "INSERT INTO pagers (codigo,cap_code,nombre,apellido,area,baudios,funcion,descripcion,activo) "
             "VALUES (?,?,?,?,?,?,?,?,1)",
             (data["codigo"], data["cap_code"], data.get("nombre"), data.get("apellido"),
-             data.get("area"), data.get("baudios", 1200), data.get("funcion", "alphanumeric"),
+             data.get("area"), data.get("baudios", 512), data.get("funcion", "alphanumeric"),
              data.get("descripcion")))
         return cur.lastrowid
 
@@ -90,7 +90,7 @@ def actualizar_pager(pid, data, db_path=DEFAULT_DB):
             "UPDATE pagers SET codigo=?,cap_code=?,nombre=?,apellido=?,area=?,baudios=?,"
             "funcion=?,descripcion=?,activo=? WHERE id=?",
             (data["codigo"], data["cap_code"], data.get("nombre"), data.get("apellido"),
-             data.get("area"), data.get("baudios", 1200), data.get("funcion", "alphanumeric"),
+             data.get("area"), data.get("baudios", 512), data.get("funcion", "alphanumeric"),
              data.get("descripcion"), int(data.get("activo", 1)), pid))
 
 def toggle_pager(pid, activo, db_path=DEFAULT_DB):
@@ -105,7 +105,7 @@ def importar_pagers(rows, db_path=DEFAULT_DB):
     n = 0; errores = 0
     with get_conn(db_path) as conn:
         for r in rows:
-            try: baud = int(r.get("baudios") or 1200)
+            try: baud = int(r.get("baudios") or 512)
             except (ValueError, TypeError): baud = 1200
             try:
                 conn.execute(
@@ -147,7 +147,7 @@ def crear_grupo(data, db_path=DEFAULT_DB):
     caps = data.get("miembros", [])[:20]
     with get_conn(db_path) as conn:
         cur = conn.execute("INSERT INTO grupos (codigo,nombre,baudios,activo) VALUES (?,?,?,1)",
-                           (data["codigo"], data.get("nombre"), data.get("baudios", 1200)))
+                           (data["codigo"], data.get("nombre"), data.get("baudios", 512)))
         gid = cur.lastrowid
         for i, c in enumerate(caps):
             conn.execute("INSERT OR IGNORE INTO grupo_miembros (grupo_id,cap_code,orden) VALUES (?,?,?)", (gid, c, i))
@@ -157,7 +157,7 @@ def actualizar_grupo(gid, data, db_path=DEFAULT_DB):
     caps = data.get("miembros", [])[:20]
     with get_conn(db_path) as conn:
         conn.execute("UPDATE grupos SET codigo=?,nombre=?,baudios=? WHERE id=?",
-                     (data["codigo"], data.get("nombre"), data.get("baudios", 1200), gid))
+                     (data["codigo"], data.get("nombre"), data.get("baudios", 512), gid))
         conn.execute("DELETE FROM grupo_miembros WHERE grupo_id=?", (gid,))
         for i, c in enumerate(caps):
             conn.execute("INSERT OR IGNORE INTO grupo_miembros (grupo_id,cap_code,orden) VALUES (?,?,?)", (gid, c, i))
@@ -170,7 +170,7 @@ def importar_grupos(rows, db_path=DEFAULT_DB):
     n = 0; errores = 0
     with get_conn(db_path) as conn:
         for r in rows:
-            try: baud = int(r.get("baudios") or 1200)
+            try: baud = int(r.get("baudios") or 512)
             except (ValueError, TypeError): baud = 1200
             caps = [c.strip() for c in str(r.get("cap_codes", "")).split(",") if c.strip()][:20]
             codigo = r.get("codigo", "")
@@ -698,7 +698,7 @@ def procesar_programados(db_path=DEFAULT_DB):
         rows = conn.execute("SELECT * FROM envios_programados WHERE activo=1 AND proxima_ejecucion<=? ORDER BY proxima_ejecucion", (now,)).fetchall()
     for r in rows:
         r = dict(r)
-        qid = encolar_mensaje(r["codigo"], None, r["mensaje"], 1200, r["origen"] or "programado", db_path)
+        qid = encolar_mensaje(r["codigo"], None, r["mensaje"], 512, r["origen"] or "programado", db_path)
         dest = resolver_destino(r["codigo"], db_path)
         if dest:
             with get_conn(db_path) as conn:
