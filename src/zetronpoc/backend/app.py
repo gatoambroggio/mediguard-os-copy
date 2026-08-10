@@ -394,6 +394,12 @@ class Handler(BaseHTTPRequestHandler):
             out["counts"] = counts; out["errors"] = errs; out["db_ok"] = not errs
             return jok(self, out)
         if p == "/api/version": return jok(self, {"version": db.get_config("version", "2.0")})
+        if p == "/api/server/time":
+            import datetime as _dt
+            return jok(self, {"datetime": _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                              "iso": _dt.datetime.now().isoformat(),
+                              "date": _dt.date.today().isoformat(),
+                              "timezone": time.tzname[0] if time.tzname else ""})
         if p == "/api/theme": return jok(self, db.all_config())
         if p == "/api/pagers": return jok(self, db.buscar_pagers(q.get("q", [""])[0]))
         if p == "/api/grupos": return jok(self, db.buscar_grupos(q.get("q", [""])[0]))
