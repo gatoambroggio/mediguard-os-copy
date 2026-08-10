@@ -291,6 +291,26 @@ def diag_config_check():
         rc_state = "no conecta: %s" % str(e)[:80]
     out["checks"].append({"k": "RemoteControl socket", "v": rc_state, "ok": rc_state.startswith("escuchando"),
                           "hint": "proxy de que [RemoteControl] esta activo; si no conecta, el .ini activo tiene Enable=0 o falta la seccion -> re-Aplicar config MMDVM"})
+    # Check DEFINITIVO: cuantas suscripciones MQTT registro MMDVMHost al arranque.
+    # MMDVM-Host.cpp suscribe "display-in" siempre, y "command" SOLO si
+    # getRemoteControlEnabled()==true. on_subscribe imprime una linea por topic
+    # concedido -> 2 lineas = RemoteControl activo; 1 linea = solo display-in
+    # -> el .ini que corre MMDVMHost NO tiene [RemoteControl] Enable=1 (service
+    # stale apuntando a otro .ini). Mas confiable que el socket TCP 7642 (algunos
+    # builds no abren ese puerto).
+    sub_count = 0
+    try:
+        import glob as _glob
+        _files = sorted(_glob.glob(os.path.join(MMDVM_LOG_DIR, "MMDVM-*.log")), reverse=True)
+        if _files:
+            with open(_files[0], "r", errors="replace") as _f:
+                _lines = _f.readlines()[-80:]
+            sub_count = sum(1 for _l in _lines if "on_subscribe:" in _l)
+    except Exception:
+        pass
+    out["checks"].append({"k": "Suscripciones MQTT (on_subscribe)", "v": "%d (esperadas 2)" % sub_count,
+                          "ok": sub_count >= 2,
+                          "hint": "2=display-in+command (OK). 1=solo display-in -> RemoteControl OFF en el .ini vivo -> service stale. Fix: sobreescribir /etc/systemd/system/mmdvmhost.service con ExecStart apuntando a /opt/zetronpoc/mmdvm/MMDVM.ini + Aplicar a la placa."})
     return out
 
 def diag_test_page(cap, mensaje):
