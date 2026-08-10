@@ -138,6 +138,7 @@ tbody tr:hover{background:#f1f5f9!important}
     <button class="burger" onclick="toggleMenu()">☰</button>
     <nav>
       <button class="nav-btn active" onclick="tab('ext',this)"><span class="ic">☎</span>Extensiones</button>
+      <button class="nav-btn" onclick="tab('central',this)"><span class="ic">🏥</span>Config central</button>
       <button class="nav-btn" onclick="tab('pagers',this)"><span class="ic">👤</span>Pagers</button>
       <button class="nav-btn" onclick="tab('enviar',this)"><span class="ic">⇪</span>Enviar</button>
       <button class="nav-btn" onclick="tab('grupos',this)"><span class="ic">⌥</span>Grupos</button>
@@ -168,6 +169,16 @@ tbody tr:hover{background:#f1f5f9!important}
         <button class="btn btn-sec btn-sm" onclick="loadExt()">↻ Actualizar</button>
       </div>
       <div style="overflow-x:auto"><table><thead><tr><th>Numero</th><th>Clave</th><th>Contexto</th><th>Descripcion</th><th>Registro</th><th>Activo</th><th></th></tr></thead><tbody id="tb_ext"></tbody></table></div>
+    </div></div>
+
+    <div class="tab" id="t-central"><div class="card"><h2><span>🏥 Instalador de la central del hospital</span><span id="centralN" class="badge mut" style="margin-left:auto">—</span></h2>
+      <div class="hint">Copiá este <b>.sh</b> a la central del hospital y ejecutá <b>sudo bash config_hospital.sh</b>. Instala Asterisk desde cero y crea los internos espejo con las <b>mismas claves</b> que cargaste en <b>Extensiones</b>. Después, desde acá: <b>Extensiones → Aplicar a Asterisk</b> y los registros quedan en <b>Registered</b>. Probá el IVR marcando <b>*99</b> desde un interno del hospital.</div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem">
+        <button class="btn btn-pri btn-sm" onclick="descargarSh()">⇩ Descargar .sh</button>
+        <button class="btn btn-sec btn-sm" onclick="copiarScript()">⎘ Copiar</button>
+        <button class="btn btn-sec btn-sm" onclick="loadConfigCentral()">↻ Regenerar</button>
+      </div>
+      <pre id="central_out" style="max-height:520px">cargando…</pre>
     </div></div>
 
     <div class="tab" id="t-enviar"><div class="card"><h2>⇪ Despacho de mensaje</h2>
@@ -474,9 +485,10 @@ const CFG_KEYS=['admin_user','admin_pass','mensaje_timeout','ptt_preactivo','dig
 
 function api(m,u,b,raw){const o={method:m,headers:{'Authorization':'Bearer '+TOKEN}};if(b!==undefined){if(raw){o.body=b;}else{o.headers['Content-Type']='application/json';o.body=JSON.stringify(b);}}return fetch(u,o).then(async r=>{if(r.status===401){logout(true);throw new Error('no autorizado');}const txt=await r.text();try{return JSON.parse(txt);}catch(e){return txt;}});}
 function showErr(r,ctx){const e=r&&(r.error||r.detalle);if(e){alert((ctx?ctx+': ':'')+'Error: '+e+(r.traceback?'\n\n--- traceback ---\n'+r.traceback:''));return true;}return false;}
-function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',hist:'Historial',cfg:'Parametros',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria',diag:'Diagnostico',vpn:'VPN'};document.getElementById('tit').textContent=t[id]||'';
+function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',central:'Config central',hist:'Historial',cfg:'Parametros',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria',diag:'Diagnostico',vpn:'VPN'};document.getElementById('tit').textContent=t[id]||'';
 if(extTimer){clearInterval(extTimer);extTimer=null;}if(histTimer){clearInterval(histTimer);histTimer=null;}if(colaTimer){clearInterval(colaTimer);colaTimer=null;}if(diagTimer){clearInterval(diagTimer);diagTimer=null;}
 if(id==='ext'){loadExt();extTimer=setInterval(loadExt,5000);}
+if(id==='central')loadConfigCentral();
 if(id==='pagers')loadPagers();if(id==='grupos')loadGrupos();if(id==='cfg'){loadConfig();mmdvmStatus();}if(id==='hist'){loadHist(0);histTimer=setInterval(()=>loadHist(hoff),8000);}if(id==='pbx')pbx('status');if(id==='cola'){loadCola();colaTimer=setInterval(loadCola,4000);}if(id==='enviar')initSend();if(id==='dash')loadDash();if(id==='plantillas')loadPlantillas();if(id==='programados')loadProgramados();if(id==='logs')loadLogs('api');if(id==='aud')loadAud();if(id==='diag'){loadDiagAll();if(diagTimer)clearInterval(diagTimer);diagTimer=setInterval(refreshDiagAll,diagInterval*1000);}if(id==='vpn'){loadVpn();vpnServerStatus();vpnProtoHint();vpnClientHint();}}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
@@ -546,6 +558,11 @@ async function applyMmdvm(){const d={};CFG_KEYS.filter(k=>k.startsWith('mmdvm_')
 async function mmdvmStatus(){try{const r=await api('GET','/api/mmdvm/status');const el=document.getElementById('mmdvm_st');if(!el)return;const ok=r.installed;el.className='badge '+(ok?(r.service==='active'?'ok':'mut'):'err');el.textContent=ok?('Instalado · svc '+r.service):'No instalado';}catch(e){}}
 async function installMmdvm(){if(!confirm('Instalar MMDVMHost en este servidor? Compila y deja el servicio corriendo (1-3 min).'))return;const t=document.getElementById('mmdvm_inst');t.className='toast show ok';t.textContent='Instalando... (puede tardar 1-3 min)';const r=await api('POST','/api/mmdvm/install');if(r.ok){t.className='toast show ok';t.textContent='Instalacion OK. '+(r.salida||'').slice(-500);mmdvmStatus();}else{t.className='toast show err';t.textContent='Error: '+(r.error||'')+'\\n'+(r.salida||'').slice(-500);mmdvmStatus();}}
 async function smtpTest(){const email=prompt('Email destino:',document.getElementById('c_backup_email').value);if(!email)return;const r=await api('POST','/api/smtp/test',{email});const t=document.getElementById('cfg_res');t.className='toast show '+(r.ok?'ok':'err');t.textContent=r.ok?'Enviado a '+email:'Error: '+(r.error||'');setTimeout(()=>t.className='toast',4000);}
+
+// Config central (instalador .sh para la central del hospital)
+async function loadConfigCentral(){try{const r=await api('GET','/api/config/hospital_installer?view=1');const el=document.getElementById('central_out');const nb=document.getElementById('centralN');if(r&&r.error){el.textContent='Error: '+r.error;return;}el.textContent=r.script||'(vacío)';if(nb)nb.textContent=(r.internos||0)+' interno(s)';}catch(e){document.getElementById('central_out').textContent='Error: '+e.message;}}
+async function descargarSh(){const r=await fetch('/api/config/hospital_installer',{headers:{'Authorization':'Bearer '+TOKEN}});if(r.status===401){logout(true);return;}const blob=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='config_hospital.sh';a.click();}
+async function copiarScript(){try{const r=await api('GET','/api/config/hospital_installer?view=1');if(!r||!r.script)return;await navigator.clipboard.writeText(r.script);const el=document.getElementById('central_out');el.textContent=(el.textContent||'')+'\n\n[COPIADO AL PORTAPAPELES]';}catch(e){alert('No se pudo copiar: '+e.message);}}
 
 // Cola
 async function loadCola(){try{const stats=await api('GET','/api/cola/estado');const items=await api('GET','/api/cola');document.getElementById('cola_stats').innerHTML=Object.entries(stats||{}).map(([k,v])=>`<span class="badge ${k==='pendiente'?'mut':k==='enviado'?'ok':(k==='error'||k==='fallido')?'err':'mut'}">${k}: ${v}</span>`).join('')||'<span class="badge mut">cola vacia</span>';const rows=items||[];document.getElementById('tb_cola').innerHTML=rows.length?rows.map(x=>`<tr><td class="mono">${x.id}</td><td>${x.fecha_encola}</td><td>${x.codigo}</td><td>${(x.mensaje||'').slice(0,40)}</td><td>${x.origen||''}</td><td><span class="badge ${x.estado==='enviado'?'ok':(x.estado==='error'||x.estado==='fallido')?'err':'mut'}">${x.estado}</span></td><td>${x.intentos||0}</td><td>${(x.observaciones||'').slice(0,30)}</td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:1rem">Cola vacia</td></tr>';}catch(e){}}

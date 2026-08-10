@@ -427,6 +427,16 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/mmdvm/config": return jok(self, {k: v for k, v in db.all_config().items() if k.startswith("mmdvm_")})
         if p == "/api/extensions": return jok(self, db.listar_extensiones())
         if p == "/api/extensions/status": return jok(self, ext_status())
+        if p == "/api/config/hospital_installer":
+            script, n = db.generar_instalador_hospital()
+            if q.get("view", ["0"])[0] == "1":
+                return jok(self, {"script": script, "internos": n})
+            data = script.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/x-shellscript; charset=utf-8")
+            self.send_header("Content-Disposition", 'attachment; filename="config_hospital.sh"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers(); self.wfile.write(data); return
         if p == "/api/programados": return jok(self, db.listar_programados())
         if p == "/api/auditoria":
             return jok(self, db.listar_auditoria(int(q.get("limit", ["200"])[0]), int(q.get("offset", ["0"])[0])))

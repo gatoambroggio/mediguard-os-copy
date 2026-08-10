@@ -267,6 +267,114 @@ def generar_pjsip_conf(db_path=DEFAULT_DB):
     except PermissionError:
         return False, "Sin permisos para escribir pjsip_zetronpoc.conf"
 
+# ===================== INSTALADOR CENTRAL HOSPITAL =====================
+def generar_instalador_hospital(db_path=DEFAULT_DB):
+    """Genera el cuerpo de config_hospital.sh (instalador de la central del hospital).
+    Instala Asterisk desde cero y crea los endpoints/auth/aors espejo + dialplan
+    con las mismas claves que ZetronPOC tiene en la tabla extensiones."""
+    cfg = all_config(db_path)
+    exts = listar_extensiones(db_path)
+    activos = [e for e in exts if e["activo"] and (e.get("password") or "").strip()]
+    codecs = (cfg.get("codecs") or "ulaw,alaw").strip() or "ulaw,alaw"
+
+    # pjsip.conf del lado hospital (acepta el registro entrante de ZetronPOC)
+    pjsip_lines = [
+        "; pjsip.conf - Lado HOSPITAL (generado por ZetronPOC v%s)" % (cfg.get("version") or "2.0"),
+        "; Espejo de los internos activos: %s" % ", ".join(e["numero"] for e in activos),
+        "; Las claves deben ser IDENTICAS a las cargadas en el panel de ZetronPOC",
+        "",
+        "[transport-udp]",
+        "type=transport",
+        "protocol=udp",
+        "bind=0.0.0.0:5060",
+        "",
+    ]
+    for e in activos:
+        num = e["numero"]; pw = e["password"].strip()
+        pjsip_lines += [
+            "; === Interno %s ===" % num,
+            "[%s]" % num, "type=endpoint", "context=from-zetronpoc", "disallow=all",
+            "allow=%s" % codecs, "transport=transport-udp", "auth=%s" % num, "aors=%s" % num,
+            "trust_id_inbound=yes", "direct_media=no", "force_rport=yes", "",
+            "[%s]" % num, "type=aor", "max_contacts=1", "remove_existing=yes", "",
+            "[%s]" % num, "type=auth", "auth_type=userpass",
+            "username=%s" % num, "password=%s" % pw, "",
+        ]
+    pjsip_conf = "\n".join(pjsip_lines) + "\n"
+
+    # extensions.conf del lado hospital (rutea la llamada al interno marcado)
+    dial_lines = [
+        "; extensions.conf - Lado HOSPITAL (generado por ZetronPOC)",
+        "[from-zetronpoc]",
+    ]
+    for e in activos:
+        dial_lines.append("exten => %s,1,Dial(PJSIP/%s)" % (e["numero"], e["numero"]))
+    dial_lines += [
+        "",
+        "; Test: marcar *99 reproduce dos beeps (verifica que contesta)",
+        "exten => *99,1,Answer()",
+        " same => n,Playback(beep)",
+        " same => n,Wait(1)",
+        " same => n,Playback(beep)",
+        " same => n,Hangup()",
+        "",
+        "[default]",
+        "include => from-zetronpoc",
+        "",
+    ]
+    extensions_conf = "\n".join(dial_lines) + "\n"
+
+    script = [
+        "#!/usr/bin/env bash",
+        "# config_hospital.sh - Instalador de la central Asterisk del hospital",
+        "# Generado por ZetronPOC · %d internos: %s" % (len(activos), ", ".join(e["numero"] for e in activos)),
+        "# Ejecutar en la central del hospital:  sudo bash config_hospital.sh",
+        "set -euo pipefail",
+        "",
+        'G="\\033[1;32m"; Y="\\033[1;33m"; NC="\\033[0m"',
+        'log(){ echo -e "${G}[OK]${NC}   $*"; }',
+        'warn(){ echo -e "${Y}[WARN]${NC} $*"; }',
+        "",
+        "[[ $EUID -ne 0 ]] && { echo 'Ejecuta como root o con sudo.' >&2; exit 1; }",
+        "",
+        'AST_ETC="/etc/asterisk"',
+        "",
+        'echo "==> 1/4 Instalando Asterisk..."',
+        "apt-get update -y",
+        "apt-get install -y asterisk",
+        "",
+        'echo "==> 2/4 Escribiendo pjsip.conf..."',
+        "mkdir -p \"$AST_ETC\"",
+        "cat > \"$AST_ETC/pjsip.conf\" <<'ZETRONPOC_PJSIP_EOF'",
+        pjsip_conf.rstrip("\n"),
+        "ZETRONPOC_PJSIP_EOF",
+        "",
+        'echo "==> 3/4 Escribiendo extensions.conf..."',
+        "cat > \"$AST_ETC/extensions.conf\" <<'ZETRONPOC_DIAL_EOF'",
+        extensions_conf.rstrip("\n"),
+        "ZETRONPOC_DIAL_EOF",
+        "",
+        "chown -R asterisk:asterisk \"$AST_ETC\" 2>/dev/null || true",
+        "",
+        'echo "==> 4/4 Arrancando y recargando..."',
+        "systemctl enable --now asterisk 2>/dev/null || warn 'Asterisk no pudo activarse'",
+        "sleep 1",
+        "asterisk -rx 'pjsip reload' 2>/dev/null || true",
+        "asterisk -rx 'dialplan reload' 2>/dev/null || true",
+        "sleep 1",
+        "",
+        "log 'Central del hospital configurada con %d internos.'" % len(activos),
+        'echo ""',
+        "echo '=== Endpoints PJSIP ==='",
+        "asterisk -rx 'pjsip show endpoints' 2>/dev/null || warn 'No se pudo listar endpoints (verifique: asterisk -rvvvv)'",
+        'echo ""',
+        "echo 'Proximo paso (desde el panel de ZetronPOC):'",
+        "echo '  Extensiones -> Aplicar a Asterisk  (los registros deben quedar en Registered)'",
+        "echo '  Probar IVR: marcar *99 desde un interno del hospital (escucha dos beeps)'",
+        "",
+    ]
+    return "\n".join(script) + "\n", len(activos)
+
 # ===================== MMDVM =====================
 MMDVM_INI = os.path.join(os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc"), "mmdvm", "MMDVM.ini")
 
