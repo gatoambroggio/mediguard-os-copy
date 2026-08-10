@@ -69,8 +69,16 @@ def main():
         print("ERROR: cap codes invalidos")
         sys.exit(1)
 
+    # BCD solo acepta digitos. Si el mensaje trae otra cosa (texto libre),
+    # page_bcd seria invalido y MMDVMHost lo descarta sin transmitir pero
+    # mosquitto_pub devuelve 0 -> la bitacora quedaria "enviado" sin salir al aire.
+    # En ese caso caemos a modo alfanumerico (page) y lo dejamos asentado en el log.
+    if bcd and not message.isdigit():
+        log("WARN: --bcd solicitado pero mensaje no numerico (%r) -> cae a page (alfanumerico)" % message)
+        bcd = False
+
     log("=== Envio MQTT ===")
-    log("caps=%s msg=%r" % (cap_list, message))
+    log("caps=%s msg=%r bcd=%s" % (cap_list, message, bcd))
 
     sent = 0
     for cap in cap_list:
