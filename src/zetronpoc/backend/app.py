@@ -271,7 +271,14 @@ def diag_config_check():
         broker_status = "error: %s" % str(e)[:80]
     out["checks"].append({"k": "Mosquitto broker", "v": broker_status, "ok": (broker_status == "active"),
                           "hint": "debe estar 'active'; si no, sudo systemctl enable --now mosquitto"})
-    # socket RemoteControl TCP (nativo de MMDVMHost): si no escucha, el page no llega
+    # [RemoteControl] Enable=1 es OBLIGATORIO: es lo que hace que MMDVMHost se
+    # suscriba al topic MQTT <Name>/command (host/command). Sin esto, dispatch_mqtt
+    # publica al vacio: no aparece "remote command" en el log ni OK/KO en host/response.
+    # (El socket TCP 7642 es solo un proxy de que RemoteControl esta activo; dispatch
+    # NO usa ese socket, publica por MQTT.)
+    rc_enable = g("RemoteControl", "Enable", "0")
+    out["checks"].append({"k": "RemoteControl Enable", "v": rc_enable or "0", "ok": (rc_enable == "1"),
+                          "hint": "debe ser 1: sin esto MMDVMHost NO se suscribe a host/command y los page de dispatch_mqtt se pierden (sin OK/KO ni Transmitted). Solucion: re-Aplicar config MMDVM desde el panel o re-ejecutar instalador_mmdvm.sh"})
     rc_port = g("RemoteControl", "Port", "7642") or "7642"
     rc_state = "(no disponible)"
     try:
@@ -283,7 +290,7 @@ def diag_config_check():
     except Exception as e:
         rc_state = "no conecta: %s" % str(e)[:80]
     out["checks"].append({"k": "RemoteControl socket", "v": rc_state, "ok": rc_state.startswith("escuchando"),
-                          "hint": "dispatch_mqtt envia 'page' a este socket TCP; si no conecta, MMDVMHost no tiene [RemoteControl] Enable=1 o el puerto difiere"})
+                          "hint": "proxy de que [RemoteControl] esta activo; si no conecta, el .ini activo tiene Enable=0 o falta la seccion -> re-Aplicar config MMDVM"})
     return out
 
 def diag_test_page(cap, mensaje):
