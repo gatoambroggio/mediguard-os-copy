@@ -5,7 +5,8 @@ Reemplaza a dispatch_serial.py: en lugar de hablar el protocolo binario
 MMDVM por serial, publica el comando "page <cap> <mensaje>" en el topic
 MQTT que MMDVMHost escucha (Name=host -> topic "host/command").
 
-Uso: dispatch_mqtt.py <cap_code(s)> <mensaje> [baudios]
+Uso: dispatch_mqtt.py [--bcd] <cap_code(s)> <mensaje> [baudios]
+  --bcd       : modo numerico (page_bcd, func 0) para pagers numericos (ej NP88)
   cap_code(s) : un cap_code o varios separados por coma (para grupos)
 """
 import sys, os, subprocess, time
@@ -48,18 +49,31 @@ def _to_ascii(s):
     return " ".join(out.split())
 
 
-def publish_page(cap, message):
-    """Publica 'page <ric> <msg ASCII>' por MQTT a host/command.
-    Siempre se usa 'page' (funcion alfanumerica / packASCII): el MMDVMHost
-    instalado NO soporta 'page_bcd' (responde 'Invalid remote command' y no
-    hace PTT -> el pager nunca recibe, y ademas dispatch reporta error).
-    Mandar los digitos como texto ASCII funciona en pagers alfanumericos
-    (muestran los numeros) y garantiza PTT + transmision. El ric se zfill(7)
-    (POCSAG RIC de 7 digitos)."""
+def publish_page(cap, message, bcd=False):
+    """Publica el comando POCSAG por MQTT a host/command.
+    bcd=False (alfanumerico) -> 'page <ric> <msg ASCII>'     (func ALPHANUMERIC=3, packASCII)
+    bcd=True  (numerico)     -> 'page_bcd <ric> <digits>'    (func NUMERIC=0, packNumeric/BCD)
+    MMDVMHost master soporta page y page_bcd (RemoteControl.cpp: PAGE y PAGE_BCD;
+    POCSAGControl.cpp: sendPage usa FUNCTIONAL_ALPHANUMERIC, sendPageBCD usa FUNCTIONAL_NUMERIC).
+    CRITICO: un pager NUMERICO (ej NP88) solo decodifica function 0 (NUMERIC); si se le
+    manda 'page' (function 3 / alfanumerico) llega basura o no decodifica. Por eso los
+    pagers con funcion='numeric' DEBEN ir por page_bcd. Requisito: el MMDVMHost instalado
+    debe ser master (instalador_mmdvm.sh compila desde master); versiones viejas sin
+    PAGE_BCD responden 'Invalid remote command' y no hacen PTT. El ric se zfill(7)."""
     host, port, topic = _mqtt_cfg()
     ric = str(cap).zfill(7)
-    msg = _to_ascii(message).strip() or "TEST"
-    payload = "page %s %s" % (ric, msg)
+    if bcd:
+        # packNumeric soporta 0-9, espacio, '-', '(', ')', 'U'. Filtramos a digitos
+        # (lo que un pager numerico muestra). Sin digitos -> page para que al menos
+        # salga al aire (PTT) y el diagnostico muestre comando valido.
+        digits = "".join(c for c in str(message) if c.isdigit())
+        if digits:
+            payload = "page_bcd %s %s" % (ric, digits)
+        else:
+            payload = "page %s %s" % (ric, _to_ascii(message).strip() or "TEST")
+    else:
+        msg = _to_ascii(message).strip() or "TEST"
+        payload = "page %s %s" % (ric, msg)
     cmd = ["mosquitto_pub", "-h", host, "-p", str(port), "-t", topic, "-m", payload]
     log("MQTT pub: %s" % " ".join(cmd))
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
@@ -73,9 +87,12 @@ def publish_page(cap, message):
 
 
 def main():
-    args = list(sys.argv[1:])
+    raw = list(sys.argv[1:])
+    bcd = "--bcd" in raw
+    args = [a for a in raw if a != "--bcd"]
     if len(args) < 2:
-        print("Uso: dispatch_mqtt.py <cap_code(s)> <mensaje> [baudios]")
+        print("Uso: dispatch_mqtt.py [--bcd] <cap_code(s)> <mensaje> [baudios]")
+        print("  --bcd : pagina numerico (page_bcd, func 0) para pagers como NP88")
         sys.exit(1)
 
     caps_str = str(args[0])
@@ -87,12 +104,8 @@ def main():
         print("ERROR: cap codes invalidos")
         sys.exit(1)
 
-    # Siempre 'page' (alfanumerico / packASCII). El MMDVMHost instalado no
-    # soporta 'page_bcd' (Invalid remote command -> sin PTT). Los digitos se
-    # envian como texto ASCII y los pagers alfanumericos los muestran igual.
-
     log("=== Envio MQTT ===")
-    log("caps=%s msg=%r" % (cap_list, message))
+    log("caps=%s msg=%r bcd=%s" % (cap_list, message, bcd))
 
     sent = 0
     for cap in cap_list:
@@ -101,7 +114,7 @@ def main():
         except ValueError:
             log("ERROR cap invalido: %s" % cap)
             continue
-        if publish_page(cap_int, message):
+        if publish_page(cap_int, message, bcd=bcd):
             sent += 1
         # Pausa entre caps para no saturar el modulo
         if len(cap_list) > 1:
@@ -109,7 +122,7 @@ def main():
 
     log("Envio completado: %d/%d cap(s)" % (sent, len(cap_list)))
     if sent == 0:
-        print("ERROR: 0/%d cap(s) via MQTT (mosquitto_pub fallo - ver obs / dispatch_mqtt.log)" % len(cap_list))
+        print("ERROR: 0/%d cap(s) via MQTT (mosquitto_pub fallo - ver dispatch_mqtt.log)" % len(cap_list))
         sys.exit(1)
     print("OK: %d/%d cap(s) via MQTT" % (sent, len(cap_list)))
 

@@ -60,6 +60,7 @@ def main():
         set_result(False); return
     caps, baudios, funcion = dest
     cap_list = [c.strip() for c in str(caps).split(",") if c.strip()]
+    bcd = funcion == "numeric"
 
     # --- IVR: solo encolar, el worker se encarga de transmitir ---
     if not worker:
@@ -81,10 +82,12 @@ def main():
         return
     dispatch_script = os.path.join(APP_DIR, "agi", "dispatch_mqtt.py")
     obs = []
-    modo_desc = "page"
+    modo_desc = "page_bcd" if bcd else "page"
     try:
         env = dict(os.environ, ZETRONPOC_DIR=APP_DIR)
         argv = [sys.executable, dispatch_script]
+        if bcd:
+            argv.append("--bcd")
         argv += [caps, mensaje, str(baudios)]
         r = subprocess.run(argv, capture_output=True, text=True, timeout=180, env=env)
         if r.returncode == 0:
