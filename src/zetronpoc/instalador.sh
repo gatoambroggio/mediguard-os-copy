@@ -92,6 +92,31 @@ apt-get install -y network-manager-l2tp network-manager-l2tp-gnome 2>&1 || warn 
 systemctl enable --now NetworkManager 2>/dev/null || true
 echo "  Estado NetworkManager:"; systemctl is-active NetworkManager 2>/dev/null || true
 
+# Si las placas estan unmanaged, NetworkManager no puede enrutar la VPN
+# ("could not find source connection"). Migrar netplan al renderer NetworkManager
+# para que NM gestione la red base. Hace backup de los .yaml originales.
+if nmcli device status 2>/dev/null | grep -qi unmanaged; then
+  echo "==> 1c/10 Migrando red a NetworkManager (placas unmanaged)..."
+  NP_DIR="/etc/netplan"
+  if ls "${NP_DIR}"/*.yaml >/dev/null 2>&1; then
+    for f in "${NP_DIR}"/*.yaml; do [[ -f "$f.zetronpoc.bak" ]] || cp -a "$f" "$f.zetronpoc.bak"; done
+    if grep -rqE "renderer:\s*(networkd|NetworkManager)" "${NP_DIR}"/*.yaml; then
+      sed -i -E 's/renderer:[[:space:]]*networkd/renderer: NetworkManager/g' "${NP_DIR}"/*.yaml
+    else
+      cat > "${NP_DIR}/99-zetronpoc-nm.yaml" <<'EOF'
+network:
+  version: 2
+  renderer: NetworkManager
+EOF
+    fi
+    netplan apply 2>/dev/null || warn "netplan apply fallo (verifique configuracion de red)"
+    sleep 4
+    echo "  Estado de placas tras migrar:"; nmcli device status 2>/dev/null || true
+  else
+    warn "No se encontro netplan en ${NP_DIR}; NetworkManager queda sin gestionar la red base (VPN cliente no conectara). Migre la red a NM a mano."
+  fi
+fi
+
 AST_USER="asterisk"
 mkdir -p /var/lib/asterisk/agi-bin /var/lib/asterisk/sounds
 chown -R "${AST_USER}:${AST_USER}" /var/lib/asterisk/agi-bin 2>/dev/null || true
