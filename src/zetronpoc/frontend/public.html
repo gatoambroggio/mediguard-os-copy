@@ -104,6 +104,22 @@ function show(cls, txt){ res.className = "msg show " + cls; res.textContent = tx
 function fmtEstado(e){ return ({enviado:"b-env",encolado:"b-enc",error:"b-err",fallido:"b-fall"}[e]) || "b-enc"; }
 
 let CATALOG=[];
+let SEL_FUNC="alphanumeric";
+function applyMsgMode(){
+  const m=$("#mensaje");
+  if(SEL_FUNC==="numeric"){
+    m.inputMode="numeric";
+    m.placeholder="Solo números (pager numérico)";
+    m.value=m.value.replace(/\D/g,"");
+  }else{
+    m.inputMode="text";
+    m.placeholder="Escribí el mensaje a transmitir…";
+  }
+}
+function normalizeAscii(s){
+  return (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^ -~\n\r]/g,"");
+}
+$("#mensaje").addEventListener("input", e=>{ if(SEL_FUNC==="numeric") e.target.value=e.target.value.replace(/\D/g,""); });
 async function _fetchCatalog(url){
   try{
     const r = await fetch(url);
@@ -139,11 +155,13 @@ function renderDrop(q){
     const cap=x.cap_code?(" · cap "+x.cap_code):"";
     const tipo=x.miembros?"grupo":"pager";
     const esc=(x.codigo||"").replace(/"/g,"&quot;").replace(/</g,"&lt;");
-    return `<div class="item" data-codigo="${esc}"><span class="itemCod">${(x.codigo||"").replace(/</g,"&lt;")} <span class="tag">${tipo}</span></span><span class="itemMeta">${label}${cap}</span></div>`;
+    return `<div class="item" data-codigo="${esc}" data-func="${x.funcion||'alphanumeric'}"><span class="itemCod">${(x.codigo||"").replace(/</g,"&lt;")} <span class="tag">${tipo}</span></span><span class="itemMeta">${label}${cap}</span></div>`;
   }).join("");
   drop.classList.add("show");
   drop.querySelectorAll(".item").forEach(it=>it.addEventListener("click",()=>{
     $("#codigo").value=it.dataset.codigo;
+    SEL_FUNC=(it.dataset.func||"alphanumeric").toLowerCase();
+    applyMsgMode();
     drop.classList.remove("show"); drop.innerHTML="";
     $("#mensaje").focus();
   }));
@@ -166,10 +184,20 @@ async function loadHist(){
 
 $("#plantilla").addEventListener("change", e=>{
   const opt = e.target.selectedOptions[0];
-  if(opt && opt.dataset.msg && !$("#mensaje").value) $("#mensaje").value = opt.dataset.msg;
+  if(opt && opt.dataset.msg && !$("#mensaje").value){
+    let v=opt.dataset.msg;
+    if(SEL_FUNC==="numeric") v=v.replace(/\D/g,"");
+    $("#mensaje").value=v;
+  }
 });
 
-$("#codigo").addEventListener("input", e=>renderDrop(e.target.value));
+$("#codigo").addEventListener("input", e=>{
+  renderDrop(e.target.value);
+  const v=e.target.value.trim().toLowerCase();
+  const m=CATALOG.find(x=>(x.codigo||"").toLowerCase()===v);
+  SEL_FUNC=(m&&m.funcion)?m.funcion.toLowerCase():"alphanumeric";
+  applyMsgMode();
+});
 $("#codigo").addEventListener("focus", e=>renderDrop(e.target.value));
 document.addEventListener("click", e=>{
   if(!e.target.closest(".codewrap")){ const d=$("#codeDrop"); if(d){ d.classList.remove("show"); d.innerHTML=""; } }
@@ -178,8 +206,10 @@ document.addEventListener("click", e=>{
 $("#f").addEventListener("submit", async ev=>{
   ev.preventDefault();
   const codigo = $("#codigo").value.trim();
-  const mensaje = $("#mensaje").value.trim();
-  if(!codigo || !mensaje){ show("err","Falta el código o el mensaje."); return; }
+  let mensaje = $("#mensaje").value.trim();
+  mensaje = normalizeAscii(mensaje);
+  if(SEL_FUNC==="numeric") mensaje = mensaje.replace(/\D/g,"");
+  if(!codigo || !mensaje){ show("err","Falta el código o el mensaje (revisá acentos/contenido)."); return; }
   const btn = $("#send"); btn.disabled = true; show("info","Enviando…");
   try{
     const r = await fetch("/api/enviar",{
@@ -189,7 +219,9 @@ $("#f").addEventListener("submit", async ev=>{
     const d = await r.json();
     if(d.status === "encolado" || d.status === "ok"){
       show("ok", "Mensaje encolado OK (id " + (d.id||"") + "). Saldrá por MMDVM.");
-      $("#mensaje").value=""; loadHist();
+      $("#mensaje").value=""; $("#codigo").value=""; SEL_FUNC="alphanumeric"; applyMsgMode();
+      const dd=$("#codeDrop"); if(dd){ dd.classList.remove("show"); dd.innerHTML=""; }
+      loadHist();
     } else {
       show("err","No se pudo enviar: "+(d.detalle||d.status||"error"));
     }
