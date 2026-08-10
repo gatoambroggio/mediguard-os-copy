@@ -6,14 +6,14 @@
 # IVR (igual al 2184) cuando alguien marca esos internos.
 #
 # Instalacion (una linea):
-#   curl -fsSL https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/src/zetronpoc/instalador.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador.sh | sudo bash
 #
 # Actualizar (sin reinstalar Asterisk/deps):
-#   curl -fsSL https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/src/zetronpoc/instalador.sh | sudo bash -s -- --update
+#   curl -fsSL https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador.sh | sudo bash -s -- --update
 # ============================================================================
 set -euo pipefail
 
-REPO="https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main"
+REPO="https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main"
 SRC="${REPO}/src/zetronpoc"
 AST_ETC="/etc/asterisk"
 APP_DIR="/opt/zetronpoc"

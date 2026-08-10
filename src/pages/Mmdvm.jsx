@@ -25,8 +25,8 @@ const PINOUT = [
   ["RX (Pi GPIO15)", "TX del adaptador USB-TTL", "verde"],
 ];
 
-const RAW_MMDVM = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/instalador_mmdvm.sh";
-const RAW_MMDVM_RPI = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/instalador_rpi_mmdvm.sh";
+const RAW_MMDVM = "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador_mmdvm.sh";
+const RAW_MMDVM_RPI = "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/instalador_rpi_mmdvm.sh";
 
 const INSTALL_CMDS = [
   ["1", "Instalar todo (ZetronPOC + MMDVMHost + puente)", `curl -fsSL ${RAW_MMDVM} | sudo bash`],

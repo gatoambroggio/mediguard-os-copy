@@ -1,7 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 
 const OWNER = "gatoambroggio";
-const REPO = "ubntpagingsystem";
+const REPO = "mediguard-os-copy";
 const API = "https://api.github.com";
 
 function b64decode(b64) {

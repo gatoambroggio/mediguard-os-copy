@@ -473,7 +473,7 @@ class Handler(BaseHTTPRequestHandler):
             evlog(self, "info", "mmdvm", "apply ok en %s" % db.MMDVM_INI)
             return jok(self, {"ok": True, "salida": "MMDVM.ini generado en %s y servicio mmdvmhost reiniciado." % db.MMDVM_INI, "ini": db.MMDVM_INI})
         if p == "/api/mmdvm/install":
-            url = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/src/zetronpoc/instalador_mmdvm.sh"
+            url = "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador_mmdvm.sh"
             aud(self, "instalar", "mmdvm", "", "inicio")
             evlog(self, "info", "mmdvm", "install inicio")
             try:
