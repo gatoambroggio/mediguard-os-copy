@@ -44,6 +44,18 @@ textarea{resize:vertical;min-height:96px;font-family:'JetBrains Mono';font-weigh
 .empty{color:var(--mut);font-style:italic;text-align:center;padding:1.2rem}
 footer{text-align:center;color:var(--mut);font-size:.78rem;padding:1.4rem 0 .6rem}
 .tag{display:inline-flex;align-items:center;gap:.4rem;font-size:.72rem;font-weight:700;color:var(--acc3);background:#eef2ff;border:1px solid #c7d2fe;border-radius:999px;padding:.25rem .7rem}
+.hint{font-size:.78rem;font-weight:600;margin-top:.35rem;color:var(--mut)}
+.hint.ok{color:var(--ok)}.hint.err{color:var(--err)}
+.codewrap{position:relative}
+.codeDrop{position:absolute;top:calc(100% + 4px);left:0;right:0;max-height:240px;overflow:auto;background:#fff;border:1px solid var(--line2);border-radius:10px;box-shadow:0 12px 30px rgba(15,23,42,.14);z-index:50;display:none}
+.codeDrop.show{display:block}
+.codeDrop .item{display:flex;flex-direction:column;gap:.12rem;padding:.5rem .8rem;cursor:pointer;border-bottom:1px solid var(--line);font-family:'Rajdhani'}
+.codeDrop .item:last-child{border-bottom:none}
+.codeDrop .item:hover{background:#eef2ff}
+.codeDrop .itemCod{font-weight:700;font-size:.9rem;color:var(--acc)}
+.codeDrop .itemMeta{font-size:.76rem;color:var(--mut)}
+.codeDrop .item .tag{margin-left:.3rem}
+.codeDrop .empty{padding:.8rem;text-align:center;color:var(--mut);font-style:italic}
 </style></head>
 <body>
 <div class="wrap">
@@ -59,8 +71,11 @@ footer{text-align:center;color:var(--mut);font-size:.78rem;padding:1.4rem 0 .6re
       <div class="row">
         <div>
           <label for="codigo">Código (pager / grupo)</label>
-          <input id="codigo" name="codigo" list="dl" placeholder="ej: TEST01 o MEDICOS" autocomplete="off" required>
-          <datalist id="dl"></datalist>
+          <div class="codewrap">
+            <input id="codigo" name="codigo" placeholder="escribí el código…" autocomplete="off" required>
+            <div id="codeDrop" class="codeDrop"></div>
+          </div>
+          <div id="codesHint" class="hint">cargando códigos…</div>
         </div>
         <div>
           <label for="plantilla">Plantilla (opcional)</label>
@@ -88,28 +103,68 @@ const res = $("#res");
 function show(cls, txt){ res.className = "msg show " + cls; res.textContent = txt; }
 function fmtEstado(e){ return ({enviado:"b-env",encolado:"b-enc",error:"b-err",fallido:"b-fall"}[e]) || "b-enc"; }
 
-async function loadCatalog(){
+let CATALOG=[];
+let SEL_FUNC="alphanumeric";
+function applyMsgMode(){
+  const m=$("#mensaje");
+  if(SEL_FUNC==="numeric"){
+    m.inputMode="numeric";
+    m.placeholder="Solo números (pager numérico)";
+    m.value=m.value.replace(/\D/g,"");
+  }else{
+    m.inputMode="text";
+    m.placeholder="Escribí el mensaje a transmitir…";
+  }
+}
+function normalizeAscii(s){
+  return (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^ -~\n\r]/g,"");
+}
+$("#mensaje").addEventListener("input", e=>{ if(SEL_FUNC==="numeric") e.target.value=e.target.value.replace(/\D/g,""); });
+async function _fetchCatalog(url){
   try{
-    const [ps, gs, pls] = await Promise.all([
-      fetch("/api/parsers?q=").then(r=>r.ok?r.json():[]).catch(()=>[]),
-      fetch("/api/grupos?q=").then(r=>r.ok?r.json():[]).catch(()=>[]),
-      fetch("/api/plantillas").then(r=>r.ok?r.json():[]).catch(()=>[])
-    ]);
-    const dl = $("#dl");
-    [...(ps||[]),...(gs||[])].forEach(p=>{
-      const o=document.createElement("option");
-      o.value = p.codigo || p.codigo;
-      o.label = (p.descripcion||p.mensaje||"");
-      dl.appendChild(o);
-    });
-    const sel = $("#plantilla");
-    (pls||[]).filter(p=>p.activo).forEach(p=>{
-      const o=document.createElement("option");
-      o.value = p.id; o.textContent = p.nombre;
-      o.dataset.msg = p.mensaje || "";
-      sel.appendChild(o);
-    });
-  }catch(e){}
+    const r = await fetch(url);
+    if(!r.ok){ return {err:"HTTP "+r.status, body:(await r.text()).slice(0,180)}; }
+    return {data: await r.json()};
+  }catch(e){ return {err:"red", body:e.message}; }
+}
+async function loadCatalog(){
+  const hint=$("#codesHint");
+  const [p,g,pl] = await Promise.all([_fetchCatalog("/api/pagers?q="),_fetchCatalog("/api/grupos?q="),_fetchCatalog("/api/plantillas")]);
+  const errs=[p,g].filter(x=>x.err).map(x=>x.err+": "+x.body);
+  if(errs.length){ if(hint){hint.textContent="Error al cargar códigos → "+errs.join(" | ");hint.className="hint err";} return; }
+  CATALOG=[...(p.data||[]),...(g.data||[])];
+  if(hint){ hint.textContent=CATALOG.length+" código(s) cargados · escribí para buscar"; hint.className=CATALOG.length?"hint ok":"hint err"; }
+  const sel=$("#plantilla");
+  (pl.data||[]).filter(t=>t.activo).forEach(t=>{
+    const o=document.createElement("option");
+    o.value=t.id; o.textContent=t.nombre;
+    o.dataset.msg=t.mensaje||"";
+    sel.appendChild(o);
+  });
+}
+function renderDrop(q){
+  const drop=$("#codeDrop");
+  const s=q.trim().toLowerCase();
+  const list = s ? CATALOG.filter(x=>{
+    const c=(x.codigo||"").toLowerCase(), n=(x.nombre||x.descripcion||"").toLowerCase(), cap=(x.cap_code||"").toLowerCase();
+    return c.includes(s)||n.includes(s)||cap.includes(s);
+  }) : CATALOG;
+  if(!list.length){ drop.innerHTML='<div class="empty">sin coincidencias para "'+q.replace(/</g,"&lt;")+'"</div>'; drop.classList.add("show"); return; }
+  drop.innerHTML = list.map(x=>{
+    const label=(x.descripcion||x.nombre||"").replace(/</g,"&lt;");
+    const cap=x.cap_code?(" · cap "+x.cap_code):"";
+    const tipo=x.miembros?"grupo":"pager";
+    const esc=(x.codigo||"").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+    return `<div class="item" data-codigo="${esc}" data-func="${x.funcion||'alphanumeric'}"><span class="itemCod">${(x.codigo||"").replace(/</g,"&lt;")} <span class="tag">${tipo}</span></span><span class="itemMeta">${label}${cap}</span></div>`;
+  }).join("");
+  drop.classList.add("show");
+  drop.querySelectorAll(".item").forEach(it=>it.addEventListener("click",()=>{
+    $("#codigo").value=it.dataset.codigo;
+    SEL_FUNC=(it.dataset.func||"alphanumeric").toLowerCase();
+    applyMsgMode();
+    drop.classList.remove("show"); drop.innerHTML="";
+    $("#mensaje").focus();
+  }));
 }
 
 async function loadHist(){
@@ -129,14 +184,32 @@ async function loadHist(){
 
 $("#plantilla").addEventListener("change", e=>{
   const opt = e.target.selectedOptions[0];
-  if(opt && opt.dataset.msg && !$("#mensaje").value) $("#mensaje").value = opt.dataset.msg;
+  if(opt && opt.dataset.msg && !$("#mensaje").value){
+    let v=opt.dataset.msg;
+    if(SEL_FUNC==="numeric") v=v.replace(/\D/g,"");
+    $("#mensaje").value=v;
+  }
+});
+
+$("#codigo").addEventListener("input", e=>{
+  renderDrop(e.target.value);
+  const v=e.target.value.trim().toLowerCase();
+  const m=CATALOG.find(x=>(x.codigo||"").toLowerCase()===v);
+  SEL_FUNC=(m&&m.funcion)?m.funcion.toLowerCase():"alphanumeric";
+  applyMsgMode();
+});
+$("#codigo").addEventListener("focus", e=>renderDrop(e.target.value));
+document.addEventListener("click", e=>{
+  if(!e.target.closest(".codewrap")){ const d=$("#codeDrop"); if(d){ d.classList.remove("show"); d.innerHTML=""; } }
 });
 
 $("#f").addEventListener("submit", async ev=>{
   ev.preventDefault();
   const codigo = $("#codigo").value.trim();
-  const mensaje = $("#mensaje").value.trim();
-  if(!codigo || !mensaje){ show("err","Falta el código o el mensaje."); return; }
+  let mensaje = $("#mensaje").value.trim();
+  mensaje = normalizeAscii(mensaje);
+  if(SEL_FUNC==="numeric") mensaje = mensaje.replace(/\D/g,"");
+  if(!codigo || !mensaje){ show("err","Falta el código o el mensaje (revisá acentos/contenido)."); return; }
   const btn = $("#send"); btn.disabled = true; show("info","Enviando…");
   try{
     const r = await fetch("/api/enviar",{
@@ -146,7 +219,9 @@ $("#f").addEventListener("submit", async ev=>{
     const d = await r.json();
     if(d.status === "encolado" || d.status === "ok"){
       show("ok", "Mensaje encolado OK (id " + (d.id||"") + "). Saldrá por MMDVM.");
-      $("#mensaje").value=""; loadHist();
+      $("#mensaje").value=""; $("#codigo").value=""; SEL_FUNC="alphanumeric"; applyMsgMode();
+      const dd=$("#codeDrop"); if(dd){ dd.classList.remove("show"); dd.innerHTML=""; }
+      loadHist();
     } else {
       show("err","No se pudo enviar: "+(d.detalle||d.status||"error"));
     }

@@ -54,7 +54,7 @@ def main():
         if worker and qid:
             marcar_bitacora_error(qid, "codigo inexistente")
         else:
-            registrar_bitacora(interno, codigo, "", mensaje, 1200, "error", "codigo inexistente")
+            registrar_bitacora(interno, codigo, "", mensaje, 512, "error", "codigo inexistente")
         log("Codigo no encontrado: %s" % codigo)
         if worker: sys.exit(1)
         set_result(False); return

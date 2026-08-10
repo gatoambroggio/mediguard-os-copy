@@ -221,12 +221,17 @@ def diag_config_check():
             return cp.get(section, key).strip()
         except Exception:
             return default
-    dapnet = g("DAPNET", "Enable", "0")
-    out["checks"].append({"k": "DAPNET Enable", "v": dapnet or "0", "ok": (dapnet == "0"),
-                          "hint": "debe ser 0: si esta en 1, DAPNET transmite pages ajenos en la misma frecuencia y mezcla basura"})
+    dapnet = g("POCSAG Network", "Enable", "0")
+    out["checks"].append({"k": "POCSAG Network (DAPNET) Enable", "v": dapnet or "0", "ok": (dapnet == "0"),
+                          "hint": "debe ser 0. MMDVMHost usa [POCSAG Network] (con espacio), no [DAPNET]; si esta en 1, DAPNET transmite pages ajenos y mezcla basura"})
     pocsag_enable = g("POCSAG", "Enable", "0")
     out["checks"].append({"k": "POCSAG Enable", "v": pocsag_enable or "0", "ok": (pocsag_enable == "1"),
                           "hint": "debe ser 1; el baud POCSAG lo define el firmware del MMDVM, no el .ini"})
+    # test_mode=1 es el #1 motivo de 'el pager no recibe nada': pocsag_handler.py
+    # NO transmite por MMDVM (solo loguea 'modo test'). Es config de la BD, no del .ini.
+    test_mode = db.get_config("test_mode", "0")
+    out["checks"].append({"k": "Modo prueba (test_mode)", "v": test_mode or "0", "ok": (test_mode == "0"),
+                          "hint": "CRITICO: si es 1, pocsag_handler.py NO transmite (solo loguea 'modo test') -> el pager NUNCA recibe. Pasar a 0 en Parametros > IVR > Modo prueba."})
     txinvert = g("Modem", "TXInvert", "0")
     out["checks"].append({"k": "Modem TXInvert", "v": txinvert, "ok": (txinvert == "1"),
                           "hint": "Jumbospot requiere 1 (polaridad FSK)"})
@@ -236,7 +241,7 @@ def diag_config_check():
     txlevel = g("Modem", "TXLevel", "50")
     out["checks"].append({"k": "Modem TXLevel", "v": txlevel, "ok": True,
                           "hint": "si hay over-deviation, probar 25-35"})
-    # version MMDVMHost
+    # version MMDVMHost — parsea la fecha (ej: "MMDVM-Host version 20260713 git #...")
     ver = "no disponible"
     for cand in ["/usr/local/bin/MMDVM-Host", "MMDVMHost", "MMDVM-Host"]:
         try:
@@ -247,8 +252,22 @@ def diag_config_check():
                 break
         except Exception:
             continue
-    out["checks"].append({"k": "MMDVMHost version", "v": ver, "ok": True,
-                          "hint": "soporte MQTT page es reciente; version muy vieja puede no procesar el comando"})
+    _vmatch = re.search(r'(\d{8})', ver)
+    _vok = True
+    _vhint = "version: %s" % ver
+    if _vmatch:
+        _vdate = _vmatch.group(1)
+        try:
+            _vy = int(_vdate[:4])
+            if _vy >= 2024:
+                _vok = True
+                _vhint = "version reciente (%s): soporta page y page_bcd por MQTT" % _vdate
+            else:
+                _vok = False
+                _vhint = "version vieja (%s): puede no procesar page_bcd; actualizar con instalador_mmdvm.sh" % _vdate
+        except Exception:
+            pass
+    out["checks"].append({"k": "MMDVMHost version", "v": ver, "ok": _vok, "hint": _vhint})
     # [MQTT] section — si no esta habilitado o el Name no coincide, dispatch_mqtt publica al vacio
     mqtt_en = g("MQTT", "Enable", "0")
     out["checks"].append({"k": "MQTT Enable", "v": mqtt_en or "0", "ok": (mqtt_en == "1"),
@@ -276,10 +295,10 @@ def diag_config_check():
     # publica al vacio: no aparece "remote command" en el log ni OK/KO en host/response.
     # (El socket TCP 7642 es solo un proxy de que RemoteControl esta activo; dispatch
     # NO usa ese socket, publica por MQTT.)
-    rc_enable = g("RemoteControl", "Enable", "0")
-    out["checks"].append({"k": "RemoteControl Enable", "v": rc_enable or "0", "ok": (rc_enable == "1"),
-                          "hint": "debe ser 1: sin esto MMDVMHost NO se suscribe a host/command y los page de dispatch_mqtt se pierden (sin OK/KO ni Transmitted). Solucion: re-Aplicar config MMDVM desde el panel o re-ejecutar instalador_mmdvm.sh"})
-    rc_port = g("RemoteControl", "Port", "7642") or "7642"
+    rc_enable = g("Remote Control", "Enable", "0")
+    out["checks"].append({"k": "Remote Control Enable", "v": rc_enable or "0", "ok": (rc_enable == "1"),
+                          "hint": "debe ser 1 (seccion [Remote Control] CON espacio; MMDVMHost no reconoce [RemoteControl]): sin esto NO se suscribe a host/command y los page se pierden. Fix: re-Aplicar config MMDVM o re-ejecutar instalador_mmdvm.sh"})
+    rc_port = g("Remote Control", "Port", "7642") or "7642"
     rc_state = "(no disponible)"
     try:
         import socket as _sock
@@ -313,8 +332,11 @@ def diag_config_check():
                           "hint": "2=display-in+command (OK). 1=solo display-in -> RemoteControl OFF en el .ini vivo -> service stale. Fix: sobreescribir /etc/systemd/system/mmdvmhost.service con ExecStart apuntando a /opt/zetronpoc/mmdvm/MMDVM.ini + Aplicar a la placa."})
     return out
 
-def diag_test_page(cap, mensaje):
-    """Dispara un page real via dispatch_mqtt.py para observar la respuesta OK/KO."""
+def diag_test_page(cap, mensaje, funcion="alphanumeric"):
+    """Dispara un page real via dispatch_mqtt.py para observar la respuesta OK/KO.
+    funcion='numeric' -> page_bcd (func 0, BCD) para pagers numericos (NP88).
+    funcion='alphanumeric' -> page (func 3, packASCII) para pagers alfanumericos.
+    Si MMDVMHost es viejo (sin PAGE_BCD), page_bcd responde 'Invalid remote command'."""
     script = os.path.join(APP_DIR, "agi", "dispatch_mqtt.py")
     if not os.path.exists(script):
         return {"ok": False, "error": "dispatch_mqtt.py no encontrado en %s" % script}
@@ -322,12 +344,17 @@ def diag_test_page(cap, mensaje):
         cap_int = int(str(cap).split(",")[0])
     except (ValueError, TypeError):
         return {"ok": False, "error": "cap invalido: %s" % str(cap)[:80]}
+    bcd = (str(funcion).strip().lower() == "numeric")
     try:
         env = dict(os.environ, ZETRONPOC_DIR=APP_DIR)
-        r = subprocess.run([sys.executable, script, str(cap_int), str(mensaje or "TEST"), "1200"],
-                           capture_output=True, text=True, timeout=15, env=env)
+        argv = [sys.executable, script]
+        if bcd:
+            argv.append("--bcd")
+        argv += [str(cap_int), str(mensaje or "TEST"), "1200"]
+        r = subprocess.run(argv, capture_output=True, text=True, timeout=15, env=env)
         return {"ok": r.returncode == 0, "stdout": (r.stdout or "").strip()[:500],
-                "stderr": (r.stderr or "").strip()[:500], "rc": r.returncode}
+                "stderr": (r.stderr or "").strip()[:500], "rc": r.returncode, "bcd": bcd,
+                "comando": "page_bcd" if bcd else "page"}
     except Exception as e:
         return {"ok": False, "error": str(e)[:200]}
 
@@ -371,6 +398,7 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/grupos": return jok(self, db.buscar_grupos(q.get("q", [""])[0]))
         if p == "/api/historial/public":
             return jok(self, db.historial({}, 100, 0))
+        if p == "/api/plantillas": return jok(self, db.listar_plantillas())
         if p == "/api/login": return jtext(self, "use POST", 405)
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
 
@@ -383,7 +411,6 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/mmdvm/config": return jok(self, {k: v for k, v in db.all_config().items() if k.startswith("mmdvm_")})
         if p == "/api/extensions": return jok(self, db.listar_extensiones())
         if p == "/api/extensions/status": return jok(self, ext_status())
-        if p == "/api/plantillas": return jok(self, db.listar_plantillas())
         if p == "/api/programados": return jok(self, db.listar_programados())
         if p == "/api/auditoria":
             return jok(self, db.listar_auditoria(int(q.get("limit", ["200"])[0]), int(q.get("offset", ["0"])[0])))
@@ -470,9 +497,10 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/diagnostico/test_page":
             cap = d.get("cap", "1234567")
             msg = d.get("mensaje", "TEST")
-            res = diag_test_page(cap, msg)
-            aud(self, "test_page", "diagnostico", str(cap), "rc=%s ok=%s" % (res.get("rc", "-"), res.get("ok")))
-            evlog(self, "info", "diag", "test_page cap=%s ok=%s" % (cap, res.get("ok")))
+            funcion = d.get("funcion", "alphanumeric")
+            res = diag_test_page(cap, msg, funcion)
+            aud(self, "test_page", "diagnostico", str(cap), "func=%s rc=%s ok=%s" % (funcion, res.get("rc", "-"), res.get("ok")))
+            evlog(self, "info", "diag", "test_page cap=%s func=%s ok=%s" % (cap, funcion, res.get("ok")))
             return jok(self, res)
         if p == "/api/mmdvm/apply":
             for k, v in d.items():

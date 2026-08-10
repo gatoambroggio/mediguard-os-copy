@@ -99,14 +99,17 @@ Host=127.0.0.1
 Port=1883
 Name=host
 
-[RemoteControl]
+[Remote Control]
 Enable=1
+Address=0.0.0.0
 Port=7642
 
-[DAPNET]
+[POCSAG Network]
 Enable=0
-Address=
-Passcode=
+GatewayAddress=
+GatewayPort=31400
+LocalAddress=127.0.0.1
+LocalPort=31401
 
 [Info]
 Enabled=0

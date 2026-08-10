@@ -153,6 +153,7 @@ tbody tr:hover{background:#f1f5f9!important}
       <button class="nav-btn" onclick="tab('cola',this)"><span class="ic">≡</span>Cola</button>
       <button class="nav-btn" onclick="tab('bd',this)"><span class="ic">⛁</span>Base datos</button>
       <button class="nav-btn" onclick="tab('diag',this)"><span class="ic">🔬</span>Diagnostico</button>
+      <button class="nav-btn" onclick="tab('vpn',this)"><span class="ic">🔒</span>VPN</button>
     </nav>
     <div class="bot"><span id="h" class="pill">SISTEMA…</span><div id="diagBox" style="margin-top:.5rem;display:none"></div><button class="btn btn-sec btn-sm" style="margin-top:.6rem;width:100%;justify-content:center" onclick="logout()">Desconectar</button></div>
   </div>
@@ -375,6 +376,42 @@ tbody tr:hover{background:#f1f5f9!important}
         </div>
       </div>
     </div>
+
+    <div class="tab" id="t-vpn">
+      <div class="card"><h2><span>🔒 Cliente VPN (saliente)</span><button class="btn btn-pri btn-sm" onclick="openVpnClient()">+ Nueva</button></h2>
+        <div class="hint">Conecta este servidor a una VPN externa via NetworkManager (nmcli). Soporta OpenVPN, L2TP/IPsec y PPTP. Crea la conexion, conecta y desconecta desde aca. Requiere los plugins <b>network-manager-{openvpn,l2tp,pptp}</b> instalados.</div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;align-items:center">
+          <span id="vpn_st" class="badge mut">—</span>
+          <button class="btn btn-sec btn-sm" onclick="loadVpn()">↻ Actualizar</button>
+        </div>
+        <div style="overflow-x:auto"><table><thead><tr><th>Nombre</th><th>Tipo</th><th>Estado</th><th>Dispositivo</th><th></th></tr></thead><tbody id="tb_vpn"></tbody></table></div></div>
+      <div class="card"><h2>🖥 Servidor VPN (entrante)</h2>
+        <div class="hint">Ofrece VPN para que equipos remotos se conecten a este servidor. Aplica la configuracion del protocolo elegido y arranca el servicio. Requiere <b>openvpn / pptpd / strongswan + xl2tpd</b> instalados y backend corriendo como root.</div>
+        <div id="vpn_srv_st" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem"></div>
+        <div class="row">
+          <div><label>Protocolo</label><select id="vpn_srv_proto" onchange="vpnProtoHint()"><option value="openvpn">OpenVPN</option><option value="pptp">PPTP</option><option value="l2tp">L2TP/IPsec</option></select></div>
+          <div><label>Puerto (OpenVPN)</label><input id="vpn_srv_port" type="number" value="1194"></div>
+          <div><label>Proto (OpenVPN)</label><select id="vpn_srv_otro"><option value="udp">UDP</option><option value="tcp">TCP</option></select></div>
+        </div>
+        <div class="row">
+          <div><label>Red cliente (OpenVPN)</label><input id="vpn_srv_net" value="10.8.0.0"></div>
+          <div><label>Mascara (OpenVPN)</label><input id="vpn_srv_mask" value="255.255.255.0"></div>
+          <div><label>Local IP (PPTP/L2TP)</label><input id="vpn_srv_localip" value="10.0.0.1"></div>
+          <div><label>Remote IP (PPTP/L2TP)</label><input id="vpn_srv_remoteip" value="10.0.0.100-200"></div>
+        </div>
+        <div class="row">
+          <div><label>Usuario (PPTP/L2TP)</label><input id="vpn_srv_user" value="vpn"></div>
+          <div><label>Clave (PPTP/L2TP)</label><input id="vpn_srv_pass" type="text" value="vpn"></div>
+          <div><label>PSK (L2TP/IPsec)</label><input id="vpn_srv_psk" value="zetronpoc"></div>
+        </div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem">
+          <button class="btn btn-pri" onclick="vpnServerApply()">Aplicar y arrancar</button>
+          <button class="btn btn-del" onclick="vpnServerStop()">Detener</button>
+          <button class="btn btn-sec" onclick="vpnServerStatus()">↻ Estado</button>
+        </div>
+        <div id="vpn_srv_res" class="toast"></div>
+        <pre id="vpn_ports" style="margin-top:.8rem">—</pre></div>
+    </div>
   </div>
 </div>
 
@@ -405,6 +442,12 @@ tbody tr:hover{background:#f1f5f9!important}
   <label>Mensaje</label><textarea id="pr_mensaje" rows="3"></textarea>
   <div class="row"><div><label>Fecha (unico)</label><input id="pr_fecha" type="datetime-local"></div><div><label>Hora recurrente</label><input id="pr_hora" type="time" value="08:00"></div></div>
   <div style="display:flex;gap:.5rem;margin-top:.9rem"><button class="btn btn-pri" onclick="saveProgramado()">Guardar</button><button class="btn btn-sec" onclick="closeModal('mProgramado')">Cancelar</button></div></div></div>
+<div class="modal" id="mVpn"><div class="card"><h2 id="mVT">Cliente VPN</h2>
+  <div class="row"><div><label>Nombre</label><input id="v_name"></div><div><label>Protocolo</label><select id="v_proto"><option value="openvpn">OpenVPN</option><option value="l2tp">L2TP/IPsec</option><option value="pptp">PPTP</option></select></div></div>
+  <div class="row"><div><label>Servidor (gateway)</label><input id="v_gateway"></div><div><label>Usuario</label><input id="v_user"></div></div>
+  <div class="row"><div><label>Clave</label><input id="v_pass" type="text"></div><div><label>PSK (L2TP)</label><input id="v_psk"></div></div>
+  <label>Ruta archivo .ovpn (OpenVPN, opcional)</label><input id="v_ovpn" placeholder="/tmp/cliente.ovpn">
+  <div style="display:flex;gap:.5rem;margin-top:.9rem"><button class="btn btn-pri" onclick="saveVpnClient()">Guardar</button><button class="btn btn-sec" onclick="closeModal('mVpn')">Cancelar</button></div></div></div>
 
 <script>
 let TOKEN=localStorage.getItem('zetron_tok')||'';
@@ -414,10 +457,10 @@ const CFG_KEYS=['admin_user','admin_pass','mensaje_timeout','ptt_preactivo','dig
 
 function api(m,u,b,raw){const o={method:m,headers:{'Authorization':'Bearer '+TOKEN}};if(b!==undefined){if(raw){o.body=b;}else{o.headers['Content-Type']='application/json';o.body=JSON.stringify(b);}}return fetch(u,o).then(async r=>{if(r.status===401){logout(true);throw new Error('no autorizado');}const txt=await r.text();try{return JSON.parse(txt);}catch(e){return txt;}});}
 function showErr(r,ctx){const e=r&&(r.error||r.detalle);if(e){alert((ctx?ctx+': ':'')+'Error: '+e+(r.traceback?'\n\n--- traceback ---\n'+r.traceback:''));return true;}return false;}
-function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',hist:'Historial',cfg:'Parametros',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria',diag:'Diagnostico'};document.getElementById('tit').textContent=t[id]||'';
+function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',hist:'Historial',cfg:'Parametros',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria',diag:'Diagnostico',vpn:'VPN'};document.getElementById('tit').textContent=t[id]||'';
 if(extTimer){clearInterval(extTimer);extTimer=null;}if(histTimer){clearInterval(histTimer);histTimer=null;}if(colaTimer){clearInterval(colaTimer);colaTimer=null;}if(diagTimer){clearInterval(diagTimer);diagTimer=null;}
 if(id==='ext'){loadExt();extTimer=setInterval(loadExt,5000);}
-if(id==='pagers')loadPagers();if(id==='grupos')loadGrupos();if(id==='cfg'){loadConfig();mmdvmStatus();}if(id==='hist'){loadHist(0);histTimer=setInterval(()=>loadHist(hoff),8000);}if(id==='pbx')pbx('status');if(id==='cola'){loadCola();colaTimer=setInterval(loadCola,4000);}if(id==='enviar')initSend();if(id==='dash')loadDash();if(id==='plantillas')loadPlantillas();if(id==='programados')loadProgramados();if(id==='logs')loadLogs('api');if(id==='aud')loadAud();if(id==='diag'){loadDiagAll();if(diagTimer)clearInterval(diagTimer);diagTimer=setInterval(refreshDiagAll,diagInterval*1000);}}
+if(id==='pagers')loadPagers();if(id==='grupos')loadGrupos();if(id==='cfg'){loadConfig();mmdvmStatus();}if(id==='hist'){loadHist(0);histTimer=setInterval(()=>loadHist(hoff),8000);}if(id==='pbx')pbx('status');if(id==='cola'){loadCola();colaTimer=setInterval(loadCola,4000);}if(id==='enviar')initSend();if(id==='dash')loadDash();if(id==='plantillas')loadPlantillas();if(id==='programados')loadProgramados();if(id==='logs')loadLogs('api');if(id==='aud')loadAud();if(id==='diag'){loadDiagAll();if(diagTimer)clearInterval(diagTimer);diagTimer=setInterval(refreshDiagAll,diagInterval*1000);}if(id==='vpn'){loadVpn();vpnServerStatus();}}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function toggleMenu(){document.querySelector('.side nav').classList.toggle('open');}
@@ -540,6 +583,17 @@ function loadDiagAll(){loadDiagMqtt();loadDiagMmdvm();loadDiagConfig();loadDiagD
 function refreshDiagAll(){if(diagAutoOn)loadDiagAll();}
 async function diagTestPage(funcion){funcion=funcion||'alphanumeric';const cap=document.getElementById('diag_cap').value.trim()||'1234567';const msg=document.getElementById('diag_msg').value.trim()||'TEST';const el=document.getElementById('diag_mqtt_out');const cmd=funcion==='numeric'?('page_bcd '+cap+' '+msg):('page '+cap+' '+msg);el.textContent='Disparando '+cmd+' ...';try{const r=await api('POST','/api/diagnostico/test_page',{cap:cap,mensaje:msg,funcion:funcion});el.textContent='>>> '+cmd+'\nrc='+(r&&r.rc!=null?r.rc:'-')+' ok='+(r&&r.ok)+'\nstdout: '+(r&&r.stdout||'')+'\nstderr: '+(r&&r.stderr||'')+(r&&r.error?'\nerror: '+r.error:'');}catch(e){el.textContent='Error: '+e.message;}// refresca todo para capturar la respuesta MQTT
   setTimeout(()=>{loadDiagAll();},800);setTimeout(()=>{loadDiagAll();},2500);}
+
+// VPN
+async function loadVpn(){try{const [st,cl]=await Promise.all([api('GET','/api/vpn/status'),api('GET','/api/vpn/clients')]);const e=document.getElementById('vpn_st');e.className='badge '+(st.nm_state==='connected'?'ok':'mut');e.textContent='NM: '+(st.nm_state||'-')+' · IP: '+(st.external_ip||'-');let rows=[];if(Array.isArray(cl))rows=cl;else if(cl&&cl.error){document.getElementById('tb_vpn').innerHTML='<tr><td colspan="5" style="color:var(--err)">Error: '+cl.error+'</td></tr>';return;}document.getElementById('tb_vpn').innerHTML=rows.length?rows.map(x=>`<tr><td>${x.name}</td><td>${x.type}</td><td><span class="badge ${x.state==='activa'?'ok':'mut'}">${x.state}</span></td><td class="mono">${x.device||'-'}</td><td><button class="btn btn-sec btn-sm" onclick="vpnToggle('${x.name}','${x.state==='activa'?'down':'up'}')">${x.state==='activa'?'⏻ Desconectar':'⏻ Conectar'}</button> <button class="btn btn-del btn-sm" onclick="vpnDel('${x.name}')">✕</button></td></tr>`).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--mut);padding:1rem">Sin conexiones VPN</td></tr>';}catch(e){document.getElementById('tb_vpn').innerHTML='<tr><td colspan="5" style="color:var(--err)">Error: '+e.message+'</td></tr>';}}
+function openVpnClient(){['v_name','v_gateway','v_user','v_pass','v_psk','v_ovpn'].forEach(f=>document.getElementById(f).value='');document.getElementById('mVT').textContent='Nuevo cliente VPN';openModal('mVpn');}
+async function saveVpnClient(){const d={name:document.getElementById('v_name').value,protocol:document.getElementById('v_proto').value,gateway:document.getElementById('v_gateway').value,user:document.getElementById('v_user').value,password:document.getElementById('v_pass').value,psk:document.getElementById('v_psk').value,ovpn_file:document.getElementById('v_ovpn').value};if(!d.name){alert('Falta el nombre');return;}const r=await api('POST','/api/vpn/clients',d);if(showErr(r,'VPN client'))return;closeModal('mVpn');loadVpn();}
+async function vpnToggle(name,act){const r=await api('POST','/api/vpn/clients/'+act,{name:name});if(showErr(r,'VPN'))return;loadVpn();}
+async function vpnDel(name){if(!confirm('Eliminar '+name+'?'))return;const r=await api('DELETE','/api/vpn/clients/'+name);if(showErr(r))return;loadVpn();}
+function vpnProtoHint(){const p=document.getElementById('vpn_srv_proto').value;document.getElementById('vpn_srv_port').disabled=(p!=='openvpn');document.getElementById('vpn_srv_otro').disabled=(p!=='openvpn');document.getElementById('vpn_srv_net').disabled=(p!=='openvpn');document.getElementById('vpn_srv_mask').disabled=(p!=='openvpn');document.getElementById('vpn_srv_user').disabled=(p==='openvpn');document.getElementById('vpn_srv_pass').disabled=(p==='openvpn');document.getElementById('vpn_srv_psk').disabled=(p!=='l2tp');}
+async function vpnServerStatus(){const r=await api('GET','/api/vpn/server/status');if(r&&r.error){document.getElementById('vpn_srv_st').innerHTML='<span class="badge err">'+r.error+'</span>';return;}const box=document.getElementById('vpn_srv_st');box.innerHTML=Object.entries(r).filter(([k])=>typeof r[k]==='object').map(([k,v])=>`<span class="badge ${v.active==='active'?'ok':'mut'}">${k}: ${v.active||'-'} (${v.enabled?'on':'off'})</span>`).join('')||'<span class="badge mut">sin datos</span>';document.getElementById('vpn_ports').textContent=r.listening||'(sin puertos VPN en escucha: 1194/1723/500/4500/1701)';}
+async function vpnServerApply(){const d={protocol:document.getElementById('vpn_srv_proto').value,port:document.getElementById('vpn_srv_port').value,proto:document.getElementById('vpn_srv_otro').value,network:document.getElementById('vpn_srv_net').value,mask:document.getElementById('vpn_srv_mask').value,local_ip:document.getElementById('vpn_srv_localip').value,remote_ip:document.getElementById('vpn_srv_remoteip').value,user:document.getElementById('vpn_srv_user').value,password:document.getElementById('vpn_srv_pass').value,psk:document.getElementById('vpn_srv_psk').value};if(!confirm('Aplicar y arrancar servidor '+d.protocol+'? Esto reescribe la configuracion y reinicia el servicio.'))return;const t=document.getElementById('vpn_srv_res');t.className='toast show ok';t.textContent='Aplicando '+d.protocol+'...';const r=await api('POST','/api/vpn/server/apply',d);if(r.ok){t.className='toast show ok';t.textContent='Servidor '+d.protocol+' arrancado.'+(r.conf?' conf='+r.conf:'')+(r.key?' key='+r.key:'')+(r.user?' user='+r.user:'');}else{t.className='toast show err';t.textContent='Error: '+(r.error||'fallo');}vpnServerStatus();}
+async function vpnServerStop(){const proto=document.getElementById('vpn_srv_proto').value;if(!confirm('Detener servidor '+proto+'?'))return;const r=await api('POST','/api/vpn/server/stop',{protocol:proto});const t=document.getElementById('vpn_srv_res');t.className='toast show '+(r.ok?'ok':'err');t.textContent=r.ok?('Servidor '+proto+' detenido.'):'Error: '+(r.error||'');vpnServerStatus();}
 
 // Health
 async function health(){try{const h=await fetch('/api/health').then(r=>r.json());const p=document.getElementById('h');p.textContent=h.status==='ok'?'EN LINEA':'CAIDO';p.className='pill '+(h.status==='ok'?'':'off');}catch(e){}}

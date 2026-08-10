@@ -80,7 +80,7 @@ def crear_pager(data, db_path=DEFAULT_DB):
             "INSERT INTO pagers (codigo,cap_code,nombre,apellido,area,baudios,funcion,descripcion,activo) "
             "VALUES (?,?,?,?,?,?,?,?,1)",
             (data["codigo"], data["cap_code"], data.get("nombre"), data.get("apellido"),
-             data.get("area"), data.get("baudios", 1200), data.get("funcion", "alphanumeric"),
+             data.get("area"), data.get("baudios", 512), data.get("funcion", "alphanumeric"),
              data.get("descripcion")))
         return cur.lastrowid
 
@@ -90,7 +90,7 @@ def actualizar_pager(pid, data, db_path=DEFAULT_DB):
             "UPDATE pagers SET codigo=?,cap_code=?,nombre=?,apellido=?,area=?,baudios=?,"
             "funcion=?,descripcion=?,activo=? WHERE id=?",
             (data["codigo"], data["cap_code"], data.get("nombre"), data.get("apellido"),
-             data.get("area"), data.get("baudios", 1200), data.get("funcion", "alphanumeric"),
+             data.get("area"), data.get("baudios", 512), data.get("funcion", "alphanumeric"),
              data.get("descripcion"), int(data.get("activo", 1)), pid))
 
 def toggle_pager(pid, activo, db_path=DEFAULT_DB):
@@ -105,7 +105,7 @@ def importar_pagers(rows, db_path=DEFAULT_DB):
     n = 0; errores = 0
     with get_conn(db_path) as conn:
         for r in rows:
-            try: baud = int(r.get("baudios") or 1200)
+            try: baud = int(r.get("baudios") or 512)
             except (ValueError, TypeError): baud = 1200
             try:
                 conn.execute(
@@ -147,7 +147,7 @@ def crear_grupo(data, db_path=DEFAULT_DB):
     caps = data.get("miembros", [])[:20]
     with get_conn(db_path) as conn:
         cur = conn.execute("INSERT INTO grupos (codigo,nombre,baudios,activo) VALUES (?,?,?,1)",
-                           (data["codigo"], data.get("nombre"), data.get("baudios", 1200)))
+                           (data["codigo"], data.get("nombre"), data.get("baudios", 512)))
         gid = cur.lastrowid
         for i, c in enumerate(caps):
             conn.execute("INSERT OR IGNORE INTO grupo_miembros (grupo_id,cap_code,orden) VALUES (?,?,?)", (gid, c, i))
@@ -157,7 +157,7 @@ def actualizar_grupo(gid, data, db_path=DEFAULT_DB):
     caps = data.get("miembros", [])[:20]
     with get_conn(db_path) as conn:
         conn.execute("UPDATE grupos SET codigo=?,nombre=?,baudios=? WHERE id=?",
-                     (data["codigo"], data.get("nombre"), data.get("baudios", 1200), gid))
+                     (data["codigo"], data.get("nombre"), data.get("baudios", 512), gid))
         conn.execute("DELETE FROM grupo_miembros WHERE grupo_id=?", (gid,))
         for i, c in enumerate(caps):
             conn.execute("INSERT OR IGNORE INTO grupo_miembros (grupo_id,cap_code,orden) VALUES (?,?,?)", (gid, c, i))
@@ -170,7 +170,7 @@ def importar_grupos(rows, db_path=DEFAULT_DB):
     n = 0; errores = 0
     with get_conn(db_path) as conn:
         for r in rows:
-            try: baud = int(r.get("baudios") or 1200)
+            try: baud = int(r.get("baudios") or 512)
             except (ValueError, TypeError): baud = 1200
             caps = [c.strip() for c in str(r.get("cap_codes", "")).split(",") if c.strip()][:20]
             codigo = r.get("codigo", "")
@@ -308,70 +308,144 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
     mqtt_name = g("mmdvm_mqtt_name", "host")
     conn_type = (g("mmdvm_connection_type", "uart")).lower()
     uart_speed = g("mmdvm_uart_speed", baud) or baud
+    # ---- Merge: preserva secciones/keys no manejadas por el panel ----
+    # El operador suele tunear a mano [POCSAG] POCSAGTXLevel/Speed/POCSAGInvert
+    # para su hardware (NP88, 512 baud, VHF). Si el panel sobreescribe todo,
+    # pierde esa sintonia. Partimos del .ini existente, actualizamos solo las
+    # keys manejadas y dejamos el resto ([OLED], [HTTP], [POCSAG] tuning, etc.).
+    # CRITICO: los nombres de seccion deben ir CON ESPACIOS ([Remote Control],
+    # [POCSAG Network]). MMDVMHost (Conf.cpp) parsea con strncmp exacto y NO
+    # reconoce [RemoteControl] ni [DAPNET]; sin [Remote Control] Enable=1 no se
+    # suscribe a "command" y los pages de dispatch_mqtt se pierden (1 suscripcion
+    # en vez de 2 en el log: on_subscribe).
+    managed = {
+        "General": {
+            "Callsign": callsign,
+            "Id": callsign.replace(" ", "") + "000",
+            "Timeout": "180",
+            "Duplex": duplex,
+            "RFModeHang": "10",
+            "NetModeHang": "3",
+            "Daemon": "0",
+            "POCSAG": enable_pocsag,
+            "Display": display,
+        },
+        "Modem": {},
+        "POCSAG": {"Enable": enable_pocsag},
+        "MQTT": {
+            "Enable": mqtt_enable,
+            "Host": mqtt_host,
+            "Port": mqtt_port,
+            "Name": mqtt_name,
+            "Auth": "0",
+            "Username": "",
+            "Password": "",
+            "Keepalive": "60",
+        },
+        "Remote Control": {
+            "Enable": "1",
+            "Address": "0.0.0.0",
+            "Port": remote_port,
+        },
+        "Log": {
+            "FilePath": "/var/log/mmdvm",
+            "FileName": "MMDVM-%Y-%m-%d.log",
+            "FileLevel": "1",
+            "DisplayLevel": "1",
+            "MQTTLevel": "2",
+        },
+    }
     if conn_type == "usb":
-        modem_conn = "BaudeRate=%s\n" % baud
+        managed["Modem"].update({"Port": port, "BaudeRate": baud})
     else:
-        modem_conn = "Protocol=uart\nUARTPort=%s\nUARTSpeed=%s\n" % (port, uart_speed)
-    ini = (
-        "# MMDVM.ini - generado por ZetronPOC / MediGuard OS\n"
-        "# Modulo MMDVM por puerto serie UART (Protocol=uart)\n\n"
-        "[General]\n"
-        "Callsign=%s\n"
-        "Id=%s000\n"
-        "Timeout=180\n"
-        "Duplex=%s\n"
-        "RFModeHang=10\n"
-        "DMR=0\nDSTAR=0\nYSF=0\nP25=0\nNXDN=0\n"
-        "POCSAG=%s\n"
-        "Display=%s\n\n"
-        "[Modem]\n"
-        "Port=%s\n"
-        "%s"
-        "RXFrequency=%s\n"
-        "TXFrequency=%s\n"
-        "TXInvert=%s\n"
-        "RXInvert=%s\n"
-        "PTTInvert=%s\n"
-        "TXDelay=%s\n"
-        "RXOffset=%s\n"
-        "TXOffset=%s\n"
-        "DMRDelay=0\n"
-        "RXLevel=%s\n"
-        "TXLevel=%s\n"
-        "RXDCOffset=0\n"
-        "TXDCOffset=0\n"
-        "RFLevel=%s\n"
-        "RSSIMappingFile=RSSI.dat\n"
-        "UseCOSAsLockout=0\n"
-        "Trace=0\n"
-        "Debug=0\n"
-        "OscillatorSpeed=%s\n\n"
-        "[POCSAG]\n"
-        "Enable=%s\n\n"
-        "[MQTT]\n"
-        "Enable=%s\n"
-        "Host=%s\n"
-        "Port=%s\n"
-        "Name=%s\n\n"
-        "[RemoteControl]\n"
-        "Enable=1\n"
-        "Port=%s\n\n"
-        "[DAPNET]\n"
-        "Enable=%s\n"
-        "Address=%s\n"
-        "Passcode=%s\n\n"
-        "[Info]\nEnabled=0\n\n"
-        "[Log]\nDisplayLevel=1\nFileLevel=1\nFilePath=/var/log/mmdvm\nFileRoot=MMDVM\n"
-    ) % (callsign, callsign.replace(" ", ""), duplex, enable_pocsag, display,
-         port, modem_conn, freq_hz, freq_hz, tx_invert, rx_invert, ptt_invert, ptt_delay,
-         rx_offset, tx_offset, rx_level, tx_level, rf_level, oscillator,
-         enable_pocsag, mqtt_enable, mqtt_host, mqtt_port, mqtt_name, remote_port,
-         dapnet_enable, dapnet_address, dapnet_passcode)
+        managed["Modem"].update({"Protocol": "uart", "UARTPort": port, "UARTSpeed": uart_speed})
+    managed["Modem"].update({
+        "RXFrequency": freq_hz,
+        "TXFrequency": freq_hz,
+        "TXInvert": tx_invert,
+        "RXInvert": rx_invert,
+        "PTTInvert": ptt_invert,
+        "TXDelay": ptt_delay,
+        "RXOffset": rx_offset,
+        "TXOffset": tx_offset,
+        "DMRDelay": "0",
+        "RXLevel": rx_level,
+        "TXLevel": tx_level,
+        "RXDCOffset": "0",
+        "TXDCOffset": "0",
+        "RFLevel": rf_level,
+        "RSSIMappingFile": "RSSI.dat",
+        "UseCOSAsLockout": "0",
+        "Trace": "0",
+        "Debug": "0",
+    })
+
+    # Parsear el .ini existente (preserva orden de secciones en py3.7+)
+    existing = {}
+    existing_order = []
+    if os.path.exists(MMDVM_INI):
+        try:
+            cur = None
+            with open(MMDVM_INI, "r", errors="replace") as f:
+                for line in f:
+                    s = line.strip()
+                    if not s or s.startswith("#") or s.startswith(";"):
+                        continue
+                    if s.startswith("[") and s.endswith("]"):
+                        cur = s[1:-1].strip()
+                        if cur not in existing:
+                            existing[cur] = {}
+                            existing_order.append(cur)
+                        continue
+                    if cur is None or "=" not in s:
+                        continue
+                    k, v = s.split("=", 1)
+                    existing[cur][k.strip()] = v.strip()
+        except Exception:
+            existing = {}; existing_order = []
+
+    # Mergear: pisar keys manejadas, preservar el resto
+    for sec, keys in managed.items():
+        if sec not in existing:
+            existing[sec] = {}
+            existing_order.append(sec)
+        existing[sec].update(keys)
+    # [POCSAG Network] = DAPNET (MMDVMHost no tiene seccion [DAPNET])
+    if "POCSAG Network" not in existing:
+        existing["POCSAG Network"] = {}
+        existing_order.append("POCSAG Network")
+    existing["POCSAG Network"]["Enable"] = dapnet_enable
+    if not existing["POCSAG Network"].get("GatewayAddress"):
+        existing["POCSAG Network"]["GatewayAddress"] = dapnet_address or "127.0.0.1"
+    if not existing["POCSAG Network"].get("GatewayPort"):
+        existing["POCSAG Network"]["GatewayPort"] = "31400"
+    if not existing["POCSAG Network"].get("LocalAddress"):
+        existing["POCSAG Network"]["LocalAddress"] = "127.0.0.1"
+    if not existing["POCSAG Network"].get("LocalPort"):
+        existing["POCSAG Network"]["LocalPort"] = "31401"
+
+    out_lines = [
+        "# MMDVM.ini - generado por ZetronPOC / MediGuard OS (merge)",
+        "# El panel maneja [General]/[Modem]/[MQTT]/[Remote Control]/[Log] y [POCSAG] Enable.",
+        "# El resto (POCSAGTXLevel, Speed, [OLED], [HTTP], etc.) se preserva del .ini existente.",
+    ]
+    for sec in existing_order:
+        out_lines.append("")
+        out_lines.append("[%s]" % sec)
+        mk = managed.get(sec, {})
+        written = set()
+        for k in mk:
+            out_lines.append("%s=%s" % (k, existing[sec].get(k, mk[k])))
+            written.add(k)
+        for k, v in existing[sec].items():
+            if k not in written:
+                out_lines.append("%s=%s" % (k, v))
+    ini = "\n".join(out_lines) + "\n"
     try:
         os.makedirs(os.path.dirname(MMDVM_INI), exist_ok=True)
         with open(MMDVM_INI, "w") as f:
             f.write(ini)
-        return True, "MMDVM.ini generado en %s (frec=%s Hz, puerto=%s, baud=%s)" % (MMDVM_INI, freq_hz, port, baud)
+        return True, "MMDVM.ini generado (merge) en %s (frec=%s Hz, puerto=%s, baud=%s)" % (MMDVM_INI, freq_hz, port, baud)
     except PermissionError:
         return False, "sin permisos para escribir %s (ejecute el servicio como root)" % MMDVM_INI
     except Exception as e:
@@ -624,7 +698,7 @@ def procesar_programados(db_path=DEFAULT_DB):
         rows = conn.execute("SELECT * FROM envios_programados WHERE activo=1 AND proxima_ejecucion<=? ORDER BY proxima_ejecucion", (now,)).fetchall()
     for r in rows:
         r = dict(r)
-        qid = encolar_mensaje(r["codigo"], None, r["mensaje"], 1200, r["origen"] or "programado", db_path)
+        qid = encolar_mensaje(r["codigo"], None, r["mensaje"], 512, r["origen"] or "programado", db_path)
         dest = resolver_destino(r["codigo"], db_path)
         if dest:
             with get_conn(db_path) as conn:
