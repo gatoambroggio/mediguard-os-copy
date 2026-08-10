@@ -5,7 +5,7 @@ import sys, os, time
 APP_DIR = os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc")
 sys.path.insert(0, APP_DIR)
 sys.path.insert(0, os.path.join(APP_DIR, "database"))
-from db_manager import procesar_siguiente_cola, get_conn, DEFAULT_DB, init_db
+from db_manager import procesar_siguiente_cola, procesar_programados, get_conn, DEFAULT_DB, init_db
 
 LOG = os.path.join(APP_DIR, "logs/cola.log")
 
@@ -29,8 +29,16 @@ def main():
         clog("[WARN] init_db: %s" % e)
     recuperar_enviando()
     clog("[START] Worker de cola ZetronPOC iniciado")
+    last_prog = 0.0
     while True:
         try:
+            now = time.time()
+            if now - last_prog >= 20:
+                try:
+                    procesar_programados()
+                except Exception as pe:
+                    clog("[WARN] procesar_programados: %s" % pe)
+                last_prog = now
             result = procesar_siguiente_cola()
             if result is None:
                 time.sleep(2)

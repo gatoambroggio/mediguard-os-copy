@@ -86,11 +86,17 @@ pip3 install --break-system-packages openpyxl xlrd 2>&1 || warn "openpyxl/xlrd n
 echo "==> 1b/10 Dependencias VPN (NetworkManager + openvpn/pptpd/strongswan/xl2tpd)..."
 apt-get install -y network-manager network-manager-openvpn network-manager-openvpn-gnome \
   network-manager-pptp network-manager-pptp-gnome \
-  openvpn pptpd strongswan xl2tpd 2>&1 || warn "Algunos paquetes VPN no pudieron instalarse (verifique repos universe habilitado)"
+  openvpn pptpd strongswan xl2tpd wireguard wireguard-tools 2>&1 || warn "Algunos paquetes VPN no pudieron instalarse (verifique repos universe habilitado)"
 # network-manager-l2tp suele estar en PPA, no en repos base de Ubuntu; intentar igual
 apt-get install -y network-manager-l2tp network-manager-l2tp-gnome 2>&1 || warn "network-manager-l2tp no esta en el repo base (si usa L2TP cliente, instalelo via PPA: add-apt-repository ppa:nm-l2tp/network-manager-l2tp)"
 systemctl enable --now NetworkManager 2>/dev/null || true
 echo "  Estado NetworkManager:"; systemctl is-active NetworkManager 2>/dev/null || true
+# strongswan y xl2tpd auto-arrancan al instalarse (apt los habilita por defecto).
+# Solo deben iniciar cuando el admin configura el servidor L2TP entrante desde
+# el panel. Los deshabilitamos aqui para que no queden "active" sin razon.
+systemctl disable --now strongswan-starter 2>/dev/null || true
+systemctl disable --now strongswan 2>/dev/null || true
+systemctl disable --now xl2tpd 2>/dev/null || true
 
 # Si las placas estan unmanaged, NetworkManager no puede enrutar la VPN
 # ("could not find source connection"). Migrar netplan al renderer NetworkManager

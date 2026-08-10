@@ -394,6 +394,12 @@ class Handler(BaseHTTPRequestHandler):
             out["counts"] = counts; out["errors"] = errs; out["db_ok"] = not errs
             return jok(self, out)
         if p == "/api/version": return jok(self, {"version": db.get_config("version", "2.0")})
+        if p == "/api/server/time":
+            import datetime as _dt
+            return jok(self, {"datetime": _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                              "iso": _dt.datetime.now().isoformat(),
+                              "date": _dt.date.today().isoformat(),
+                              "timezone": time.tzname[0] if time.tzname else ""})
         if p == "/api/theme": return jok(self, db.all_config())
         if p == "/api/pagers": return jok(self, db.buscar_pagers(q.get("q", [""])[0]))
         if p == "/api/grupos": return jok(self, db.buscar_grupos(q.get("q", [""])[0]))
@@ -412,6 +418,8 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/vpn/clients": return jok(self, vpnmod.list_clients())
         _mvpn = re.match(r'/api/vpn/clients/([A-Za-z0-9_\-]+)$', p)
         if _mvpn: return jok(self, vpnmod.get_client(_mvpn.group(1)))
+        _mvpn_log = re.match(r'/api/vpn/clients/([A-Za-z0-9_\-]+)/connect_log$', p)
+        if _mvpn_log: return jok(self, vpnmod.connect_log(_mvpn_log.group(1), int(q.get("lines", ["80"])[0])))
         if p == "/api/vpn/server/status": return jok(self, vpnmod.server_status())
         if p == "/api/vpn/logs": return jok(self, vpnmod.logs(q.get("kind", ["server"])[0], int(q.get("lines", ["80"])[0])))
 

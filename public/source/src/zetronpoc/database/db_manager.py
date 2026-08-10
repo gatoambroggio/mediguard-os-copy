@@ -669,24 +669,42 @@ def listar_programados(db_path=DEFAULT_DB):
     with get_conn(db_path) as conn:
         return [dict(r) for r in conn.execute("SELECT * FROM envios_programados ORDER BY proxima_ejecucion")]
 
+def _norm_dt(s):
+    """Normaliza 'YYYY-MM-DDTHH:MM' (datetime-local) a 'YYYY-MM-DD HH:MM:SS'
+    para que compare bien contra datetime('now','localtime') en SQLite."""
+    s = (s or "").strip()
+    if not s:
+        return s
+    s = s.replace("T", " ")
+    # asegurar segundos
+    parts = s.split(" ")
+    if len(parts) == 2 and parts[1].count(":") == 1:
+        s = parts[0] + " " + parts[1] + ":00"
+    elif len(parts) == 2 and parts[1].count(":") == 0:
+        s = parts[0] + " " + parts[1] + ":00:00"
+    return s
+
 def crear_programado(data, db_path=DEFAULT_DB):
+    fecha = _norm_dt(data.get("fecha_programada"))
+    proxima = _norm_dt(data.get("fecha_programada") or data.get("proxima_ejecucion"))
     with get_conn(db_path) as conn:
         cur = conn.execute(
             "INSERT INTO envios_programados (codigo,mensaje,origen,tipo,fecha_programada,recurrencia_dia,"
             "recurrencia_hora,proxima_ejecucion,activo) VALUES (?,?,?,?,?,?,?,?,1)",
             (data["codigo"], data["mensaje"], data.get("origen", "web"), data.get("tipo", "unico"),
-             data.get("fecha_programada"), int(data.get("recurrencia_dia", 0)), data.get("recurrencia_hora", "08:00"),
-             data.get("fecha_programada") or data.get("proxima_ejecucion")))
+             fecha, int(data.get("recurrencia_dia", 0)), data.get("recurrencia_hora", "08:00"), proxima))
         return cur.lastrowid
 
 def actualizar_programado(pid, data, db_path=DEFAULT_DB):
+    fecha = _norm_dt(data.get("fecha_programada"))
+    proxima = _norm_dt(data.get("fecha_programada") or data.get("proxima_ejecucion"))
     with get_conn(db_path) as conn:
         conn.execute(
             "UPDATE envios_programados SET codigo=?,mensaje=?,tipo=?,fecha_programada=?,recurrencia_dia=?,"
             "recurrencia_hora=?,proxima_ejecucion=?,activo=? WHERE id=?",
-            (data["codigo"], data["mensaje"], data.get("tipo", "unico"), data.get("fecha_programada"),
+            (data["codigo"], data["mensaje"], data.get("tipo", "unico"), fecha,
              int(data.get("recurrencia_dia", 0)), data.get("recurrencia_hora", "08:00"),
-             data.get("fecha_programada") or data.get("proxima_ejecucion"), int(data.get("activo", 1)), pid))
+             proxima, int(data.get("activo", 1)), pid))
 
 def borrar_programado(pid, db_path=DEFAULT_DB):
     with get_conn(db_path) as conn:

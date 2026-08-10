@@ -94,7 +94,7 @@ footer{text-align:center;color:var(--mut);font-size:.78rem;padding:1.4rem 0 .6re
     <div class="hist" id="hist"><div class="empty">cargando…</div></div>
   </div>
 
-  <footer>ZetronPOC v2.0 · POCSAG sobre MMDVM · MediGuard OS</footer>
+  <footer>ZetronPOC v2.0 · POCSAG sobre MMDVM · MediGuard OS<br><span id="srvTime" class="mono" style="font-size:.72rem;color:var(--mut)">servidor: --:--:--</span></footer>
 </div>
 
 <script>
@@ -229,6 +229,7 @@ $("#f").addEventListener("submit", async ev=>{
   finally{ btn.disabled = false; }
 });
 
-loadCatalog(); loadHist(); setInterval(loadHist, 8000);
+async function loadSrvTimePub(){try{const r=await fetch('/api/server/time').then(r=>r.json());if(r&&r.datetime){const el=document.getElementById('srvTime');if(el)el.textContent='servidor: '+r.datetime+' ('+(r.timezone||'')+')';}}catch(e){}}
+loadCatalog(); loadHist(); setInterval(loadHist, 8000); loadSrvTimePub(); setInterval(loadSrvTimePub, 30000);
 </script>
 </body></html>
