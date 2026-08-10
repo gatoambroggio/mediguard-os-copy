@@ -82,6 +82,16 @@ fi
 command -v espeak >/dev/null 2>&1 || apt-get install -y espeak sox 2>&1 || true
 pip3 install --break-system-packages openpyxl xlrd 2>&1 || warn "openpyxl/xlrd no instalados (import Excel limitado a CSV)"
 
+# VPN: NetworkManager (cliente OpenVPN/L2TP/PPTP) + servidores OpenVPN/PPTP/L2TP
+echo "==> 1b/10 Dependencias VPN (NetworkManager + openvpn/pptpd/strongswan/xl2tpd)..."
+apt-get install -y network-manager network-manager-openvpn network-manager-openvpn-gnome \
+  network-manager-pptp network-manager-pptp-gnome \
+  openvpn pptpd strongswan xl2tpd 2>&1 || warn "Algunos paquetes VPN no pudieron instalarse (verifique repos universe habilitado)"
+# network-manager-l2tp suele estar en PPA, no en repos base de Ubuntu; intentar igual
+apt-get install -y network-manager-l2tp network-manager-l2tp-gnome 2>&1 || warn "network-manager-l2tp no esta en el repo base (si usa L2TP cliente, instalelo via PPA: add-apt-repository ppa:nm-l2tp/network-manager-l2tp)"
+systemctl enable --now NetworkManager 2>/dev/null || true
+echo "  Estado NetworkManager:"; systemctl is-active NetworkManager 2>/dev/null || true
+
 AST_USER="asterisk"
 mkdir -p /var/lib/asterisk/agi-bin /var/lib/asterisk/sounds
 chown -R "${AST_USER}:${AST_USER}" /var/lib/asterisk/agi-bin 2>/dev/null || true
