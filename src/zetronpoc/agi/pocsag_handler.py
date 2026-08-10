@@ -70,14 +70,14 @@ def main():
         return
 
     # --- Worker: transmitir SOLO por MMDVM (RemoteCommand, sin audio/PTT) ---
-    test_mode = get_config("test_mode", "1") == "1"
+    test_mode = get_config("test_mode", "0") == "1"
     if test_mode:
         log(">>> MODO TEST (test_mode=1): NO se transmite por MMDVM. Set test_mode=0 en admin. <<<")
         for cap in cap_list:
             if qid:
-                actualizar_bitacora_envio(qid, cap, "enviado", "modo test")
+                actualizar_bitacora_envio(qid, cap, "test", "modo test (no transmitido)")
             else:
-                registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", "modo test")
+                registrar_bitacora(interno, codigo, cap, mensaje, baudios, "test", "modo test (no transmitido)")
         log("Envio OK (TEST) codigo=%s caps=%s msg=%s" % (codigo, caps, mensaje))
         return
     dispatch_script = os.path.join(APP_DIR, "agi", "dispatch_mqtt.py")

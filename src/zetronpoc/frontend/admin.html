@@ -186,7 +186,7 @@ tbody tr:hover{background:#f1f5f9!important}
       <div style="margin-top:1rem"><button class="btn btn-pri" id="impbtnG" onclick="doImportGrupos()" disabled>Importar grupos</button></div>
       <div id="impG_res" class="toast"></div></div></div>
     <div class="tab" id="t-hist"><div class="card"><h2>◷ Historial</h2>
-      <div class="row" style="margin-bottom:.8rem"><div><label>Desde</label><input id="h_desde" type="date"></div><div><label>Hasta</label><input id="h_hasta" type="date"></div><div><label>Codigo</label><input id="h_codigo"></div><div><label>Interno</label><input id="h_interno"></div><div><label>Estado</label><select id="h_estado"><option value="">Todos</option><option>encolado</option><option>enviado</option><option>error</option></select></div></div>
+      <div class="row" style="margin-bottom:.8rem"><div><label>Desde</label><input id="h_desde" type="date"></div><div><label>Hasta</label><input id="h_hasta" type="date"></div><div><label>Codigo</label><input id="h_codigo"></div><div><label>Interno</label><input id="h_interno"></div><div><label>Estado</label><select id="h_estado"><option value="">Todos</option><option>encolado</option><option>enviado</option><option>test</option><option>error</option></select></div></div>
       <div style="display:flex;gap:.6rem;flex-wrap:wrap"><button class="btn btn-pri" onclick="loadHist(0)">Filtrar</button><button class="btn btn-ok" onclick="exportHist()">⇩ Excel</button></div>
       <div style="overflow-x:auto;margin-top:.8rem"><table><thead><tr><th>Fecha/Hora</th><th>Interno</th><th>Codigo</th><th>Cap</th><th>Mensaje</th><th>Baud</th><th>Estado</th><th>Obs</th></tr></thead><tbody id="tb_hist"></tbody></table></div>
       <div class="pager"><span id="hg_info">—</span><div><button id="hg_prev" onclick="hgGo(-1)">←</button> <button id="hg_next" onclick="hgGo(1)">→</button></div></div></div></div>
@@ -301,8 +301,10 @@ tbody tr:hover{background:#f1f5f9!important}
 
     <div class="tab" id="t-diag">
       <div class="hint">Diagnostico en vivo del pipeline POCSAG. Confirma en segundos si un <b>page</b> llego a MMDVMHost (OK/KO), si salio al aire sin <b>NAK</b>, y si la config del .ini real coincide con Jumbospot. Todo corre en el servidor MMDVM, sin SSH ni SDR.</div>
-      <div class="row" style="margin-bottom:1rem;align-items:center">
-        <label style="margin:0;flex:0 0 auto">Auto-refresh 3s</label>
+      <div class="row" style="margin-bottom:1rem;align-items:center;gap:.7rem">
+        <label style="margin:0;flex:0 0 auto">Auto-refresh</label>
+        <input id="diagInterval" type="range" min="3" max="30" step="1" value="3" style="flex:0 1 170px;accent-color:var(--acc)" oninput="setDiagInterval(this.value)">
+        <span id="diagIntervalLbl" class="badge mut" style="flex:0 0 auto">3s</span>
         <div class="sw on" id="diagAuto" onclick="toggleDiagAuto()"></div>
         <span id="diagTs" class="badge mut" style="margin-left:auto">—</span>
       </div>
@@ -386,7 +388,7 @@ function showErr(r,ctx){const e=r&&(r.error||r.detalle);if(e){alert((ctx?ctx+': 
 function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',hist:'Historial',cfg:'Parametros',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria',diag:'Diagnostico'};document.getElementById('tit').textContent=t[id]||'';
 if(extTimer){clearInterval(extTimer);extTimer=null;}if(histTimer){clearInterval(histTimer);histTimer=null;}if(colaTimer){clearInterval(colaTimer);colaTimer=null;}if(diagTimer){clearInterval(diagTimer);diagTimer=null;}
 if(id==='ext'){loadExt();extTimer=setInterval(loadExt,5000);}
-if(id==='pagers')loadPagers();if(id==='grupos')loadGrupos();if(id==='cfg'){loadConfig();mmdvmStatus();}if(id==='hist'){loadHist(0);histTimer=setInterval(()=>loadHist(hoff),8000);}if(id==='pbx')pbx('status');if(id==='cola'){loadCola();colaTimer=setInterval(loadCola,4000);}if(id==='enviar')initSend();if(id==='dash')loadDash();if(id==='plantillas')loadPlantillas();if(id==='programados')loadProgramados();if(id==='logs')loadLogs('api');if(id==='aud')loadAud();if(id==='diag'){loadDiagAll();diagTimer=setInterval(refreshDiagAll,3000);}}
+if(id==='pagers')loadPagers();if(id==='grupos')loadGrupos();if(id==='cfg'){loadConfig();mmdvmStatus();}if(id==='hist'){loadHist(0);histTimer=setInterval(()=>loadHist(hoff),8000);}if(id==='pbx')pbx('status');if(id==='cola'){loadCola();colaTimer=setInterval(loadCola,4000);}if(id==='enviar')initSend();if(id==='dash')loadDash();if(id==='plantillas')loadPlantillas();if(id==='programados')loadProgramados();if(id==='logs')loadLogs('api');if(id==='aud')loadAud();if(id==='diag'){loadDiagAll();if(diagTimer)clearInterval(diagTimer);diagTimer=setInterval(refreshDiagAll,diagInterval*1000);}}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function toggleMenu(){document.querySelector('.side nav').classList.toggle('open');}
@@ -440,7 +442,7 @@ async function aplicarExt(){const r=await api('POST','/api/extensions/aplicar');
 
 // Historial
 function hQuery(){const p=new URLSearchParams();p.set('limit',HPG);p.set('offset',hoff);const map=[['h_desde','fecha_desde'],['h_hasta','fecha_hasta'],['h_codigo','codigo'],['h_interno','interno'],['h_estado','estado']];map.forEach(([k,col])=>{const v=document.getElementById(k).value;if(!v)return;if(col==='fecha_hasta')p.set(col,v+'T23:59:59');else p.set(col,v);});return p;}
-const badge=e=>`<span class="badge ${e==='enviado'?'ok':e==='encolado'?'mut':'err'}">${e||'-'}</span>`;
+const badge=e=>`<span class="badge ${e==='enviado'?'ok':(e==='encolado'||e==='test')?'mut':'err'}">${e||'-'}</span>`;
 async function loadHist(off){hoff=off||0;try{const r=await fetch('/api/historial?'+hQuery()).then(r=>r.json());htot=r.total||0;const rows=r.rows||[];document.getElementById('tb_hist').innerHTML=rows.length?rows.map(x=>`<tr><td class="mono">${x.fecha_hora}</td><td>${x.interno_origen||''}</td><td>${x.codigo}</td><td class="mono">${x.cap_code||''}</td><td>${x.mensaje||''}</td><td>${x.baudios||''}</td><td>${badge(x.estado)}</td><td>${x.observaciones||''}</td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:1rem">Sin registros</td></tr>';document.getElementById('hg_info').textContent=`${rows.length?hoff+1:0}-${hoff+rows.length} de ${htot}`;document.getElementById('hg_prev').disabled=hoff<=0;document.getElementById('hg_next').disabled=hoff+HPG>=htot;}catch(e){}}
 function hgGo(d){loadHist(Math.max(0,hoff+d*HPG));}
 function exportHist(){const p=new URLSearchParams();['h_desde','h_hasta','h_codigo','h_interno','h_estado'].forEach(k=>{const v=document.getElementById(k).value;if(v){if(k==='h_hasta')p.set('fecha_hasta',v+'T23:59:59');else if(k==='h_desde')p.set('fecha_desde',v);else p.set(k.replace('h_',''),v);}});window.open('/api/historial/export?'+p,'_blank');}
@@ -496,8 +498,9 @@ async function loadLogs(t){curLogType=t;const r=await api('GET','/api/logs?tipo=
 async function loadAud(){const r=await api('GET','/api/auditoria?limit=200');document.getElementById('tb_aud').innerHTML=(r.rows||[]).map(x=>`<tr><td class="mono">${x.fecha_hora}</td><td>${x.usuario||''}</td><td>${x.accion||''}</td><td>${x.entidad||''}</td><td>${x.entidad_id||''}</td><td>${(x.detalle||'').slice(0,50)}</td><td>${x.ip||''}</td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:1rem">Sin registros</td></tr>';}
 
 // Diagnostico POCSAG en vivo
-let diagAutoOn=true;
-function toggleDiagAuto(){diagAutoOn=!diagAutoOn;document.getElementById('diagAuto').classList.toggle('on',diagAutoOn);}
+let diagAutoOn=true; let diagInterval=3;
+function setDiagInterval(v){diagInterval=Math.max(3,Math.min(30,+v||3));const lbl=document.getElementById('diagIntervalLbl');if(lbl)lbl.textContent=diagInterval+'s';if(diagAutoOn&&diagTimer){clearInterval(diagTimer);diagTimer=setInterval(refreshDiagAll,diagInterval*1000);}}
+function toggleDiagAuto(){diagAutoOn=!diagAutoOn;document.getElementById('diagAuto').classList.toggle('on',diagAutoOn);if(diagAutoOn){if(diagTimer)clearInterval(diagTimer);diagTimer=setInterval(refreshDiagAll,diagInterval*1000);}else{if(diagTimer){clearInterval(diagTimer);diagTimer=null;}}}
 function diagStamp(){document.getElementById('diagTs').textContent=new Date().toLocaleTimeString();}
 async function loadDiagMqtt(){try{const r=await api('GET','/api/diagnostico/mqtt_response');const el=document.getElementById('diag_mqtt_out');if(r&&r.ok){el.textContent=r.lineas.length?('['+r.topic+']\n'+r.lineas.join('\n')):'(sin respuestas en 2s)';}else{el.textContent='No disponible: '+(r&&r.error||'?');}}catch(e){document.getElementById('diag_mqtt_out').textContent='Error: '+e.message;}}
 async function loadDiagMmdvm(){try{const r=await api('GET','/api/diagnostico/mmdvm_log?lines=100');const el=document.getElementById('diag_mmdvm_out');if(r&&r.ok){el.textContent=r.lineas.length?r.lineas.join('\n'):'(sin lineas POCSAG/NAK/transmitted en '+r.path+')';}else{el.textContent='No disponible: '+(r&&r.error||'?');}}catch(e){document.getElementById('diag_mmdvm_out').textContent='Error: '+e.message;}}
