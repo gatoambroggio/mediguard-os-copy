@@ -224,9 +224,9 @@ def diag_config_check():
     dapnet = g("DAPNET", "Enable", "0")
     out["checks"].append({"k": "DAPNET Enable", "v": dapnet or "0", "ok": (dapnet == "0"),
                           "hint": "debe ser 0: si esta en 1, DAPNET transmite pages ajenos en la misma frecuencia y mezcla basura"})
-    pocsag_baud = g("POCSAG", "Baud", "")
-    out["checks"].append({"k": "POCSAG baud en .ini", "v": pocsag_baud or "(ausente)", "ok": bool(pocsag_baud),
-                          "hint": "si el pager es 512 y MMDVMHost envia 1200 (default), llega basura con audio limpio"})
+    pocsag_enable = g("POCSAG", "Enable", "0")
+    out["checks"].append({"k": "POCSAG Enable", "v": pocsag_enable or "0", "ok": (pocsag_enable == "1"),
+                          "hint": "debe ser 1; el baud POCSAG lo define el firmware del MMDVM, no el .ini"})
     txinvert = g("Modem", "TXInvert", "0")
     out["checks"].append({"k": "Modem TXInvert", "v": txinvert, "ok": (txinvert == "1"),
                           "hint": "Jumbospot requiere 1 (polaridad FSK)"})
@@ -473,7 +473,7 @@ class Handler(BaseHTTPRequestHandler):
             evlog(self, "info", "mmdvm", "apply ok en %s" % db.MMDVM_INI)
             return jok(self, {"ok": True, "salida": "MMDVM.ini generado en %s y servicio mmdvmhost reiniciado." % db.MMDVM_INI, "ini": db.MMDVM_INI})
         if p == "/api/mmdvm/install":
-            url = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/instalador_mmdvm.sh"
+            url = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/src/zetronpoc/instalador_mmdvm.sh"
             aud(self, "instalar", "mmdvm", "", "inicio")
             evlog(self, "info", "mmdvm", "install inicio")
             try:

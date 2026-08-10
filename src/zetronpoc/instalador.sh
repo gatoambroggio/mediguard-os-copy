@@ -256,6 +256,23 @@ systemctl enable zetronpoc-cola 2>/dev/null || true
 # Forzar reinicio SIEMPRE para cargar codigo nuevo (enable --now no reinicia un servicio ya activo)
 systemctl restart zetronpoc-api 2>/dev/null || warn "No se pudo reiniciar zetronpoc-api"
 systemctl restart zetronpoc-cola 2>/dev/null || true
+# Regenerar MMDVM.ini desde la BD y reiniciar mmdvmhost si esta instalado
+# (instalacion y --update): sin esto, los cambios del panel nunca llegan al aire.
+if command -v MMDVM-Host >/dev/null 2>&1 || [[ -x /usr/local/bin/MMDVM-Host ]] || systemctl is-active --quiet mmdvmhost 2>/dev/null; then
+  echo "==> Regenerando MMDVM.ini y reiniciando mmdvmhost..."
+  python3 - <<'PYEOF' 2>/dev/null || warn "No se pudo regenerar MMDVM.ini"
+import sys, os
+sys.path.insert(0, "/opt/zetronpoc"); sys.path.insert(0, "/opt/zetronpoc/database")
+os.environ["ZETRONPOC_DIR"] = "/opt/zetronpoc"
+try:
+    from db_manager import generar_mmdvm_ini
+    ok, msg = generar_mmdvm_ini()
+    print("[OK] MMDVM.ini" if ok else "[WARN] %s" % msg)
+except Exception as e:
+    print("[WARN] %s" % e)
+PYEOF
+  systemctl restart mmdvmhost 2>/dev/null && log "mmdvmhost reiniciado" || warn "mmdvmhost no reinicio (¿instalado?)"
+fi
 sleep 2
 
 # ============================ 10. CHEQUEO =================================
