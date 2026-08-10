@@ -13,7 +13,7 @@ import { base44 } from "@/api/base44Client";
 // Snapshot build-time del arbol fuente de ZetronPOC (contenido inlined por Vite).
 // Solo extensiones de texto: Vite ?raw no provee default export para archivos sin extension (ej. VERSION).
 const zetronpocModules = import.meta.glob(
-  "/src/zetronpoc/**/*.{py,html,sql,sh,conf,service,md,jsonc,json,txt,ini,cfg,css,js,jsx,ts,tsx,patch,diff}",
+  "/src/zetronpoc/**/*.{py,html,sql,sh,conf,service,md,jsonc,json,txt,ini,cfg,css,js,jsx,ts,tsx}",
   { query: "?raw", import: "default", eager: true }
 );
 
