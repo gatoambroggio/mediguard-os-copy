@@ -47,7 +47,9 @@ def publish_page(cap, message, bcd=False):
     log("MQTT pub: %s" % " ".join(cmd))
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
     if r.returncode != 0:
-        log("ERROR mosquitto_pub: %s" % (r.stderr or r.stdout).strip()[:200])
+        err = (r.stderr or r.stdout or "unknown").strip()[:200]
+        log("ERROR mosquitto_pub: %s" % err)
+        sys.stderr.write("mosquitto_pub FALLO (host=%s port=%s topic=%s): %s\n" % (host, port, topic, err))
         return False
     log("MQTT OK cap=%s msg=%s" % (cap, message))
     return True
@@ -96,9 +98,10 @@ def main():
             time.sleep(2.0)
 
     log("Envio completado: %d/%d cap(s)" % (sent, len(cap_list)))
-    print("OK: %d/%d cap(s) via MQTT" % (sent, len(cap_list)))
     if sent == 0:
+        print("ERROR: 0/%d cap(s) via MQTT (mosquitto_pub fallo - ver obs / dispatch_mqtt.log)" % len(cap_list))
         sys.exit(1)
+    print("OK: %d/%d cap(s) via MQTT" % (sent, len(cap_list)))
 
 
 if __name__ == "__main__":
