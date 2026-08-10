@@ -210,10 +210,10 @@ def _write_nm_keyfile(name, kind, d):
     if kind == "l2tp":
         lines.append("service-type=org.freedesktop.NetworkManager.l2tp")
         if psk:
-            lines.append("ipsec-enabled=true")
+            lines.append("ipsec-enabled=yes")
             lines.append("ipsec-psk-flags=0")
         else:
-            lines.append("ipsec-enabled=false")
+            lines.append("ipsec-enabled=no")
     else:
         lines.append("service-type=org.freedesktop.NetworkManager.pptp")
     lines += ["", "[vpn-secrets]"]

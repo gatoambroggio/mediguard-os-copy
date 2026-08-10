@@ -91,6 +91,12 @@ apt-get install -y network-manager network-manager-openvpn network-manager-openv
 apt-get install -y network-manager-l2tp network-manager-l2tp-gnome 2>&1 || warn "network-manager-l2tp no esta en el repo base (si usa L2TP cliente, instalelo via PPA: add-apt-repository ppa:nm-l2tp/network-manager-l2tp)"
 systemctl enable --now NetworkManager 2>/dev/null || true
 echo "  Estado NetworkManager:"; systemctl is-active NetworkManager 2>/dev/null || true
+# strongswan y xl2tpd auto-arrancan al instalarse (apt los habilita por defecto).
+# Solo deben iniciar cuando el admin configura el servidor L2TP entrante desde
+# el panel. Los deshabilitamos aqui para que no queden "active" sin razon.
+systemctl disable --now strongswan-starter 2>/dev/null || true
+systemctl disable --now strongswan 2>/dev/null || true
+systemctl disable --now xl2tpd 2>/dev/null || true
 
 # Si las placas estan unmanaged, NetworkManager no puede enrutar la VPN
 # ("could not find source connection"). Migrar netplan al renderer NetworkManager
