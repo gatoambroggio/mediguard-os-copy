@@ -1,0 +1,30 @@
+--- a/ADF7021.h
++++ b/ADF7021.h
+@@ -68,7 +68,14 @@
+ #define ADF7021_REG3_M17         0x2A4CC093
+ #endif
+-#define ADF7021_REG3_POCSAG      0x2A4F0093
++#if defined(POCSAG_512)
++// 512 baud: DEMOD_CLK_DIVIDE=4 (DEMOD_CLK=3.6864MHz), CDR_CLK_DIVIDE=225 -> CDR_CLK=16384=32x512
++#define ADF7021_REG3_POCSAG      0x2A4F8513
++#else
++// 1200 baud (default): DEMOD_CLK_DIVIDE=2 (7.3728MHz), CDR_CLK_DIVIDE=192 -> CDR_CLK=38400=32x1200
++#define ADF7021_REG3_POCSAG      0x2A4F0093
++#endif
+ 
+ // Discriminator bandwith, demod (REG 04)
+ // Bug in ADI evaluation software, use datasheet formula (4FSK)
+@@ -166,7 +173,14 @@
+ #define ADF7021_REG3_M17         0x29ECA093
+ #endif
+-#define ADF7021_REG3_POCSAG      0x29EE8093
++#if defined(POCSAG_512)
++// 512 baud: DEMOD_CLK_DIVIDE=3 (DEMOD_CLK=4.096MHz), CDR_CLK_DIVIDE=250 -> CDR_CLK=16384=32x512
++#define ADF7021_REG3_POCSAG      0x29EFE8D3
++#else
++// 1200 baud (default): DEMOD_CLK_DIVIDE=2 (6.144MHz), CDR_CLK_DIVIDE=160 -> CDR_CLK=38400=32x1200
++#define ADF7021_REG3_POCSAG      0x29EE8093
++#endif
+ 
+ // Discriminator bandwith, demod (REG 04)
+ // Bug in ADI evaluation software, use datasheet formula (4FSK)

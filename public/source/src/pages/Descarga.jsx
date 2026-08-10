@@ -26,9 +26,9 @@ import { Link } from "react-router-dom";
 import { CircuitBoard } from "lucide-react";
 import GithubPublishCard from "@/components/GithubPublishCard";
 
-const REPO = "https://github.com/gatoambroggio/ubntpagingsystem.git";
-const RAW = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/src/zetronpoc/instalador.sh";
-const RAW_RPI = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/src/zetronpoc/instalador.sh";
+const REPO = "https://github.com/gatoambroggio/mediguard-os-copy.git";
+const RAW = "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador.sh";
+const RAW_RPI = "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador.sh";
 
 const BOOTSTRAP = `#!/usr/bin/env bash
 # Instala ZetronPOC (paginacion hospitalaria POCSAG, cliente FreePBX) desde GitHub.

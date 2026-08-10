@@ -10,12 +10,12 @@ import {
 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
-// Snapshot build-time del arbol fuente de ZetronPOC (contenido inlined por Vite)
-const zetronpocModules = import.meta.glob("/src/zetronpoc/**/*", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-});
+// Snapshot build-time del arbol fuente de ZetronPOC (contenido inlined por Vite).
+// Solo extensiones de texto: Vite ?raw no provee default export para archivos sin extension (ej. VERSION).
+const zetronpocModules = import.meta.glob(
+  "/src/zetronpoc/**/*.{py,html,sql,sh,conf,service,md,jsonc,json,txt,ini,cfg,css,js,jsx,ts,tsx}",
+  { query: "?raw", import: "default", eager: true }
+);
 
 function b64encode(str) {
   const bytes = new TextEncoder().encode(str);
@@ -129,8 +129,8 @@ export default function GithubPublishCard() {
           <div>
             <h2 className="font-display font-bold text-lg text-white">Publicar a GitHub</h2>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Sincroniza el source al repo y abre un Pull Request contra{" "}
-              <code className="font-mono text-sky-400">main</code>.
+              Commitea el source directo a{" "}
+              <code className="font-mono text-sky-400">main</code> (sin PR).
             </p>
           </div>
         </div>
@@ -147,26 +147,25 @@ export default function GithubPublishCard() {
         className="w-full bg-gradient-to-r from-sky-500 via-indigo-500 to-emerald-500 hover:brightness-105 disabled:opacity-60 text-white font-semibold py-3.5 rounded-2xl transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30"
       >
         {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <GitPullRequest className="w-5 h-5" />}
-        {busy ? "Abriendo PR…" : "Publicar a GitHub (abre PR)"}
+        {busy ? "Publicando…" : "Publicar a GitHub (push a main)"}
       </motion.button>
 
       {result && (
         <div className="mt-4 flex items-start gap-2 text-sm bg-emerald-500/10 border border-emerald-500/30 rounded-2xl px-4 py-3">
           <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
           <div className="text-emerald-200">
-            PR abierto con {result.files_count} archivos · branch{" "}
+            {result.files_count} archivos commiteados a{" "}
             <code className="font-mono">{result.branch}</code>.
             <a
-              href={result.pr_url}
+              href={result.commit_url}
               target="_blank"
               rel="noreferrer"
               className="ml-2 inline-flex items-center gap-1 underline text-emerald-300 hover:text-emerald-100"
             >
-              Abrir PR <ArrowUpRight className="w-3.5 h-3.5" />
+              Ver commit <ArrowUpRight className="w-3.5 h-3.5" />
             </a>
             <div className="mt-1 text-[11px] text-emerald-300/70">
-              El servidor no toma los cambios hasta que merges el PR a main; despues corre{" "}
-              <code className="font-mono">pullupdate.sh</code>.
+              En el servidor corre <code className="font-mono">bash pullupdate.sh</code> para tomar los cambios.
             </div>
           </div>
         </div>

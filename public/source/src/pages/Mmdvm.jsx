@@ -13,6 +13,7 @@ import {
   CircuitBoard,
   ArrowLeft,
   ShieldCheck,
+  FlaskConical,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import MmdvmConfig from "@/components/mmdvm/MmdvmConfig";
@@ -24,8 +25,8 @@ const PINOUT = [
   ["RX (Pi GPIO15)", "TX del adaptador USB-TTL", "verde"],
 ];
 
-const RAW_MMDVM = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/instalador_mmdvm.sh";
-const RAW_MMDVM_RPI = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/instalador_rpi_mmdvm.sh";
+const RAW_MMDVM = "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador_mmdvm.sh";
+const RAW_MMDVM_RPI = "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/instalador_rpi_mmdvm.sh";
 
 const INSTALL_CMDS = [
   ["1", "Instalar todo (ZetronPOC + MMDVMHost + puente)", `curl -fsSL ${RAW_MMDVM} | sudo bash`],
@@ -83,12 +84,20 @@ export default function Mmdvm() {
             <div className="text-[11px] text-slate-500 -mt-0.5">MediGuard OS · MMDVM Serial</div>
           </div>
         </Link>
-        <Link
-          to="/"
-          className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 bg-white/70 backdrop-blur border border-slate-200 rounded-full px-4 py-2 transition"
-        >
-          <ArrowLeft className="w-4 h-4" /> Volver
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/diagnostico"
+            className="flex items-center gap-2 text-sm font-medium text-amber-700 hover:text-amber-800 bg-amber-50/80 backdrop-blur border border-amber-200 rounded-full px-4 py-2 transition"
+          >
+            <FlaskConical className="w-4 h-4" /> Diagnóstico
+          </Link>
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 bg-white/70 backdrop-blur border border-slate-200 rounded-full px-4 py-2 transition"
+          >
+            <ArrowLeft className="w-4 h-4" /> Volver
+          </Link>
+        </div>
       </motion.header>
 
       {/* hero */}

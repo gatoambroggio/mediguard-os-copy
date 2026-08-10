@@ -221,9 +221,9 @@ def diag_config_check():
             return cp.get(section, key).strip()
         except Exception:
             return default
-    dapnet = g("DAPNET", "Enable", "0")
-    out["checks"].append({"k": "DAPNET Enable", "v": dapnet or "0", "ok": (dapnet == "0"),
-                          "hint": "debe ser 0: si esta en 1, DAPNET transmite pages ajenos en la misma frecuencia y mezcla basura"})
+    dapnet = g("POCSAG Network", "Enable", "0")
+    out["checks"].append({"k": "POCSAG Network (DAPNET) Enable", "v": dapnet or "0", "ok": (dapnet == "0"),
+                          "hint": "debe ser 0. MMDVMHost usa [POCSAG Network] (con espacio), no [DAPNET]; si esta en 1, DAPNET transmite pages ajenos y mezcla basura"})
     pocsag_enable = g("POCSAG", "Enable", "0")
     out["checks"].append({"k": "POCSAG Enable", "v": pocsag_enable or "0", "ok": (pocsag_enable == "1"),
                           "hint": "debe ser 1; el baud POCSAG lo define el firmware del MMDVM, no el .ini"})
@@ -276,10 +276,10 @@ def diag_config_check():
     # publica al vacio: no aparece "remote command" en el log ni OK/KO en host/response.
     # (El socket TCP 7642 es solo un proxy de que RemoteControl esta activo; dispatch
     # NO usa ese socket, publica por MQTT.)
-    rc_enable = g("RemoteControl", "Enable", "0")
-    out["checks"].append({"k": "RemoteControl Enable", "v": rc_enable or "0", "ok": (rc_enable == "1"),
-                          "hint": "debe ser 1: sin esto MMDVMHost NO se suscribe a host/command y los page de dispatch_mqtt se pierden (sin OK/KO ni Transmitted). Solucion: re-Aplicar config MMDVM desde el panel o re-ejecutar instalador_mmdvm.sh"})
-    rc_port = g("RemoteControl", "Port", "7642") or "7642"
+    rc_enable = g("Remote Control", "Enable", "0")
+    out["checks"].append({"k": "Remote Control Enable", "v": rc_enable or "0", "ok": (rc_enable == "1"),
+                          "hint": "debe ser 1 (seccion [Remote Control] CON espacio; MMDVMHost no reconoce [RemoteControl]): sin esto NO se suscribe a host/command y los page se pierden. Fix: re-Aplicar config MMDVM o re-ejecutar instalador_mmdvm.sh"})
+    rc_port = g("Remote Control", "Port", "7642") or "7642"
     rc_state = "(no disponible)"
     try:
         import socket as _sock

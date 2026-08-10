@@ -169,11 +169,20 @@ def diag_mmdvm_log(lines=100):
     except Exception:
         files = []
     if not files:
-        return {"path": MMDVM_LOG_DIR, "lineas": [], "ok": False,
-                "error": "no hay logs MMDVM-*.log en %s" % MMDVM_LOG_DIR}
+        # fallback: journalctl del servicio mmdvmhost
+        try:
+            r = subprocess.run(["journalctl", "-u", "mmdvmhost", "-n", str(int(lines)), "--no-pager"],
+                               capture_output=True, text=True, timeout=5)
+            lineas = [l for l in (r.stdout or "").splitlines()
+                      if l.strip() and any(k in l.lower() for k in ("pocsag", "remote command", "nak", "transmitted", "page", "mqtt"))]
+            return {"path": "journalctl -u mmdvmhost", "lineas": lineas, "ok": True,
+                    "note": "no hay MMDVM-*.log en %s; usando journalctl" % MMDVM_LOG_DIR}
+        except Exception as e:
+            return {"path": MMDVM_LOG_DIR, "lineas": [], "ok": False,
+                    "error": "no hay logs MMDVM-*.log en %s y journalctl fallo: %s" % (MMDVM_LOG_DIR, str(e)[:120])}
     path = files[0]
     try:
-        r = subprocess.run(["bash", "-c", "tail -n %d %s | grep -Ei 'pocsag|remote command|nak|transmitted|page'" % (int(lines), path)],
+        r = subprocess.run(["bash", "-c", "tail -n %d %s | grep -Ei 'pocsag|remote command|nak|transmitted|page|mqtt'" % (int(lines), path)],
                            capture_output=True, text=True, timeout=3)
         lineas = [l for l in (r.stdout or "").splitlines() if l.strip()]
         return {"path": path, "lineas": lineas, "ok": True}
@@ -215,9 +224,9 @@ def diag_config_check():
     dapnet = g("DAPNET", "Enable", "0")
     out["checks"].append({"k": "DAPNET Enable", "v": dapnet or "0", "ok": (dapnet == "0"),
                           "hint": "debe ser 0: si esta en 1, DAPNET transmite pages ajenos en la misma frecuencia y mezcla basura"})
-    pocsag_baud = g("POCSAG", "Baud", "")
-    out["checks"].append({"k": "POCSAG baud en .ini", "v": pocsag_baud or "(ausente)", "ok": bool(pocsag_baud),
-                          "hint": "si el pager es 512 y MMDVMHost envia 1200 (default), llega basura con audio limpio"})
+    pocsag_enable = g("POCSAG", "Enable", "0")
+    out["checks"].append({"k": "POCSAG Enable", "v": pocsag_enable or "0", "ok": (pocsag_enable == "1"),
+                          "hint": "debe ser 1; el baud POCSAG lo define el firmware del MMDVM, no el .ini"})
     txinvert = g("Modem", "TXInvert", "0")
     out["checks"].append({"k": "Modem TXInvert", "v": txinvert, "ok": (txinvert == "1"),
                           "hint": "Jumbospot requiere 1 (polaridad FSK)"})
@@ -240,6 +249,68 @@ def diag_config_check():
             continue
     out["checks"].append({"k": "MMDVMHost version", "v": ver, "ok": True,
                           "hint": "soporte MQTT page es reciente; version muy vieja puede no procesar el comando"})
+    # [MQTT] section — si no esta habilitado o el Name no coincide, dispatch_mqtt publica al vacio
+    mqtt_en = g("MQTT", "Enable", "0")
+    out["checks"].append({"k": "MQTT Enable", "v": mqtt_en or "0", "ok": (mqtt_en == "1"),
+                          "hint": "debe ser 1: si esta en 0, MMDVMHost ignora los page de dispatch_mqtt (no hay respuesta en host/response)"})
+    mqtt_name = g("MQTT", "Name", "")
+    out["checks"].append({"k": "MQTT Name", "v": mqtt_name or "(ausente)", "ok": (mqtt_name == "host"),
+                          "hint": "debe ser 'host': dispatch_mqtt publica a host/command; si difiere, el comando no llega"})
+    mqtt_host = g("MQTT", "Host", "")
+    out["checks"].append({"k": "MQTT Host", "v": mqtt_host or "(ausente)", "ok": (mqtt_host == "127.0.0.1"),
+                          "hint": "debe apuntar al broker local (127.0.0.1)"})
+    mqtt_port = g("MQTT", "Port", "")
+    out["checks"].append({"k": "MQTT Port", "v": mqtt_port or "(ausente)", "ok": (mqtt_port == "1883"),
+                          "hint": "puerto del broker mosquitto (1883)"})
+    # estado del broker mosquitto: si no esta activo, dispatch_mqtt publica al vacio
+    broker_status = "(no disponible)"
+    try:
+        rb = subprocess.run(["systemctl", "is-active", "mosquitto"], capture_output=True, text=True, timeout=3)
+        broker_status = (rb.stdout or "").strip() or (rb.stderr or "").strip() or "?"
+    except Exception as e:
+        broker_status = "error: %s" % str(e)[:80]
+    out["checks"].append({"k": "Mosquitto broker", "v": broker_status, "ok": (broker_status == "active"),
+                          "hint": "debe estar 'active'; si no, sudo systemctl enable --now mosquitto"})
+    # [RemoteControl] Enable=1 es OBLIGATORIO: es lo que hace que MMDVMHost se
+    # suscriba al topic MQTT <Name>/command (host/command). Sin esto, dispatch_mqtt
+    # publica al vacio: no aparece "remote command" en el log ni OK/KO en host/response.
+    # (El socket TCP 7642 es solo un proxy de que RemoteControl esta activo; dispatch
+    # NO usa ese socket, publica por MQTT.)
+    rc_enable = g("RemoteControl", "Enable", "0")
+    out["checks"].append({"k": "RemoteControl Enable", "v": rc_enable or "0", "ok": (rc_enable == "1"),
+                          "hint": "debe ser 1: sin esto MMDVMHost NO se suscribe a host/command y los page de dispatch_mqtt se pierden (sin OK/KO ni Transmitted). Solucion: re-Aplicar config MMDVM desde el panel o re-ejecutar instalador_mmdvm.sh"})
+    rc_port = g("RemoteControl", "Port", "7642") or "7642"
+    rc_state = "(no disponible)"
+    try:
+        import socket as _sock
+        p = int(rc_port)
+        s = _sock.create_connection(("127.0.0.1", p), timeout=2)
+        s.close()
+        rc_state = "escuchando en 127.0.0.1:%s" % p
+    except Exception as e:
+        rc_state = "no conecta: %s" % str(e)[:80]
+    out["checks"].append({"k": "RemoteControl socket", "v": rc_state, "ok": rc_state.startswith("escuchando"),
+                          "hint": "proxy de que [RemoteControl] esta activo; si no conecta, el .ini activo tiene Enable=0 o falta la seccion -> re-Aplicar config MMDVM"})
+    # Check DEFINITIVO: cuantas suscripciones MQTT registro MMDVMHost al arranque.
+    # MMDVM-Host.cpp suscribe "display-in" siempre, y "command" SOLO si
+    # getRemoteControlEnabled()==true. on_subscribe imprime una linea por topic
+    # concedido -> 2 lineas = RemoteControl activo; 1 linea = solo display-in
+    # -> el .ini que corre MMDVMHost NO tiene [RemoteControl] Enable=1 (service
+    # stale apuntando a otro .ini). Mas confiable que el socket TCP 7642 (algunos
+    # builds no abren ese puerto).
+    sub_count = 0
+    try:
+        import glob as _glob
+        _files = sorted(_glob.glob(os.path.join(MMDVM_LOG_DIR, "MMDVM-*.log")), reverse=True)
+        if _files:
+            with open(_files[0], "r", errors="replace") as _f:
+                _lines = _f.readlines()[-80:]
+            sub_count = sum(1 for _l in _lines if "on_subscribe:" in _l)
+    except Exception:
+        pass
+    out["checks"].append({"k": "Suscripciones MQTT (on_subscribe)", "v": "%d (esperadas 2)" % sub_count,
+                          "ok": sub_count >= 2,
+                          "hint": "2=display-in+command (OK). 1=solo display-in -> RemoteControl OFF en el .ini vivo -> service stale. Fix: sobreescribir /etc/systemd/system/mmdvmhost.service con ExecStart apuntando a /opt/zetronpoc/mmdvm/MMDVM.ini + Aplicar a la placa."})
     return out
 
 def diag_test_page(cap, mensaje):
@@ -279,7 +350,7 @@ class Handler(BaseHTTPRequestHandler):
             except Exception: pass
     def _get(self):
         u = urllib.parse.urlparse(self.path); p = u.path; q = urllib.parse.parse_qs(u.query)
-        if p == "/" or p == "/index.html": return serve_file(self, os.path.join(FRONT, "index.html"), "text/html; charset=utf-8")
+        if p == "/" or p == "/index.html": return serve_file(self, os.path.join(FRONT, "public.html"), "text/html; charset=utf-8")
         if p == "/admin" or p == "/admin.html": return serve_file(self, os.path.join(FRONT, "admin.html"), "text/html; charset=utf-8")
         if p == "/api/health": return jok(self, {"status": "ok", "ts": int(time.time())})
         if p == "/api/diag":
@@ -429,7 +500,7 @@ class Handler(BaseHTTPRequestHandler):
             evlog(self, "info", "mmdvm", "apply ok en %s" % db.MMDVM_INI)
             return jok(self, {"ok": True, "salida": "MMDVM.ini generado en %s y servicio mmdvmhost reiniciado." % db.MMDVM_INI, "ini": db.MMDVM_INI})
         if p == "/api/mmdvm/install":
-            url = "https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/instalador_mmdvm.sh"
+            url = "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador_mmdvm.sh"
             aud(self, "instalar", "mmdvm", "", "inicio")
             evlog(self, "info", "mmdvm", "install inicio")
             try:
@@ -552,7 +623,22 @@ class Handler(BaseHTTPRequestHandler):
             for k, v in d.items(): db.set_config(k, "" if v is None else str(v))
             aud(self, "guardar", "config", "", "keys=%s" % ",".join(keys)[:200])
             evlog(self, "info", "config", "guardar %d keys" % len(keys))
-            return jok(self, {"ok": True})
+            # Si se guardaron claves mmdvm_*, regenerar MMDVM.ini y reiniciar mmdvmhost
+            mmdvm_aplicado = False; mmdvm_msg = ""; mmdvm_error = ""
+            if any(k.startswith("mmdvm_") for k in keys):
+                ok, msg = db.generar_mmdvm_ini()
+                if ok:
+                    try:
+                        r = subprocess.run(["systemctl", "restart", "mmdvmhost"], capture_output=True, text=True, timeout=20)
+                        if r.returncode == 0:
+                            mmdvm_aplicado = True; mmdvm_msg = "MMDVM.ini regenerado y mmdvmhost reiniciado"
+                        else:
+                            mmdvm_error = "fallo reiniciar mmdvmhost: %s" % (r.stderr or r.stdout or "")[:160]
+                    except Exception as e:
+                        mmdvm_error = "systemctl no disponible: %s" % str(e)[:120]
+                else:
+                    mmdvm_error = "fallo generar MMDVM.ini: %s" % msg
+            return jok(self, {"ok": True, "mmdvm_aplicado": mmdvm_aplicado, "mmdvm_msg": mmdvm_msg, "mmdvm_error": mmdvm_error})
         m = re.match(r'/api/extensions/(\d+)$', p)
         if m:
             db.actualizar_extension(int(m.group(1)), d)

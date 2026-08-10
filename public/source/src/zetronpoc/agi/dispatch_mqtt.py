@@ -5,8 +5,9 @@ Reemplaza a dispatch_serial.py: en lugar de hablar el protocolo binario
 MMDVM por serial, publica el comando "page <cap> <mensaje>" en el topic
 MQTT que MMDVMHost escucha (Name=host -> topic "host/command").
 
-Uso: dispatch_mqtt.py <cap_code(s)> <mensaje> [baudios]
-  cap_code(s): un cap_code o varios separados por coma (para grupos)
+Uso: dispatch_mqtt.py [--bcd] <cap_code(s)> <mensaje> [baudios]
+  --bcd       : modo numerico (page_bcd) en vez de alfanumerico (page)
+  cap_code(s) : un cap_code o varios separados por coma (para grupos)
 """
 import sys, os, subprocess, time
 
@@ -34,36 +35,54 @@ def log(m):
         pass
 
 
-def publish_page(cap, message):
-    """Publica un comando 'page' por MQTT usando mosquitto_pub."""
+def publish_page(cap, message, bcd=False):
+    """Publica 'page <cap> <msg>' por MQTT (mosquitto_pub) al topic que
+    MMDVMHost escucha ([MQTT] Name=host -> host/command). Siempre usa 'page'
+    (alfanumerico): page_bcd no prende el PTT en versiones legacy."""
     host, port, topic = _mqtt_cfg()
+    cmd_word = "page"
+    payload = "%s %s %s" % (cmd_word, str(cap).zfill(7), message)
     cmd = ["mosquitto_pub", "-h", host, "-p", str(port),
-           "-t", topic, "-m", "page %s %s" % (str(cap).zfill(7), message)]
+           "-t", topic, "-m", payload]
     log("MQTT pub: %s" % " ".join(cmd))
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
     if r.returncode != 0:
-        log("ERROR mosquitto_pub: %s" % (r.stderr or r.stdout).strip()[:200])
+        err = (r.stderr or r.stdout or "unknown").strip()[:200]
+        log("ERROR mosquitto_pub: %s" % err)
+        sys.stderr.write("mosquitto_pub FALLO (host=%s port=%s topic=%s): %s\n" % (host, port, topic, err))
         return False
     log("MQTT OK cap=%s msg=%s" % (cap, message))
     return True
 
 
 def main():
-    if len(sys.argv) < 3:
-        print("Uso: dispatch_mqtt.py <cap_code(s)> <mensaje> [baudios]")
+    raw = list(sys.argv[1:])
+    bcd = "--bcd" in raw
+    args = [a for a in raw if a != "--bcd"]
+    if len(args) < 2:
+        print("Uso: dispatch_mqtt.py [--bcd] <cap_code(s)> <mensaje> [baudios]")
+        print("  --bcd : pagina en modo numerico (page_bcd) en vez de alfanumerico (page)")
         sys.exit(1)
 
-    caps_str = str(sys.argv[1])
+    caps_str = str(args[0])
     cap_list = [c.strip() for c in caps_str.split(",") if c.strip()]
-    message = str(sys.argv[2])
+    message = str(args[1])
 
     if not cap_list:
         log("ERROR: no hay cap codes validos")
         print("ERROR: cap codes invalidos")
         sys.exit(1)
 
+    # BCD solo acepta digitos. Si el mensaje trae otra cosa (texto libre),
+    # page_bcd seria invalido y MMDVMHost lo descarta sin transmitir pero
+    # mosquitto_pub devuelve 0 -> la bitacora quedaria "enviado" sin salir al aire.
+    # En ese caso caemos a modo alfanumerico (page) y lo dejamos asentado en el log.
+    if bcd and not message.isdigit():
+        log("WARN: --bcd solicitado pero mensaje no numerico (%r) -> cae a page (alfanumerico)" % message)
+        bcd = False
+
     log("=== Envio MQTT ===")
-    log("caps=%s msg=%r" % (cap_list, message))
+    log("caps=%s msg=%r bcd=%s" % (cap_list, message, bcd))
 
     sent = 0
     for cap in cap_list:
@@ -72,16 +91,17 @@ def main():
         except ValueError:
             log("ERROR cap invalido: %s" % cap)
             continue
-        if publish_page(cap_int, message):
+        if publish_page(cap_int, message, bcd=bcd):
             sent += 1
         # Pausa entre caps para no saturar el modulo
         if len(cap_list) > 1:
             time.sleep(2.0)
 
     log("Envio completado: %d/%d cap(s)" % (sent, len(cap_list)))
-    print("OK: %d/%d cap(s) via MQTT" % (sent, len(cap_list)))
     if sent == 0:
+        print("ERROR: 0/%d cap(s) via MQTT (mosquitto_pub fallo - ver obs / dispatch_mqtt.log)" % len(cap_list))
         sys.exit(1)
+    print("OK: %d/%d cap(s) via MQTT" % (sent, len(cap_list)))
 
 
 if __name__ == "__main__":

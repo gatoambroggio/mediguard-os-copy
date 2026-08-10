@@ -6,14 +6,14 @@
 # IVR (igual al 2184) cuando alguien marca esos internos.
 #
 # Instalacion (una linea):
-#   curl -fsSL https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/src/zetronpoc/instalador.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador.sh | sudo bash
 #
 # Actualizar (sin reinstalar Asterisk/deps):
-#   curl -fsSL https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main/src/zetronpoc/instalador.sh | sudo bash -s -- --update
+#   curl -fsSL https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador.sh | sudo bash -s -- --update
 # ============================================================================
 set -euo pipefail
 
-REPO="https://raw.githubusercontent.com/gatoambroggio/ubntpagingsystem/main"
+REPO="https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main"
 SRC="${REPO}/src/zetronpoc"
 AST_ETC="/etc/asterisk"
 APP_DIR="/opt/zetronpoc"
@@ -97,7 +97,7 @@ echo "==> 3/10 Descargando archivos..."
 dl "${SRC}/backend/app.py" "${APP_DIR}/backend/app.py"
 chmod +x "${APP_DIR}/backend/app.py"
 dl "${SRC}/frontend/admin.html" "${APP_DIR}/frontend/admin.html"
-dl "${SRC}/frontend/index.html" "${APP_DIR}/frontend/index.html"
+dl "${SRC}/frontend/public.html" "${APP_DIR}/frontend/public.html"
 
 dl "${SRC}/database/db_manager.py" "${APP_DIR}/database/db_manager.py"
 chmod +x "${APP_DIR}/database/db_manager.py"
@@ -256,6 +256,29 @@ systemctl enable zetronpoc-cola 2>/dev/null || true
 # Forzar reinicio SIEMPRE para cargar codigo nuevo (enable --now no reinicia un servicio ya activo)
 systemctl restart zetronpoc-api 2>/dev/null || warn "No se pudo reiniciar zetronpoc-api"
 systemctl restart zetronpoc-cola 2>/dev/null || true
+# Regenerar MMDVM.ini desde la BD y reiniciar mmdvmhost si esta instalado
+# (instalacion y --update): sin esto, los cambios del panel nunca llegan al aire.
+if command -v MMDVM-Host >/dev/null 2>&1 || [[ -x /usr/local/bin/MMDVM-Host ]] || systemctl is-active --quiet mmdvmhost 2>/dev/null; then
+  echo "==> Regenerando MMDVM.ini y reiniciando mmdvmhost..."
+  python3 - <<'PYEOF' 2>/dev/null || warn "No se pudo regenerar MMDVM.ini"
+import sys, os
+sys.path.insert(0, "/opt/zetronpoc"); sys.path.insert(0, "/opt/zetronpoc/database")
+os.environ["ZETRONPOC_DIR"] = "/opt/zetronpoc"
+try:
+    from db_manager import generar_mmdvm_ini
+    ok, msg = generar_mmdvm_ini()
+    print("[OK] MMDVM.ini" if ok else "[WARN] %s" % msg)
+except Exception as e:
+    print("[WARN] %s" % e)
+PYEOF
+  # Refrescar el mmdvmhost.service desde el repo para evitar un service stale
+  # (un service viejo sin [RemoteControl] hace que MQTT conecte pero los pages
+  #  no se procesen -> el bug del "OK 1/1 pero no suena el pager").
+  if curl -fsSL "${SRC}/services/mmdvmhost.service" -o /etc/systemd/system/mmdvmhost.service 2>/dev/null; then
+    systemctl daemon-reload 2>/dev/null || true
+  fi
+  systemctl restart mmdvmhost 2>/dev/null && log "mmdvmhost reiniciado (service + .ini refrescados)" || warn "mmdvmhost no reinicio (¿instalado?)"
+fi
 sleep 2
 
 # ============================ 10. CHEQUEO =================================

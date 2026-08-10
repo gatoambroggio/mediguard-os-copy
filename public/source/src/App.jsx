@@ -10,6 +10,7 @@ import ScrollToTop from './components/ScrollToTop';
 import Descarga from './pages/Descarga';
 import Codigo from './pages/Codigo';
 import Mmdvm from './pages/Mmdvm';
+import Diagnostico from './pages/Diagnostico';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -42,6 +43,7 @@ const AuthenticatedApp = () => {
       <Route path="/descarga" element={<Descarga />} />
       <Route path="/codigo" element={<Codigo />} />
       <Route path="/mmdvm" element={<Mmdvm />} />
+      <Route path="/diagnostico" element={<Diagnostico />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

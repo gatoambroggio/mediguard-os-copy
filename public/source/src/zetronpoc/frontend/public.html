@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ZetronPOC · Envío de mensajes</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@600;700;800&family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+:root{--bg:#f1f5f9;--panel:#ffffff;--line:#e2e8f0;--line2:#cbd5e1;--txt:#0f172a;--mut:#64748b;--acc:#1d4ed8;--acc2:#0ea5e9;--acc3:#6366f1;--ok:#16a34a;--err:#dc2626;--warn:#d97706;--r:14px}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Rajdhani',sans-serif;color:var(--txt);background:radial-gradient(1200px 600px at 10% -10%,rgba(14,165,233,.12),transparent 60%),radial-gradient(1000px 500px at 110% 10%,rgba(99,102,241,.12),transparent 60%),var(--bg);min-height:100vh;padding:1rem}
+.brand,.btn,h1,h2{font-family:'Orbitron',sans-serif;letter-spacing:.04em}
+.mono{font-family:'JetBrains Mono',monospace}
+.wrap{max-width:880px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.5rem .2rem 1.2rem}
+.brand{display:flex;align-items:center;gap:.7rem;font-weight:800;font-size:1.25rem}
+.logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--acc2),var(--acc3));display:grid;place-items:center;color:#fff;box-shadow:0 8px 24px rgba(99,102,241,.35)}
+.brand small{display:block;font-family:'Rajdhani';font-weight:600;font-size:.72rem;color:var(--mut);letter-spacing:.02em}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:1.4rem 1.5rem;box-shadow:0 10px 30px rgba(15,23,42,.06);margin-bottom:1.1rem}
+h1{font-size:1.5rem;margin-bottom:.2rem}
+.sub{color:var(--mut);font-size:.92rem;margin-bottom:1.1rem}
+label{display:block;font-weight:600;font-size:.82rem;color:var(--mut);margin:.7rem 0 .3rem}
+input,select,textarea{width:100%;font-family:'Rajdhani';font-size:1rem;font-weight:600;color:var(--txt);background:#f8fafc;border:1.5px solid var(--line2);border-radius:10px;padding:.7rem .85rem;outline:none;transition:.15s}
+input:focus,select:focus,textarea:focus{border-color:var(--acc3);background:#fff;box-shadow:0 0 0 4px rgba(99,102,241,.12)}
+textarea{resize:vertical;min-height:96px;font-family:'JetBrains Mono';font-weight:500}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+@media(max-width:640px){.row{grid-template-columns:1fr}}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;width:100%;margin-top:1.2rem;border:none;cursor:pointer;font-weight:700;font-size:1.02rem;color:#fff;background:linear-gradient(135deg,var(--acc2),var(--acc3));padding:.85rem 1rem;border-radius:12px;box-shadow:0 10px 26px rgba(99,102,241,.35);transition:.15s}
+.btn:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.btn:disabled{opacity:.55;cursor:wait}
+.btn .dot{width:9px;height:9px;border-radius:50%;background:#fff;box-shadow:0 0 0 0 rgba(255,255,255,.6);animation:p 1.2s infinite}
+@keyframes p{0%{box-shadow:0 0 0 0 rgba(255,255,255,.6)}70%{box-shadow:0 0 0 8px rgba(255,255,255,0)}100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}}
+.msg{margin-top:1rem;padding:.8rem 1rem;border-radius:10px;font-weight:600;font-size:.92rem;display:none}
+.msg.show{display:block}
+.msg.ok{background:#dcfce7;color:#15803d;border:1px solid #86efac}
+.msg.err{background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5}
+.msg.info{background:#e0f2fe;color:#0369a1;border:1px solid #7dd3fc}
+.hist{display:flex;flex-direction:column;gap:.5rem}
+.hi{display:grid;grid-template-columns:auto 1fr auto;gap:.7rem;align-items:center;padding:.6rem .8rem;border:1px solid var(--line);border-radius:10px;background:#f8fafc}
+.hi .badge{font-family:'JetBrains Mono';font-size:.72rem;font-weight:700;padding:.25rem .5rem;border-radius:6px}
+.hi .b-env{background:#dcfce7;color:#15803d}.hi .b-enc{background:#fef9c3;color:#a16207}.hi .b-err{background:#fee2e2;color:#b91c1c}.hi .b-fall{background:#fee2e2;color:#b91c1c}
+.hi .cap{font-family:'JetBrains Mono';font-size:.78rem;color:var(--mut)}
+.hi .txt{font-weight:600;font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hi .ts{font-family:'JetBrains Mono';font-size:.72rem;color:var(--mut)}
+.empty{color:var(--mut);font-style:italic;text-align:center;padding:1.2rem}
+footer{text-align:center;color:var(--mut);font-size:.78rem;padding:1.4rem 0 .6rem}
+.tag{display:inline-flex;align-items:center;gap:.4rem;font-size:.72rem;font-weight:700;color:var(--acc3);background:#eef2ff;border:1px solid #c7d2fe;border-radius:999px;padding:.25rem .7rem}
+</style></head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><div class="logo">📻</div><div>ZetronPOC<small>MediGuard OS · Paginación hospitalaria</small></div></div>
+    <span class="tag">● Envío público</span>
+  </header>
+
+  <div class="card">
+    <h1>Enviar mensaje</h1>
+    <div class="sub">Elegí el código de pager o grupo, escribí el mensaje y enviá. La transmisión POCSAG sale por MMDVM.</div>
+    <form id="f">
+      <div class="row">
+        <div>
+          <label for="codigo">Código (pager / grupo)</label>
+          <input id="codigo" name="codigo" list="dl" placeholder="ej: TEST01 o MEDICOS" autocomplete="off" required>
+          <datalist id="dl"></datalist>
+        </div>
+        <div>
+          <label for="plantilla">Plantilla (opcional)</label>
+          <select id="plantilla"><option value="">— sin plantilla —</option></select>
+        </div>
+      </div>
+      <label for="mensaje">Mensaje</label>
+      <textarea id="mensaje" name="mensaje" placeholder="Escribí el mensaje a transmitir…" required></textarea>
+      <button class="btn" id="send" type="submit"><span class="dot"></span> Enviar</button>
+      <div class="msg" id="res"></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2 style="font-size:1.05rem;margin-bottom:.9rem">Últimos envíos</h2>
+    <div class="hist" id="hist"><div class="empty">cargando…</div></div>
+  </div>
+
+  <footer>ZetronPOC v2.0 · POCSAG sobre MMDVM · MediGuard OS</footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const res = $("#res");
+function show(cls, txt){ res.className = "msg show " + cls; res.textContent = txt; }
+function fmtEstado(e){ return ({enviado:"b-env",encolado:"b-enc",error:"b-err",fallido:"b-fall"}[e]) || "b-enc"; }
+
+async function loadCatalog(){
+  try{
+    const [ps, gs, pls] = await Promise.all([
+      fetch("/api/parsers?q=").then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch("/api/grupos?q=").then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch("/api/plantillas").then(r=>r.ok?r.json():[]).catch(()=>[])
+    ]);
+    const dl = $("#dl");
+    [...(ps||[]),...(gs||[])].forEach(p=>{
+      const o=document.createElement("option");
+      o.value = p.codigo || p.codigo;
+      o.label = (p.descripcion||p.mensaje||"");
+      dl.appendChild(o);
+    });
+    const sel = $("#plantilla");
+    (pls||[]).filter(p=>p.activo).forEach(p=>{
+      const o=document.createElement("option");
+      o.value = p.id; o.textContent = p.nombre;
+      o.dataset.msg = p.mensaje || "";
+      sel.appendChild(o);
+    });
+  }catch(e){}
+}
+
+async function loadHist(){
+  try{
+    const r = await fetch("/api/historial/public");
+    const data = await r.json();
+    const rows = (data.rows||[]).slice(0,12);
+    const h = $("#hist");
+    if(!rows.length){ h.innerHTML = '<div class="empty">sin envíos registrados</div>'; return; }
+    h.innerHTML = rows.map(x=>`<div class="hi">
+      <span class="badge ${fmtEstado(x.estado)}">${x.estado||"—"}</span>
+      <div><div class="txt">${(x.mensaje||"").replace(/</g,"&lt;")}</div><span class="cap">${x.codigo||"—"} · ${x.cap_code||"—"}</span></div>
+      <span class="ts">${(x.fecha_hora||"").slice(5,16)}</span>
+    </div>`).join("");
+  }catch(e){ $("#hist").innerHTML = '<div class="empty">no se pudo cargar el historial</div>'; }
+}
+
+$("#plantilla").addEventListener("change", e=>{
+  const opt = e.target.selectedOptions[0];
+  if(opt && opt.dataset.msg && !$("#mensaje").value) $("#mensaje").value = opt.dataset.msg;
+});
+
+$("#f").addEventListener("submit", async ev=>{
+  ev.preventDefault();
+  const codigo = $("#codigo").value.trim();
+  const mensaje = $("#mensaje").value.trim();
+  if(!codigo || !mensaje){ show("err","Falta el código o el mensaje."); return; }
+  const btn = $("#send"); btn.disabled = true; show("info","Enviando…");
+  try{
+    const r = await fetch("/api/enviar",{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({codigo, mensaje, origen:"web"})
+    });
+    const d = await r.json();
+    if(d.status === "encolado" || d.status === "ok"){
+      show("ok", "Mensaje encolado OK (id " + (d.id||"") + "). Saldrá por MMDVM.");
+      $("#mensaje").value=""; loadHist();
+    } else {
+      show("err","No se pudo enviar: "+(d.detalle||d.status||"error"));
+    }
+  }catch(e){ show("err","Error de red: "+e.message); }
+  finally{ btn.disabled = false; }
+});
+
+loadCatalog(); loadHist(); setInterval(loadHist, 8000);
+</script>
+</body></html>

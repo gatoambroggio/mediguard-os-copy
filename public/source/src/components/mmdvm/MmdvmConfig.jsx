@@ -5,6 +5,8 @@ const DEFAULTS = {
   callsign: "LU1ABC",
   serialPort: "/dev/ttyUSB0",
   baud: "115200",
+  connectionType: "usb",
+  uartSpeed: "115200",
   frequency: "433.800",
   duplex: "0",
   pocsagBaud: "1200",
@@ -38,6 +40,11 @@ DSTAR=0
 YSF=0
 P25=0
 NXDN=0`;
+    const connLines = cfg.connectionType === "uart"
+      ? `Protocol=uart
+UARTPort=${cfg.serialPort}
+UARTSpeed=${cfg.uartSpeed}`
+      : `BaudeRate=${cfg.baud}`;
     return `# MMDVM.ini — generado por ZetronPOC / MediGuard OS
 # Modulo MMDVM UHF/VHF por puerto serie (sin Raspberry, sin .wav)
 
@@ -53,7 +60,7 @@ Display=${cfg.display}
 
 [Modem]
 Port=${cfg.serialPort}
-BaudeRate=${cfg.baud}
+${connLines}
 TXInvert=${cfg.txInvert}
 RXInvert=0
 PTTInvert=0
@@ -108,8 +115,13 @@ FileRoot=MMDVM
         <h3 className="font-display font-bold text-slate-900 mb-4">Parametros del modulo</h3>
         <div className="grid sm:grid-cols-2 gap-3">
           <Field label="Callsign" value={cfg.callsign} onChange={(v) => set("callsign", v)} />
+          <Select label="Conexion" value={cfg.connectionType} onChange={(v) => set("connectionType", v)} opts={[["usb", "USB / ttyUSB"], ["uart", "UART (ttyAMA0)"]]} />
           <Field label="Puerto serie" value={cfg.serialPort} onChange={(v) => set("serialPort", v)} mono />
-          <Field label="Baudios" value={cfg.baud} onChange={(v) => set("baud", v)} mono />
+          {cfg.connectionType === "uart" ? (
+            <Field label="UART Speed" value={cfg.uartSpeed} onChange={(v) => set("uartSpeed", v)} mono />
+          ) : (
+            <Field label="Baudios" value={cfg.baud} onChange={(v) => set("baud", v)} mono />
+          )}
           <Field label="Frecuencia (MHz)" value={cfg.frequency} onChange={(v) => set("frequency", v)} mono />
           <Field label="POCSAG baudios" value={cfg.pocsagBaud} onChange={(v) => set("pocsagBaud", v)} mono />
           <Field label="TX Level (0-100)" value={cfg.txLevel} onChange={(v) => set("txLevel", v)} mono />
