@@ -5,8 +5,7 @@ Reemplaza a dispatch_serial.py: en lugar de hablar el protocolo binario
 MMDVM por serial, publica el comando "page <cap> <mensaje>" en el topic
 MQTT que MMDVMHost escucha (Name=host -> topic "host/command").
 
-Uso: dispatch_mqtt.py [--bcd] <cap_code(s)> <mensaje> [baudios]
-  --bcd       : modo numerico (page_bcd) en vez de alfanumerico (page)
+Uso: dispatch_mqtt.py <cap_code(s)> <mensaje> [baudios]
   cap_code(s) : un cap_code o varios separados por coma (para grupos)
 """
 import sys, os, subprocess, time
@@ -49,25 +48,18 @@ def _to_ascii(s):
     return " ".join(out.split())
 
 
-def publish_page(cap, message, bcd=False):
-    """Publica el comando POCSAG por MQTT a host/command.
-    bcd=False (alfanumerico) -> 'page <ric> <msg ASCII>'     (func ALPHANUMERIC, packASCII)
-    bcd=True  (numerico)     -> 'page_bcd <ric> <digits>'    (func NUMERIC, packNumeric/BCD)
-    MMDVMHost master soporta ambos (RemoteControl.cpp: PAGE y PAGE_BCD). page_bcd
-    necesita >=3 tokens; si el mensaje no tiene digitos cae a page para que al menos
-    salga al aire (PTT) y el diagnostico muestre 'Valid remote command'. El ric se
-    zfill(7) (POCSAG RIC de 7 digitos)."""
+def publish_page(cap, message):
+    """Publica 'page <ric> <msg ASCII>' por MQTT a host/command.
+    Siempre se usa 'page' (funcion alfanumerica / packASCII): el MMDVMHost
+    instalado NO soporta 'page_bcd' (responde 'Invalid remote command' y no
+    hace PTT -> el pager nunca recibe, y ademas dispatch reporta error).
+    Mandar los digitos como texto ASCII funciona en pagers alfanumericos
+    (muestran los numeros) y garantiza PTT + transmision. El ric se zfill(7)
+    (POCSAG RIC de 7 digitos)."""
     host, port, topic = _mqtt_cfg()
     ric = str(cap).zfill(7)
-    if bcd:
-        digits = "".join(c for c in str(message) if c.isdigit())
-        if digits:
-            payload = "page_bcd %s %s" % (ric, digits)
-        else:
-            payload = "page %s %s" % (ric, _to_ascii(message).strip() or "TEST")
-    else:
-        msg = _to_ascii(message).strip() or "TEST"
-        payload = "page %s %s" % (ric, msg)
+    msg = _to_ascii(message).strip() or "TEST"
+    payload = "page %s %s" % (ric, msg)
     cmd = ["mosquitto_pub", "-h", host, "-p", str(port), "-t", topic, "-m", payload]
     log("MQTT pub: %s" % " ".join(cmd))
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
@@ -81,12 +73,9 @@ def publish_page(cap, message, bcd=False):
 
 
 def main():
-    raw = list(sys.argv[1:])
-    bcd = "--bcd" in raw
-    args = [a for a in raw if a != "--bcd"]
+    args = list(sys.argv[1:])
     if len(args) < 2:
-        print("Uso: dispatch_mqtt.py [--bcd] <cap_code(s)> <mensaje> [baudios]")
-        print("  --bcd : pagina en modo numerico (page_bcd) en vez de alfanumerico (page)")
+        print("Uso: dispatch_mqtt.py <cap_code(s)> <mensaje> [baudios]")
         sys.exit(1)
 
     caps_str = str(args[0])
@@ -98,14 +87,12 @@ def main():
         print("ERROR: cap codes invalidos")
         sys.exit(1)
 
-    # El modo (page vs page_bcd) y la normalizacion del mensaje los decide
-    # publish_page: page_bcd para numeric (BCD), page para alphanumeric (ASCII).
-    # page_bcd requiere >=3 tokens (page_bcd <ric> <digits>); si no hay digitos,
-    # cae a page para que al menos salga al aire (PTT) y el diagnostico muestre
-    # "Valid remote command".
+    # Siempre 'page' (alfanumerico / packASCII). El MMDVMHost instalado no
+    # soporta 'page_bcd' (Invalid remote command -> sin PTT). Los digitos se
+    # envian como texto ASCII y los pagers alfanumericos los muestran igual.
 
     log("=== Envio MQTT ===")
-    log("caps=%s msg=%r bcd=%s" % (cap_list, message, bcd))
+    log("caps=%s msg=%r" % (cap_list, message))
 
     sent = 0
     for cap in cap_list:
@@ -114,7 +101,7 @@ def main():
         except ValueError:
             log("ERROR cap invalido: %s" % cap)
             continue
-        if publish_page(cap_int, message, bcd=bcd):
+        if publish_page(cap_int, message):
             sent += 1
         # Pausa entre caps para no saturar el modulo
         if len(cap_list) > 1:

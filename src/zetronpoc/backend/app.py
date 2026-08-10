@@ -371,6 +371,7 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/grupos": return jok(self, db.buscar_grupos(q.get("q", [""])[0]))
         if p == "/api/historial/public":
             return jok(self, db.historial({}, 100, 0))
+        if p == "/api/plantillas": return jok(self, db.listar_plantillas())
         if p == "/api/login": return jtext(self, "use POST", 405)
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
 
@@ -383,7 +384,6 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/mmdvm/config": return jok(self, {k: v for k, v in db.all_config().items() if k.startswith("mmdvm_")})
         if p == "/api/extensions": return jok(self, db.listar_extensiones())
         if p == "/api/extensions/status": return jok(self, ext_status())
-        if p == "/api/plantillas": return jok(self, db.listar_plantillas())
         if p == "/api/programados": return jok(self, db.listar_programados())
         if p == "/api/auditoria":
             return jok(self, db.listar_auditoria(int(q.get("limit", ["200"])[0]), int(q.get("offset", ["0"])[0])))
