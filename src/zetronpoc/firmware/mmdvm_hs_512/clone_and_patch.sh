@@ -60,9 +60,22 @@ print("    parche aplicado por fallback Python.")
 PY
 fi
 
-echo "[3/3] Listo. El baud de TX lo fija R3 (ADF7021_REG3_POCSAG), no POCSAGTX."
-echo "    POCSAGTX.cpp NO se patchea (escribe 1 bit por io.write; el clock viene de R3)."
+echo "[3/3] Buscando el bit-clock real de POCSAG (STM32, NO R3)..."
+echo "    R3 (ADF7021_REG3_POCSAG) es clock de RX; NO fija el baud de TX."
+echo "    El baud de TX lo fija el STM32 (CIO::interrupt que drena TXD)."
 echo
-echo "Compilá con un comando:"
+python3 "$HERE/tools/find_pocsag_clock.py" "$TARGET" || {
+  echo
+  echo "ERROR: no se pudo localizar el bit-clock. Corre el finder a mano:"
+  echo "    python3 $HERE/tools/find_pocsag_clock.py $TARGET"
+  echo "y pasa el reporte para escribir el patch exacto a 512 baud."
+  exit 1
+}
+echo
+echo "El reporte de arriba muestra DONDE esta el samples-per-bit de POCSAG."
+echo "Con esa linea + la base rate del timer, se arma el patch a 512 baud"
+echo "(round(base_rate/512) muestras/bit) envuelto en #if defined(POCSAG_512)."
+echo
+echo "Cuando el patch este aplicado, compila con:"
 echo "    cd $HERE && ./build_firmware.sh"
-echo "    (genera firmware_pocsag512_pocsag512-144.bin listo para flash.sh)"
+echo "    (genera firmware_pocsag512.bin listo para flash.sh)"
