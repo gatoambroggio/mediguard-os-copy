@@ -14,6 +14,7 @@ APP_DIR = os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc")
 sys.path.insert(0, APP_DIR)
 sys.path.insert(0, os.path.join(APP_DIR, "database"))
 import db_manager as db
+import vpn as vpnmod
 
 HOST, PORT = "0.0.0.0", 8080
 FRONT = os.path.join(APP_DIR, "frontend")
@@ -407,6 +408,13 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/diagnostico/dispatch_log": return jok(self, diag_dispatch_log(int(q.get("lines", ["50"])[0])))
         if p == "/api/diagnostico/config_check": return jok(self, diag_config_check())
 
+        if p == "/api/vpn/status": return jok(self, vpnmod.status())
+        if p == "/api/vpn/clients": return jok(self, vpnmod.list_clients())
+        _mvpn = re.match(r'/api/vpn/clients/([A-Za-z0-9_\-]+)$', p)
+        if _mvpn: return jok(self, vpnmod.get_client(_mvpn.group(1)))
+        if p == "/api/vpn/server/status": return jok(self, vpnmod.server_status())
+        if p == "/api/vpn/logs": return jok(self, vpnmod.logs(q.get("kind", ["server"])[0], int(q.get("lines", ["80"])[0])))
+
         if p == "/api/config": return jok(self, db.all_config())
         if p == "/api/mmdvm/config": return jok(self, {k: v for k, v in db.all_config().items() if k.startswith("mmdvm_")})
         if p == "/api/extensions": return jok(self, db.listar_extensiones())
@@ -502,6 +510,30 @@ class Handler(BaseHTTPRequestHandler):
             aud(self, "test_page", "diagnostico", str(cap), "func=%s rc=%s ok=%s" % (funcion, res.get("rc", "-"), res.get("ok")))
             evlog(self, "info", "diag", "test_page cap=%s func=%s ok=%s" % (cap, funcion, res.get("ok")))
             return jok(self, res)
+        if p == "/api/vpn/clients":
+            res = vpnmod.create_client(d)
+            aud(self, "crear", "vpn_client", d.get("name", ""), d.get("protocol", ""))
+            evlog(self, "info", "vpn", "create client %s %s" % (d.get("name", ""), d.get("protocol", "")))
+            return jok(self, res)
+        if p == "/api/vpn/clients/up":
+            res = vpnmod.up(d.get("name", ""))
+            aud(self, "conectar", "vpn_client", d.get("name", ""), "ok=%s" % res.get("ok"))
+            return jok(self, res)
+        if p == "/api/vpn/clients/down":
+            res = vpnmod.down(d.get("name", ""))
+            aud(self, "desconectar", "vpn_client", d.get("name", ""), "ok=%s" % res.get("ok"))
+            return jok(self, res)
+        if p == "/api/vpn/server/apply":
+            res = vpnmod.server_apply(d)
+            aud(self, "aplicar", "vpn_server", d.get("protocol", ""), "ok=%s" % res.get("ok"))
+            evlog(self, "info" if res.get("ok") else "error", "vpn", "server apply %s ok=%s" % (d.get("protocol", ""), res.get("ok")))
+            return jok(self, res)
+        if p == "/api/vpn/server/stop":
+            res = vpnmod.server_stop(d.get("protocol", ""))
+            aud(self, "detener", "vpn_server", d.get("protocol", ""), "")
+            return jok(self, res)
+        if p == "/api/vpn/logs":
+            return jok(self, vpnmod.logs(d.get("kind", "server"), int(d.get("lines", 80) or 80)))
         if p == "/api/mmdvm/apply":
             for k, v in d.items():
                 if k.startswith("mmdvm_"):
@@ -697,6 +729,13 @@ class Handler(BaseHTTPRequestHandler):
             db.actualizar_programado(int(m.group(1)), d)
             aud(self, "actualizar", "programado", m.group(1), d.get("codigo", ""))
             return jok(self, {"ok": True})
+        m = re.match(r'/api/vpn/clients/([A-Za-z0-9_\-]+)$', p)
+        if m:
+            d["name"] = d.get("name") or m.group(1)
+            res = vpnmod.create_client(d)
+            aud(self, "actualizar", "vpn_client", m.group(1), d.get("protocol", ""))
+            evlog(self, "info", "vpn", "update client %s" % m.group(1))
+            return jok(self, res)
         return jtext(self, "no encontrado", 404)
 
     def do_DELETE(self):
@@ -733,6 +772,11 @@ class Handler(BaseHTTPRequestHandler):
             db.borrar_programado(int(m.group(1)))
             aud(self, "borrar", "programado", m.group(1), "")
             return jok(self, {"ok": True})
+        m = re.match(r'/api/vpn/clients/([A-Za-z0-9_\-]+)$', p)
+        if m:
+            res = vpnmod.delete_client(m.group(1))
+            aud(self, "borrar", "vpn_client", m.group(1), "")
+            return jok(self, res)
         return jtext(self, "no encontrado", 404)
 
 class Server(ThreadingHTTPServer):
