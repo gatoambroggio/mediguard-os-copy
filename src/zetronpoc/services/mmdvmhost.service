@@ -1,0 +1,15 @@
+[Unit]
+Description=MMDVMHost (POCSAG via MQTT/RemoteControl)
+After=network.target mosquitto.service
+Wants=mosquitto.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/MMDVM-Host /opt/zetronpoc/mmdvm/MMDVM.ini
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/mmdvm/mmdvmhost.out.log
+StandardError=append:/var/log/mmdvm/mmdvmhost.err.log
+
+[Install]
+WantedBy=multi-user.target

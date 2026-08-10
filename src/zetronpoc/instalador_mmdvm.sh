@@ -122,25 +122,14 @@ EOF
 log "MMDVM.ini escrito con [MQTT] y [RemoteControl] habilitados."
 
 echo "==> 4/6 Servicio systemd mmdvmhost..."
-cat > "$SVC" <<EOF
-[Unit]
-Description=MMDVMHost (POCSAG via MQTT/RemoteControl)
-After=network.target mosquitto.service
-Wants=mosquitto.service
-
-[Service]
-Type=simple
-ExecStart=${BIN} ${INI}
-Restart=always
-RestartSec=5
-StandardOutput=append:/var/log/mmdvm/mmdvmhost.out.log
-StandardError=append:/var/log/mmdvm/mmdvmhost.err.log
-
-[Install]
-WantedBy=multi-user.target
-EOF
-systemctl daemon-reload
-log "Servicio mmdvmhost creado apuntando a ${INI}."
+# Fuente unica del service file: src/zetronpoc/services/mmdvmhost.service (repo).
+# Asi el panel y el instalador principal (--update) siempre usan el mismo.
+if curl -fsSL "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/services/mmdvmhost.service" -o "$SVC"; then
+  systemctl daemon-reload
+  log "Servicio mmdvmhost descargado del repo (apunta a ${INI})."
+else
+  warn "No se pudo descargar mmdvmhost.service; se mantiene el service actual."
+fi
 
 echo "==> 5/6 Reiniciando servicios..."
 systemctl enable mmdvmhost 2>/dev/null || true

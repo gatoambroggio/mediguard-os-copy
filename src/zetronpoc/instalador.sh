@@ -271,7 +271,13 @@ try:
 except Exception as e:
     print("[WARN] %s" % e)
 PYEOF
-  systemctl restart mmdvmhost 2>/dev/null && log "mmdvmhost reiniciado" || warn "mmdvmhost no reinicio (¿instalado?)"
+  # Refrescar el mmdvmhost.service desde el repo para evitar un service stale
+  # (un service viejo sin [RemoteControl] hace que MQTT conecte pero los pages
+  #  no se procesen -> el bug del "OK 1/1 pero no suena el pager").
+  if curl -fsSL "${SRC}/services/mmdvmhost.service" -o /etc/systemd/system/mmdvmhost.service 2>/dev/null; then
+    systemctl daemon-reload 2>/dev/null || true
+  fi
+  systemctl restart mmdvmhost 2>/dev/null && log "mmdvmhost reiniciado (service + .ini refrescados)" || warn "mmdvmhost no reinicio (¿instalado?)"
 fi
 sleep 2
 
