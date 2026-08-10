@@ -106,6 +106,17 @@ export default async function(req) {
     );
     const newTreeSha = tree.sha;
 
+    // 4b. si el arbol generado es identico al base, no hay cambios -> no commitear
+    if (newTreeSha === baseTreeSha) {
+      return Response.json({
+        ok: true,
+        no_changes: true,
+        message: "El repositorio ya está actualizado, no hay cambios para publicar.",
+        branch: "main",
+        files_count: 0,
+      });
+    }
+
     // 5. commit on top of main
     const commitMsg = body.commit_message || `chore: sync ZetronPOC source (${mode}) · ${new Date().toISOString()}`;
     const commit = await gh(

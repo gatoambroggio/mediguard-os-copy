@@ -106,6 +106,9 @@ export default function GithubPublishCard() {
       const data = res && res.data ? res.data : res;
       if (!data || data.error) throw new Error((data && data.error) || "fallo desconocido");
       setResult(data);
+      if (data && data.no_changes) {
+        setStaged({ ...staged, noChanges: true });
+      }
     } catch (e) {
       setError(e.message || String(e));
     } finally {
@@ -154,19 +157,27 @@ export default function GithubPublishCard() {
         <div className="mt-4 flex items-start gap-2 text-sm bg-emerald-500/10 border border-emerald-500/30 rounded-2xl px-4 py-3">
           <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
           <div className="text-emerald-200">
-            {result.files_count} archivos commiteados a{" "}
-            <code className="font-mono">{result.branch}</code>.
-            <a
-              href={result.commit_url}
-              target="_blank"
-              rel="noreferrer"
-              className="ml-2 inline-flex items-center gap-1 underline text-emerald-300 hover:text-emerald-100"
-            >
-              Ver commit <ArrowUpRight className="w-3.5 h-3.5" />
-            </a>
-            <div className="mt-1 text-[11px] text-emerald-300/70">
-              En el servidor corre <code className="font-mono">bash pullupdate.sh</code> para tomar los cambios.
-            </div>
+            {result.no_changes ? (
+              <>
+                El repositorio ya está <strong>actualizado</strong> — no hay cambios para publicar.
+              </>
+            ) : (
+              <>
+                {result.files_count} archivos commiteados a{" "}
+                <code className="font-mono">{result.branch}</code>.
+                <a
+                  href={result.commit_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-2 inline-flex items-center gap-1 underline text-emerald-300 hover:text-emerald-100"
+                >
+                  Ver commit <ArrowUpRight className="w-3.5 h-3.5" />
+                </a>
+                <div className="mt-1 text-[11px] text-emerald-300/70">
+                  En el servidor corre <code className="font-mono">bash pullupdate.sh</code> para tomar los cambios.
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
