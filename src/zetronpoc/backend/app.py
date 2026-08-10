@@ -410,6 +410,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if p == "/api/vpn/status": return jok(self, vpnmod.status())
         if p == "/api/vpn/clients": return jok(self, vpnmod.list_clients())
+        _mvpn = re.match(r'/api/vpn/clients/([A-Za-z0-9_\-]+)$', p)
+        if _mvpn: return jok(self, vpnmod.get_client(_mvpn.group(1)))
         if p == "/api/vpn/server/status": return jok(self, vpnmod.server_status())
         if p == "/api/vpn/logs": return jok(self, vpnmod.logs(q.get("kind", ["server"])[0], int(q.get("lines", ["80"])[0])))
 
@@ -727,6 +729,13 @@ class Handler(BaseHTTPRequestHandler):
             db.actualizar_programado(int(m.group(1)), d)
             aud(self, "actualizar", "programado", m.group(1), d.get("codigo", ""))
             return jok(self, {"ok": True})
+        m = re.match(r'/api/vpn/clients/([A-Za-z0-9_\-]+)$', p)
+        if m:
+            d["name"] = d.get("name") or m.group(1)
+            res = vpnmod.create_client(d)
+            aud(self, "actualizar", "vpn_client", m.group(1), d.get("protocol", ""))
+            evlog(self, "info", "vpn", "update client %s" % m.group(1))
+            return jok(self, res)
         return jtext(self, "no encontrado", 404)
 
     def do_DELETE(self):

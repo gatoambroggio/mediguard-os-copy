@@ -100,7 +100,7 @@ def create_client(d):
                 base = os.path.splitext(os.path.basename(ovpn))[0]
                 _run(["nmcli", "connection", "modify", base, "connection.id", name], timeout=10)
             return {"ok": rc == 0, "salida": out, "error": (err if rc else None)}
-        rc, out, err = _run(["nmcli", "connection", "add", "type", "vpn", "ifname", "tun0",
+        rc, out, err = _run(["nmcli", "connection", "add", "type", "vpn", "ifname", "",
                              "con-name", name, "vpn-type", "openvpn"], timeout=15)
         if rc == 0:
             data = "remote=%s,connection-type=tls" % gateway
@@ -110,7 +110,7 @@ def create_client(d):
         return {"ok": rc == 0, "salida": out, "error": (err if rc else None)}
 
     if proto == "l2tp":
-        rc, out, err = _run(["nmcli", "connection", "add", "type", "vpn", "ifname", "ppp0",
+        rc, out, err = _run(["nmcli", "connection", "add", "type", "vpn", "ifname", "",
                              "con-name", name, "vpn-type", "l2tp"], timeout=15)
         if rc == 0:
             data = "gateway=%s,user=%s,password-flags=0" % (gateway, user)
@@ -122,7 +122,7 @@ def create_client(d):
         return {"ok": rc == 0, "salida": out, "error": (err if rc else None)}
 
     if proto == "pptp":
-        rc, out, err = _run(["nmcli", "connection", "add", "type", "vpn", "ifname", "ppp0",
+        rc, out, err = _run(["nmcli", "connection", "add", "type", "vpn", "ifname", "",
                              "con-name", name, "vpn-type", "pptp"], timeout=15)
         if rc == 0:
             data = "gateway=%s,user=%s,password-flags=0" % (gateway, user)
@@ -130,6 +130,45 @@ def create_client(d):
             if password:
                 _run(["nmcli", "connection", "modify", name, "vpn.secrets.password", password], timeout=10)
         return {"ok": rc == 0, "salida": out, "error": (err if rc else None)}
+
+
+def _parse_vpn_data(raw):
+    out = {}
+    for kv in (raw or "").split(","):
+        if "=" in kv:
+            k, v = kv.split("=", 1)
+            out[k.strip()] = v.strip()
+    return out
+
+
+def get_client(name):
+    if not name or not VPN_NAME.match(name):
+        return {"error": "nombre invalido"}
+    rc, out, err = _run(["nmcli", "-t", "-f", "connection.type,vpn.data", "connection", "show", name], timeout=10)
+    if rc != 0:
+        return {"error": (err or "conexion no encontrada").strip()}
+    ctype = ""; data = {}
+    for line in (out or "").splitlines():
+        if line.startswith("connection.type:"):
+            ctype = line.split(":", 1)[1].strip()
+        elif line.startswith("vpn.data:"):
+            data = _parse_vpn_data(line.split(":", 1)[1])
+    gateway = data.get("gateway") or data.get("remote") or ""
+    user = data.get("user", "")
+    proto = "pptp"
+    if "connection-type" in data or "remote" in data:
+        proto = "openvpn"
+    elif data.get("ipsec-enabled") or data.get("ipsec-psk") or "ipsec" in str(list(data.values())).lower():
+        proto = "l2tp"
+    rc2, out2, _ = _run(["nmcli", "-s", "-t", "-f", "vpn.secrets", "connection", "show", name], timeout=10)
+    password = ""; psk = ""
+    for line in (out2 or "").splitlines():
+        if line.startswith("vpn.secrets:"):
+            sec = _parse_vpn_data(line.split(":", 1)[1])
+            password = sec.get("password", "")
+            psk = sec.get("ipsec-psk", "")
+    return {"name": name, "type": ctype, "protocol": proto, "gateway": gateway,
+            "user": user, "password": password, "psk": psk, "ovpn_file": ""}
 
 
 def up(name):
