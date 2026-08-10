@@ -96,6 +96,8 @@ echo "==> 3/10 Descargando archivos..."
 
 dl "${SRC}/backend/app.py" "${APP_DIR}/backend/app.py"
 chmod +x "${APP_DIR}/backend/app.py"
+dl "${SRC}/backend/vpn.py" "${APP_DIR}/backend/vpn.py"
+chmod +x "${APP_DIR}/backend/vpn.py"
 dl "${SRC}/frontend/admin.html" "${APP_DIR}/frontend/admin.html"
 dl "${SRC}/frontend/public.html" "${APP_DIR}/frontend/public.html"
 
