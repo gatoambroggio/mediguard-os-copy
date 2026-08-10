@@ -418,6 +418,8 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/vpn/clients": return jok(self, vpnmod.list_clients())
         _mvpn = re.match(r'/api/vpn/clients/([A-Za-z0-9_\-]+)$', p)
         if _mvpn: return jok(self, vpnmod.get_client(_mvpn.group(1)))
+        _mvpn_log = re.match(r'/api/vpn/clients/([A-Za-z0-9_\-]+)/connect_log$', p)
+        if _mvpn_log: return jok(self, vpnmod.connect_log(_mvpn_log.group(1), int(q.get("lines", ["80"])[0])))
         if p == "/api/vpn/server/status": return jok(self, vpnmod.server_status())
         if p == "/api/vpn/logs": return jok(self, vpnmod.logs(q.get("kind", ["server"])[0], int(q.get("lines", ["80"])[0])))
 
