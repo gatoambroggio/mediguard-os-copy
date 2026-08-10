@@ -314,7 +314,7 @@ tbody tr:hover{background:#f1f5f9!important}
         <!-- Tarjeta 1: Respuestas MQTT + page de prueba -->
         <div class="card" style="margin-bottom:0">
           <h2><span>📡 Respuestas MQTT (host/response)</span><button class="btn btn-sec btn-sm" onclick="loadDiagMqtt()">↻</button></h2>
-          <div class="hint" style="margin-bottom:.7rem">Captura 2s on-demand. <b>OK</b>=comando aceptado por MMDVMHost · <b>KO</b>=rechazado.</div>
+          <div class="hint" style="margin-bottom:.7rem">Captura 2s on-demand del topic <b>host/response</b> (legacy MQTT). El dispatch ahora envia por <b>socket TCP RemoteControl</b>; el OK/KO exacto lo ves en <b>Log dispatch_mqtt</b> (linea <code>RemoteControl TCP ... resp=...</code>).</div>
           <div class="row" style="margin-bottom:.6rem">
             <div><label>Cap (RIC)</label><input id="diag_cap" value="1234567"></div>
             <div><label>Mensaje</label><input id="diag_msg" value="TEST"></div>

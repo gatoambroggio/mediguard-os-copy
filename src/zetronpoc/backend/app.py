@@ -271,6 +271,19 @@ def diag_config_check():
         broker_status = "error: %s" % str(e)[:80]
     out["checks"].append({"k": "Mosquitto broker", "v": broker_status, "ok": (broker_status == "active"),
                           "hint": "debe estar 'active'; si no, sudo systemctl enable --now mosquitto"})
+    # socket RemoteControl TCP (nativo de MMDVMHost): si no escucha, el page no llega
+    rc_port = g("RemoteControl", "Port", "7642") or "7642"
+    rc_state = "(no disponible)"
+    try:
+        import socket as _sock
+        p = int(rc_port)
+        s = _sock.create_connection(("127.0.0.1", p), timeout=2)
+        s.close()
+        rc_state = "escuchando en 127.0.0.1:%s" % p
+    except Exception as e:
+        rc_state = "no conecta: %s" % str(e)[:80]
+    out["checks"].append({"k": "RemoteControl socket", "v": rc_state, "ok": rc_state.startswith("escuchando"),
+                          "hint": "dispatch_mqtt envia 'page' a este socket TCP; si no conecta, MMDVMHost no tiene [RemoteControl] Enable=1 o el puerto difiere"})
     return out
 
 def diag_test_page(cap, mensaje):
