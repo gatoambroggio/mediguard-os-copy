@@ -111,9 +111,12 @@ def ext_status():
     try:
         r = subprocess.run(["asterisk", "-rx", "pjsip show registrations"], capture_output=True, text=True, timeout=10)
         for line in (r.stdout or "").splitlines():
-            m = re.match(r'\s*(\w+)/(.*?)\s+(\w+)\s+(\S+)', line)
-            if m and m.group(3) in ("Registered", "Rejected", "Unregistered", "Trying", "Auth", "Sent"):
-                out[m.group(1)] = m.group(3)
+            m = re.match(r'\s*([\w\-]+)/.*?\s+(\w+)\s', line)
+            if m and m.group(2) in ("Registered", "Rejected", "Unregistered", "Trying", "Auth", "Sent"):
+                key = m.group(1)
+                if key.startswith("reg-"):
+                    key = key[4:]
+                out[key] = m.group(2)
     except Exception:
         pass
     return out

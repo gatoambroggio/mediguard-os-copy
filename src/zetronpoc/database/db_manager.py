@@ -260,6 +260,17 @@ def generar_pjsip_conf(db_path=DEFAULT_DB):
             "[auth-%s]" % num, "type=auth", "auth_type=userpass",
             "username=%s" % num, "password=%s" % pw, "",
         ]
+    # Identify entrante: asocia la IP del hospital a un endpoint para que
+    # los INVITEs entrantes (Dial PJSIP/2000 desde el hospital) matcheen.
+    # El dialplan del ZetronPOC usa exten => _X. (captura cualquier interno),
+    # asi que basta mapear toda la IP del hospital a un unico endpoint; el
+    # Request-URI preserva el numero marcado para el IVR.
+    if activos:
+        lines += [
+            "; === Identify entrante (IP central hospital -> endpoint) ===",
+            "[hospital-identify]", "type=identify",
+            "endpoint=%s" % activos[0]["numero"], "match=%s" % ip, "",
+        ]
     try:
         with open(PJSIP_CONF, "w") as f:
             f.write("\n".join(lines) + "\n")
