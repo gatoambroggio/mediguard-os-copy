@@ -60,5 +60,9 @@ print("    parche aplicado por fallback Python.")
 PY
 fi
 
-echo "[3/3] Listo. Ahora compilá con el flag POCSAG_512 (ver platformio.ini)."
-echo "    cd $TARGET && pio run -e pocsag512-144"
+echo "[3/3] Listo. El baud de TX lo fija R3 (ADF7021_REG3_POCSAG), no POCSAGTX."
+echo "    POCSAGTX.cpp NO se patchea (escribe 1 bit por io.write; el clock viene de R3)."
+echo
+echo "Compilá con un comando:"
+echo "    cd $HERE && ./build_firmware.sh"
+echo "    (genera firmware_pocsag512_pocsag512-144.bin listo para flash.sh)"

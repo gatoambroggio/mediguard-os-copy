@@ -84,22 +84,30 @@ fuera de banda**. Verificá primero.
 
 ## Build + flash (resumen)
 
+> **El baud de TX lo fija R3, no POCSAGTX.** En el MMDVM_HS real,
+> `ifConf(STATE_POCSAG)` setea `ADF7021_REG3 = ADF7021_REG3_POCSAG` con el
+> comentario *"symb rate = 1200"* — o sea el clock de bits de TX POCSAG sale
+> del ADF7021 (CLK que el STM32 lee). `POCSAGTX.cpp` escribe 1 bit por
+> `io.write()` y **no** tiene un símbolo-length (eso era del MMDVM-IQ, otro
+> firmware). Por eso el patch de R3 que ya tiene este fork **es** la palanca
+> correcta: no hay nada que parchear en `POCSAGTX.cpp`.
+
 ```bash
-# 1) Clonar el MMDVM_HS oficial y aplicar el parche del flag
+# 1) Compilar con un comando (instala PlatformIO si falta, clona, patchea, compila)
 cd src/zetronpoc/firmware/mmdvm_hs_512
-./clone_and_patch.sh            # clona juribeparada/MMDVM_HS y aplica patches/ADF7021.h.patch
+./build_firmware.sh
+#   -> genera firmware_pocsag512_pocsag512-144.bin listo para flashear
 
-# 2) Compilar el env de tu placa con el flag POCSAG_512
-cd MMDVM_HS
-pio run -e pocsag512-144         # ver platformio.ini (ajustá el env a tu board)
+# 2) Flashear el STM32 del Jumbospot por USB (modo DFU)
+./flash.sh firmware_pocsag512_pocsag512-144.bin
 
-# 3) Flashear el STM32 del Jumbospot por USB (modo DFU)
-./../flash.sh .pio/build/pocsag512-144/firmware.bin
-
-# 4) Reiniciar el servicio y probar
+# 3) Verificar el baud real (mide el tono del preamble)
 sudo systemctl restart mmdvmhost
-# Disparar un page de prueba desde el panel admin (Diagnóstico -> Test page)
-# El pager de 512 debe recibir el texto legible.
+./verify_baud.sh 145000000 1234567
+#   256 Hz = 512 OK   |   600 Hz = sigue en 1200 (el flag no tomo efecto)
+
+# 4) Probar el pager: disparar un page desde el panel admin (Diagnóstico -> Test page)
+#    El pager de 512 debe recibir el texto legible.
 ```
 
 Detalle de cada paso en las secciones siguientes.
@@ -178,11 +186,17 @@ El binario queda en `.pio/build/pocsag512-144/firmware.bin`.
 # Servicio activo
 sudo systemctl restart mmdvmhost
 journalctl -u mmdvmhost -f | grep -i pocsag
+
+# Verificar el baud REAL transmitido (preamble tone):
+./verify_baud.sh 145000000 1234567
+#   ~256 Hz = 512 baud (OK, el flag tomo efecto)
+#   ~600 Hz = 1200 baud (el flag NO tomo efecto -> revisar build/flash/env)
 ```
 
 Desde el panel admin (Diagnóstico → Test page) dispará un page a un cap de 512.
-El pager debe mostrar el **texto legible**. Si llega el chorizo number-hyphen,
-el flag no quedó compilado o el env usó el TCXO equivocado — revisá el build.
+El pager debe mostrar el **texto legible**. Si `verify_baud.sh` sigue marcando
+600 Hz, el flag no quedó compilado o el env usó el TCXO equivocado — revisá el
+build (`./build_firmware.sh` y el `platformio.ini`).
 
 ---
 
@@ -202,8 +216,16 @@ Si 512 no decodifica o la TX se corrompe:
 | `patches/ADF7021.h.patch` | diff que agrega el `#if POCSAG_512` en R3 (14.7456 y 12.2880) |
 | `tools/reg3_calc.py` | Calcula R3 para cualquier baud/XTAL desde el baseline de 1200 |
 | `clone_and_patch.sh` | Clona MMDVM_HS oficial y aplica el parche |
+| `build_firmware.sh` | Compila el env `pocsag512-144` en un comando -> deja el `.bin` listo |
+| `verify_baud.sh` | Mide el tono del preamble (256 Hz=512 / 600 Hz=1200) con RTL-SDR |
 | `platformio.ini` | Ejemplo de env de build con `-DPOCSAG_512` (ajustá el board) |
-| `flash.sh` | Flashea el .bin al STM32 con dfu-util |
+| `flash.sh` | Flashea el `.bin` al STM32 con dfu-util |
+
+> **Nota sobre el `.bin` precompilado:** no se puede generar dentro del panel
+> (el builder no tiene toolchain ARM/PlatformIO). El `build_firmware.sh` lo
+> compila en una sola corrida en tu server/PC con PlatformIO y deja
+> `firmware_pocsag512_pocsag512-144.bin` listo para `flash.sh`. Requiere
+> `pip3 install platformio` (el script lo instala si falta).
 
 ---
 
