@@ -325,6 +325,7 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
         "POCSAG=%s\n"
         "Display=%s\n\n"
         "[Modem]\n"
+        "Port=%s\n"
         "%s"
         "RXFrequency=%s\n"
         "TXFrequency=%s\n"
@@ -346,8 +347,7 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
         "Debug=0\n"
         "OscillatorSpeed=%s\n\n"
         "[POCSAG]\n"
-        "Enable=%s\n"
-        "Callsign=%s\n\n"
+        "Enable=%s\n\n"
         "[MQTT]\n"
         "Enable=%s\n"
         "Host=%s\n"
@@ -363,9 +363,9 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
         "[Info]\nEnabled=0\n\n"
         "[Log]\nDisplayLevel=1\nFileLevel=1\nFilePath=/var/log/mmdvm\nFileRoot=MMDVM\n"
     ) % (callsign, callsign.replace(" ", ""), duplex, enable_pocsag, display,
-         modem_conn, freq_hz, freq_hz, tx_invert, rx_invert, ptt_invert, ptt_delay,
+         port, modem_conn, freq_hz, freq_hz, tx_invert, rx_invert, ptt_invert, ptt_delay,
          rx_offset, tx_offset, rx_level, tx_level, rf_level, oscillator,
-         enable_pocsag, callsign, mqtt_enable, mqtt_host, mqtt_port, mqtt_name, remote_port,
+         enable_pocsag, mqtt_enable, mqtt_host, mqtt_port, mqtt_name, remote_port,
          dapnet_enable, dapnet_address, dapnet_passcode)
     try:
         os.makedirs(os.path.dirname(MMDVM_INI), exist_ok=True)
