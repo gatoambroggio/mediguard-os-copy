@@ -174,7 +174,7 @@ def diag_mmdvm_log(lines=100):
             r = subprocess.run(["journalctl", "-u", "mmdvmhost", "-n", str(int(lines)), "--no-pager"],
                                capture_output=True, text=True, timeout=5)
             lineas = [l for l in (r.stdout or "").splitlines()
-                      if l.strip() and any(k in l.lower() for k in ("pocsag", "remote command", "nak", "transmitted", "page"))]
+                      if l.strip() and any(k in l.lower() for k in ("pocsag", "remote command", "nak", "transmitted", "page", "mqtt"))]
             return {"path": "journalctl -u mmdvmhost", "lineas": lineas, "ok": True,
                     "note": "no hay MMDVM-*.log en %s; usando journalctl" % MMDVM_LOG_DIR}
         except Exception as e:
@@ -182,7 +182,7 @@ def diag_mmdvm_log(lines=100):
                     "error": "no hay logs MMDVM-*.log en %s y journalctl fallo: %s" % (MMDVM_LOG_DIR, str(e)[:120])}
     path = files[0]
     try:
-        r = subprocess.run(["bash", "-c", "tail -n %d %s | grep -Ei 'pocsag|remote command|nak|transmitted|page'" % (int(lines), path)],
+        r = subprocess.run(["bash", "-c", "tail -n %d %s | grep -Ei 'pocsag|remote command|nak|transmitted|page|mqtt'" % (int(lines), path)],
                            capture_output=True, text=True, timeout=3)
         lineas = [l for l in (r.stdout or "").splitlines() if l.strip()]
         return {"path": path, "lineas": lineas, "ok": True}
@@ -262,6 +262,15 @@ def diag_config_check():
     mqtt_port = g("MQTT", "Port", "")
     out["checks"].append({"k": "MQTT Port", "v": mqtt_port or "(ausente)", "ok": (mqtt_port == "1883"),
                           "hint": "puerto del broker mosquitto (1883)"})
+    # estado del broker mosquitto: si no esta activo, dispatch_mqtt publica al vacio
+    broker_status = "(no disponible)"
+    try:
+        rb = subprocess.run(["systemctl", "is-active", "mosquitto"], capture_output=True, text=True, timeout=3)
+        broker_status = (rb.stdout or "").strip() or (rb.stderr or "").strip() or "?"
+    except Exception as e:
+        broker_status = "error: %s" % str(e)[:80]
+    out["checks"].append({"k": "Mosquitto broker", "v": broker_status, "ok": (broker_status == "active"),
+                          "hint": "debe estar 'active'; si no, sudo systemctl enable --now mosquitto"})
     return out
 
 def diag_test_page(cap, mensaje):
