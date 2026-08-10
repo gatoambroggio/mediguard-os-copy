@@ -379,7 +379,7 @@ tbody tr:hover{background:#f1f5f9!important}
 
     <div class="tab" id="t-vpn">
       <div class="card"><h2><span>🔒 Cliente VPN (saliente)</span><button class="btn btn-pri btn-sm" onclick="openVpnClient()">+ Nueva</button></h2>
-        <div class="hint">Conecta este servidor a una VPN externa via NetworkManager (nmcli). Soporta OpenVPN, L2TP/IPsec y PPTP. Crea la conexion, conecta y desconecta desde aca. Requiere los plugins <b>network-manager-{openvpn,l2tp,pptp}</b> instalados.</div>
+        <div class="hint"><b>OpenVPN</b> funciona nativo (servicio systemd + archivo .ovpn), sin depender de NetworkManager: sube tu <b>.ovpn</b> al servidor (ej. /tmp/cliente.ovpn) y pega la ruta. <b>L2TP/PPTP</b> si usan NetworkManager y requieren que la placa de red este <b>managed</b>.</div>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem;align-items:center">
           <span id="vpn_st" class="badge mut">—</span>
           <button class="btn btn-sec btn-sm" onclick="loadVpn()">↻ Actualizar</button>

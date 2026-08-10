@@ -57,23 +57,94 @@ def status():
     return {"nm_state": state, "connectivity": conn, "external_ip": ipout.strip()}
 
 
+# ===================== CLIENTE OPENVPN (NATIVO, sin NetworkManager) =====================
+_OVPN_DIR = "/etc/openvpn/client"
+_OVPN_UNIT = "zetronpoc-openvpn-%s.service"
+
+
+def _ovpn_conf_path(name):
+    return os.path.join(_OVPN_DIR, name + ".conf")
+
+
+def _ovpn_auth_path(name):
+    return os.path.join(_OVPN_DIR, name + ".auth")
+
+
+def _ovpn_unit(name):
+    return _OVPN_UNIT % name
+
+
+def _has_ovpn_unit(name):
+    rc, _, _ = _run(["systemctl", "cat", _ovpn_unit(name)], timeout=5)
+    return rc == 0
+
+
+def _write_ovpn_unit(name):
+    unit = _ovpn_unit(name)
+    conf = _ovpn_conf_path(name)
+    auth = _ovpn_auth_path(name)
+    exec_args = "/usr/sbin/openvpn --config %s" % conf
+    if os.path.exists(auth):
+        exec_args += " --auth-user-pass %s" % auth
+    body = (
+        "[Unit]\n"
+        "Description=OpenVPN client %s (ZetronPOC)\n"
+        "After=network-online.target\n"
+        "Wants=network-online.target\n\n"
+        "[Service]\n"
+        "Type=simple\n"
+        "ExecStart=%s\n"
+        "Restart=on-failure\n"
+        "RestartSec=5\n\n"
+        "[Install]\n"
+        "WantedBy=multi-user.target\n"
+    ) % (name, exec_args)
+    path = "/etc/systemd/system/%s" % unit
+    with open(path, "w") as f:
+        f.write(body)
+    _run(["systemctl", "daemon-reload"], timeout=10)
+    _run(["systemctl", "enable", unit], timeout=10)
+
+
+def _ovpn_clients():
+    rc, out, _ = _run(["systemctl", "list-unit-files", "zetronpoc-openvpn-*.service", "--no-legend"], timeout=8)
+    rows = []
+    for line in (out or "").splitlines():
+        parts = line.split()
+        if len(parts) < 1:
+            continue
+        unit = parts[0]
+        if not (unit.startswith("zetronpoc-openvpn-") and unit.endswith(".service")):
+            continue
+        name = unit[len("zetronpoc-openvpn-"):-len(".service")]
+        active = _svc_active(unit)
+        rows.append({"name": name, "type": "openvpn",
+                     "device": "tun" if active == "active" else "",
+                     "state": "activa" if active == "active" else "inactiva"})
+    return rows
+
+
 # ===================== CLIENTE (SALIENTE) =====================
 def list_clients():
+    rows = _ovpn_clients()
     rc, out, err = _run(["nmcli", "-t", "-f", "NAME,TYPE,DEVICE", "connection", "show"], timeout=10)
-    if rc != 0:
-        return {"error": (err or "nmcli no disponible").strip()}
-    rows = []
-    for line in out.splitlines():
-        parts = line.split(":")
-        if len(parts) < 3:
-            continue
-        name, typ, dev = parts[0], parts[1], parts[2]
-        if typ == "vpn" or "vpn" in typ.lower() or typ == "wireguard":
-            rows.append({
-                "name": name, "type": typ,
-                "device": dev if dev != "--" else "",
-                "state": "activa" if (dev and dev != "--") else "inactiva",
-            })
+    if rc == 0:
+        for line in out.splitlines():
+            parts = line.split(":")
+            if len(parts) < 3:
+                continue
+            name, typ, dev = parts[0], parts[1], parts[2]
+            if typ == "vpn" or "vpn" in typ.lower() or typ == "wireguard":
+                # ignorar openvpn de nmcli (usa backend nativo ahora); l2tp/pptp si
+                data_type = ""
+                rc2, out2, _ = _run(["nmcli", "-t", "-f", "vpn.data", "connection", "show", name], timeout=6)
+                if rc2 == 0 and "gateway=" in (out2 or ""):
+                    pass
+                if any(r["name"] == name for r in rows):
+                    continue
+                rows.append({"name": name, "type": typ,
+                             "device": dev if dev != "--" else "",
+                             "state": "activa" if (dev and dev != "--") else "inactiva"})
     return rows
 
 
@@ -90,25 +161,53 @@ def create_client(d):
     if proto not in ("openvpn", "l2tp", "pptp"):
         return {"error": "protocolo invalido (openvpn/l2tp/pptp)"}
     if not gateway and not (proto == "openvpn" and ovpn):
-        return {"error": "falta gateway/servidor"}
-    _run(["nmcli", "connection", "delete", name], timeout=10)
+        return {"error": "falta gateway/servidor o archivo .ovpn"}
 
+    # OpenVPN: backend nativo (systemd), no NetworkManager
     if proto == "openvpn":
-        if ovpn and os.path.exists(ovpn):
-            rc, out, err = _run(["nmcli", "connection", "import", "type", "openvpn", "file", ovpn], timeout=20)
-            if rc == 0:
-                base = os.path.splitext(os.path.basename(ovpn))[0]
-                _run(["nmcli", "connection", "modify", base, "connection.id", name], timeout=10)
-            return {"ok": rc == 0, "salida": out, "error": (err if rc else None)}
-        rc, out, err = _run(["nmcli", "connection", "add", "type", "vpn", "ifname", "",
-                             "con-name", name, "vpn-type", "openvpn"], timeout=15)
-        if rc == 0:
-            data = "remote=%s,connection-type=tls" % gateway
-            _run(["nmcli", "connection", "modify", name, "vpn.data", data], timeout=10)
-            if password:
-                _run(["nmcli", "connection", "modify", name, "vpn.secrets.password", password], timeout=10)
-        return {"ok": rc == 0, "salida": out, "error": (err if rc else None)}
+        os.makedirs(_OVPN_DIR, exist_ok=True)
+        conf_path = _ovpn_conf_path(name)
+        auth_path = _ovpn_auth_path(name)
+        # limpiar import nmcli legacy si existia
+        _run(["nmcli", "connection", "delete", name], timeout=10)
+        try:
+            if ovpn and os.path.exists(ovpn):
+                with open(ovpn, "r", errors="replace") as f:
+                    content = f.read()
+                with open(conf_path, "w") as f:
+                    f.write(content)
+            elif gateway:
+                body = ("client\ndev tun\nproto udp\nremote %s\nresolv-retry infinite\n"
+                        "nobind\npersist-key\npersist-tun\nremote-cert-tls server\n"
+                        "verb 3\n") % gateway
+                with open(conf_path, "w") as f:
+                    f.write(body)
+            else:
+                return {"error": "openvpn requiere archivo .ovpn o gateway"}
+        except PermissionError as e:
+            return {"error": "sin permisos (¿backend como root?): %s" % e}
+        # creds
+        if user and password:
+            try:
+                with open(auth_path, "w") as f:
+                    f.write("%s\n%s\n" % (user, password))
+                os.chmod(auth_path, 0o600)
+            except PermissionError as e:
+                return {"error": "sin permisos auth: %s" % e}
+        else:
+            if os.path.exists(auth_path):
+                try:
+                    os.remove(auth_path)
+                except OSError:
+                    pass
+        try:
+            _write_ovpn_unit(name)
+        except PermissionError as e:
+            return {"error": "sin permisos unit: %s" % e}
+        return {"ok": True, "salida": "Cliente OpenVPN '%s' creado en %s (unit %s). Usa Conectar para arrancar." % (name, conf_path, _ovpn_unit(name))}
 
+    # L2TP/PPTP: NetworkManager (requiere placa managed)
+    _run(["nmcli", "connection", "delete", name], timeout=10)
     if proto == "l2tp":
         rc, out, err = _run(["nmcli", "connection", "add", "type", "vpn", "ifname", "",
                              "con-name", name, "vpn-type", "l2tp"], timeout=15)
@@ -144,6 +243,28 @@ def _parse_vpn_data(raw):
 def get_client(name):
     if not name or not VPN_NAME.match(name):
         return {"error": "nombre invalido"}
+    # OpenVPN nativo
+    if _has_ovpn_unit(name):
+        gateway = ""; user = ""; password = ""
+        try:
+            with open(_ovpn_conf_path(name), "r", errors="replace") as f:
+                for line in f:
+                    if line.strip().startswith("remote ") and not gateway:
+                        gateway = line.split(None, 1)[1].strip()
+            if os.path.exists(_ovpn_auth_path(name)):
+                with open(_ovpn_auth_path(name), "r") as f:
+                    lines = f.read().splitlines()
+                if lines:
+                    user = lines[0]
+                    password = lines[1] if len(lines) > 1 else ""
+        except OSError:
+            pass
+        active = _svc_active(_ovpn_unit(name))
+        return {"name": name, "type": "openvpn", "protocol": "openvpn",
+                "gateway": gateway, "user": user, "password": password,
+                "psk": "", "ovpn_file": _ovpn_conf_path(name),
+                "state": "activa" if active == "active" else "inactiva"}
+    # L2TP/PPTP via NetworkManager
     rc, out, err = _run(["nmcli", "-t", "-f", "connection.type,vpn.data", "connection", "show", name], timeout=10)
     if rc != 0:
         return {"error": (err or "conexion no encontrada").strip()}
@@ -174,6 +295,18 @@ def get_client(name):
 def up(name):
     if not name or not VPN_NAME.match(name):
         return {"error": "nombre invalido"}
+    # OpenVPN nativo
+    if _has_ovpn_unit(name):
+        rc, out, err = _run(["systemctl", "restart", _ovpn_unit(name)], timeout=20)
+        if rc != 0:
+            return {"ok": False, "error": (err or "fallo iniciar").strip()}
+        rc2, out2, _ = _run(["systemctl", "is-active", _ovpn_unit(name)], timeout=5)
+        # dar un par de segundos a openvpn a que establezca
+        import time as _t
+        _t.sleep(3)
+        active = _svc_active(_ovpn_unit(name))
+        return {"ok": active == "active", "salida": "unit %s -> %s" % (_ovpn_unit(name), active),
+                "error": None if active == "active" else "openvpn no activo (ver journalctl -u %s)" % _ovpn_unit(name)}
     rc, out, err = _run(["nmcli", "connection", "up", name], timeout=60)
     return {"ok": rc == 0, "salida": out, "error": (err if rc else None)}
 
@@ -181,6 +314,9 @@ def up(name):
 def down(name):
     if not name or not VPN_NAME.match(name):
         return {"error": "nombre invalido"}
+    if _has_ovpn_unit(name):
+        rc, out, err = _run(["systemctl", "stop", _ovpn_unit(name)], timeout=20)
+        return {"ok": rc == 0, "salida": out, "error": (err if rc else None)}
     rc, out, err = _run(["nmcli", "connection", "down", name], timeout=30)
     return {"ok": rc == 0, "salida": out, "error": (err if rc else None)}
 
@@ -188,8 +324,29 @@ def down(name):
 def delete_client(name):
     if not name or not VPN_NAME.match(name):
         return {"error": "nombre invalido"}
+    ok = True; errs = []
+    had_ovpn = _has_ovpn_unit(name)
+    # OpenVPN nativo
+    if had_ovpn:
+        _run(["systemctl", "stop", _ovpn_unit(name)], timeout=20)
+        _run(["systemctl", "disable", _ovpn_unit(name)], timeout=10)
+        try:
+            os.remove("/etc/systemd/system/%s" % _ovpn_unit(name))
+        except OSError as e:
+            errs.append(str(e))
+        _run(["systemctl", "daemon-reload"], timeout=10)
+        for p in (_ovpn_conf_path(name), _ovpn_auth_path(name)):
+            try:
+                if os.path.exists(p):
+                    os.remove(p)
+            except OSError as e:
+                errs.append(str(e))
+    # L2TP/PPTP (y legacy openvpn nmcli)
     rc, out, err = _run(["nmcli", "connection", "delete", name], timeout=15)
-    return {"ok": rc == 0, "salida": out, "error": (err if rc else None)}
+    if rc != 0 and not had_ovpn:
+        ok = False
+        errs.append((err or "no encontrada").strip())
+    return {"ok": ok, "salida": out if not had_ovpn else "eliminado", "error": "; ".join(errs) if errs else None}
 
 
 # ===================== SERVIDOR (ENTRANTE) =====================
