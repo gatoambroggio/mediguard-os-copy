@@ -306,6 +306,12 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
     mqtt_host = g("mmdvm_mqtt_host", "127.0.0.1")
     mqtt_port = g("mmdvm_mqtt_port", "1883")
     mqtt_name = g("mmdvm_mqtt_name", "host")
+    conn_type = (g("mmdvm_connection_type", "uart")).lower()
+    uart_speed = g("mmdvm_uart_speed", baud) or baud
+    if conn_type == "usb":
+        modem_conn = "BaudeRate=%s\n" % baud
+    else:
+        modem_conn = "Protocol=uart\nUARTPort=%s\nUARTSpeed=%s\n" % (port, uart_speed)
     ini = (
         "# MMDVM.ini - generado por ZetronPOC / MediGuard OS\n"
         "# Modulo MMDVM por puerto serie UART (Protocol=uart)\n\n"
@@ -319,9 +325,7 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
         "POCSAG=%s\n"
         "Display=%s\n\n"
         "[Modem]\n"
-        "Protocol=uart\n"
-        "UARTPort=%s\n"
-        "UARTSpeed=%s\n"
+        "%s"
         "RXFrequency=%s\n"
         "TXFrequency=%s\n"
         "TXInvert=%s\n"
@@ -359,7 +363,7 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
         "[Info]\nEnabled=0\n\n"
         "[Log]\nDisplayLevel=1\nFileLevel=1\nFilePath=/var/log/mmdvm\nFileRoot=MMDVM\n"
     ) % (callsign, callsign.replace(" ", ""), duplex, enable_pocsag, display,
-         port, baud, freq_hz, freq_hz, tx_invert, rx_invert, ptt_invert, ptt_delay,
+         modem_conn, freq_hz, freq_hz, tx_invert, rx_invert, ptt_invert, ptt_delay,
          rx_offset, tx_offset, rx_level, tx_level, rf_level, oscillator,
          enable_pocsag, callsign, mqtt_enable, mqtt_host, mqtt_port, mqtt_name, remote_port,
          dapnet_enable, dapnet_address, dapnet_passcode)
