@@ -375,15 +375,24 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
 
 # ===================== DESTINO / ENVIO =====================
 def resolver_destino(codigo, db_path=DEFAULT_DB):
+    """Devuelve (cap_codes, baudios, funcion) donde funcion es 'numeric' o
+    'alphanumeric'. Para grupos, funcion='numeric' solo si TODOS los miembros
+    son numeric; si hay mezcla o todos alphanumeric, va alphanumeric (evita
+    mandar BCD a un pager alfanumerico)."""
     with get_conn(db_path) as conn:
         row = conn.execute("SELECT cap_code,baudios,funcion FROM pagers WHERE codigo=? AND activo=1", (codigo,)).fetchone()
         if row:
-            return (row["cap_code"], row["baudios"], "individual")
+            return (row["cap_code"], row["baudios"], (row["funcion"] or "alphanumeric").strip().lower() or "alphanumeric")
         grow = conn.execute("SELECT id,baudios FROM grupos WHERE codigo=? AND activo=1", (codigo,)).fetchone()
         if grow:
             members = conn.execute("SELECT cap_code FROM grupo_miembros WHERE grupo_id=? ORDER BY orden", (grow["id"],)).fetchall()
             caps = ",".join(m["cap_code"] for m in members)
-            return (caps, grow["baudios"], "grupo")
+            funcs = []
+            for m in members:
+                prow = conn.execute("SELECT funcion FROM pagers WHERE cap_code=? AND activo=1", (m["cap_code"],)).fetchone()
+                funcs.append((prow["funcion"] or "").strip().lower() if prow else "")
+            funcion = "numeric" if funcs and all(f == "numeric" for f in funcs) else "alphanumeric"
+            return (caps, grow["baudios"], funcion)
         return None
 
 def registrar_bitacora(interno, codigo, cap_code, mensaje, baudios, estado, obs="", cola_id=None, db_path=DEFAULT_DB):

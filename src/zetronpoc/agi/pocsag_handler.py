@@ -58,8 +58,9 @@ def main():
         log("Codigo no encontrado: %s" % codigo)
         if worker: sys.exit(1)
         set_result(False); return
-    caps, baudios, tipo = dest
+    caps, baudios, funcion = dest
     cap_list = [c.strip() for c in str(caps).split(",") if c.strip()]
+    bcd = funcion == "numeric"
 
     # --- IVR: solo encolar, el worker se encarga de transmitir ---
     if not worker:
@@ -81,16 +82,20 @@ def main():
         return
     dispatch_script = os.path.join(APP_DIR, "agi", "dispatch_mqtt.py")
     obs = []
+    modo_desc = "page_bcd" if bcd else "page"
     try:
         env = dict(os.environ, ZETRONPOC_DIR=APP_DIR)
-        r = subprocess.run([sys.executable, dispatch_script, caps, mensaje, str(baudios)],
-                           capture_output=True, text=True, timeout=180, env=env)
+        argv = [sys.executable, dispatch_script]
+        if bcd:
+            argv.append("--bcd")
+        argv += [caps, mensaje, str(baudios)]
+        r = subprocess.run(argv, capture_output=True, text=True, timeout=180, env=env)
         if r.returncode == 0:
             for cap in cap_list:
                 if qid:
-                    actualizar_bitacora_envio(qid, cap, "enviado", "mqtt mmdvmhost")
+                    actualizar_bitacora_envio(qid, cap, "enviado", "mqtt %s" % modo_desc)
                 else:
-                    registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", "mqtt mmdvmhost")
+                    registrar_bitacora(interno, codigo, cap, mensaje, baudios, "enviado", "mqtt %s" % modo_desc)
         else:
             err = (r.stderr or r.stdout or "fallo").strip()[:200]
             for cap in cap_list:
@@ -108,7 +113,7 @@ def main():
                 registrar_bitacora(interno, codigo, cap, mensaje, baudios, "error", err)
         obs.append(err)
     obs_txt = "; ".join(obs)
-    log("Envio MQTT codigo=%s caps=%s msg=%s obs=%s" % (codigo, caps, mensaje, obs_txt or "ok"))
+    log("Envio MQTT codigo=%s caps=%s func=%s msg=%s obs=%s" % (codigo, caps, modo_desc, mensaje, obs_txt or "ok"))
 
 if __name__ == "__main__":
     try:
