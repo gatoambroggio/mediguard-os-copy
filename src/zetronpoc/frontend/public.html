@@ -46,6 +46,12 @@ footer{text-align:center;color:var(--mut);font-size:.78rem;padding:1.4rem 0 .6re
 .tag{display:inline-flex;align-items:center;gap:.4rem;font-size:.72rem;font-weight:700;color:var(--acc3);background:#eef2ff;border:1px solid #c7d2fe;border-radius:999px;padding:.25rem .7rem}
 .hint{font-size:.78rem;font-weight:600;margin-top:.35rem;color:var(--mut)}
 .hint.ok{color:var(--ok)}.hint.err{color:var(--err)}
+.codeList{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.6rem;max-height:220px;overflow:auto}
+.codeItem{display:inline-flex;flex-direction:column;align-items:flex-start;gap:.1rem;background:#f8fafc;border:1px solid var(--line);border-radius:9px;padding:.4rem .65rem;cursor:pointer;transition:.15s;font-family:'Rajdhani';text-align:left}
+.codeItem:hover{border-color:var(--acc3);background:#eef2ff}
+.codeItemCod{font-weight:700;font-size:.85rem;color:var(--acc)}
+.codeItemMeta{font-size:.72rem;color:var(--mut)}
+.codeItem .tag{margin-left:.3rem}
 </style></head>
 <body>
 <div class="wrap">
@@ -64,6 +70,7 @@ footer{text-align:center;color:var(--mut);font-size:.78rem;padding:1.4rem 0 .6re
           <input id="codigo" name="codigo" list="dl" placeholder="ej: TEST01 o MEDICOS" autocomplete="off" required>
           <datalist id="dl"></datalist>
           <div id="codesHint" class="hint">cargando códigos…</div>
+          <div id="codeList" class="codeList"></div>
         </div>
         <div>
           <label for="plantilla">Plantilla (opcional)</label>
@@ -91,39 +98,54 @@ const res = $("#res");
 function show(cls, txt){ res.className = "msg show " + cls; res.textContent = txt; }
 function fmtEstado(e){ return ({enviado:"b-env",encolado:"b-enc",error:"b-err",fallido:"b-fall"}[e]) || "b-enc"; }
 
-async function loadCatalog(){
+async function _fetchCatalog(url){
   try{
-    const [ps, gs, pls] = await Promise.all([
-      fetch("/api/pagers?q=").then(r=>r.ok?r.json():[]).catch(()=>[]),
-      fetch("/api/grupos?q=").then(r=>r.ok?r.json():[]).catch(()=>[]),
-      fetch("/api/plantillas").then(r=>r.ok?r.json():[]).catch(()=>[])
-    ]);
-    const dl = $("#dl");
-    const all = [...(ps||[]),...(gs||[])];
-    all.forEach(p=>{
-      const o=document.createElement("option");
-      o.value = p.codigo;
-      o.label = (p.descripcion||p.nombre||"") + (p.cap_code?(" · cap "+p.cap_code):"");
-      dl.appendChild(o);
-    });
-    const hint = $("#codesHint");
-    if(hint){
-      if(all.length){
-        hint.textContent = all.length + " código(s) cargados · escribí para autocompletar";
-        hint.className = "hint ok";
-      }else{
-        hint.textContent = "No se cargaron códigos. Ejecutá en el servidor: curl -fsSL https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador.sh | sudo bash -s -- --update";
-        hint.className = "hint err";
-      }
-    }
-    const sel = $("#plantilla");
-    (pls||[]).filter(p=>p.activo).forEach(p=>{
-      const o=document.createElement("option");
-      o.value = p.id; o.textContent = p.nombre;
-      o.dataset.msg = p.mensaje || "";
-      sel.appendChild(o);
-    });
-  }catch(e){ const h=$("#codesHint"); if(h){h.textContent="Error al cargar códigos";h.className="hint err";} }
+    const r = await fetch(url);
+    if(!r.ok){ return {err:"HTTP "+r.status, body:(await r.text()).slice(0,180)}; }
+    return {data: await r.json()};
+  }catch(e){ return {err:"red", body:e.message}; }
+}
+async function loadCatalog(){
+  const dl=$("#dl"), list=$("#codeList"), hint=$("#codesHint");
+  const [p,g,pl] = await Promise.all([_fetchCatalog("/api/pagers?q="),_fetchCatalog("/api/grupos?q="),_fetchCatalog("/api/plantillas")]);
+  const errs=[p,g].filter(x=>x.err).map(x=>x.err+": "+x.body);
+  if(errs.length){
+    if(hint){ hint.textContent="Error al cargar códigos → "+errs.join(" | "); hint.className="hint err"; }
+    if(list) list.innerHTML="";
+    return;
+  }
+  const all=[...(p.data||[]),...(g.data||[])];
+  dl.innerHTML="";
+  all.forEach(x=>{
+    const o=document.createElement("option");
+    o.value=x.codigo;
+    o.label=(x.descripcion||x.nombre||"")+(x.cap_code?(" · cap "+x.cap_code):"");
+    dl.appendChild(o);
+  });
+  if(list){
+    list.innerHTML = all.length ? all.map(x=>{
+      const label=(x.descripcion||x.nombre||"").replace(/</g,"&lt;");
+      const cap=x.cap_code?(" · cap "+x.cap_code):"";
+      const esc=(x.codigo||"").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+      const tipo=x.miembros?"grupo":"pager";
+      return `<button type="button" class="codeItem" data-codigo="${esc}"><span class="codeItemCod">${(x.codigo||"").replace(/</g,"&lt;")} <span class="tag">${tipo}</span></span><span class="codeItemMeta">${label}${cap}</span></button>`;
+    }).join("") : '<div class="empty">sin códigos cargados · agregá pagers desde el panel admin</div>';
+    list.querySelectorAll(".codeItem").forEach(b=>b.addEventListener("click",()=>{
+      $("#codigo").value=b.dataset.codigo;
+      $("#mensaje").focus();
+    }));
+  }
+  if(hint){
+    if(all.length){ hint.textContent=all.length+" código(s) cargados · hacé clic o escribí"; hint.className="hint ok"; }
+    else { hint.textContent="No hay códigos cargados. Agregá pagers desde el panel admin (pestaña Pagers)."; hint.className="hint err"; }
+  }
+  const sel=$("#plantilla");
+  (pl.data||[]).filter(t=>t.activo).forEach(t=>{
+    const o=document.createElement("option");
+    o.value=t.id; o.textContent=t.nombre;
+    o.dataset.msg=t.mensaje||"";
+    sel.appendChild(o);
+  });
 }
 
 async function loadHist(){
