@@ -7,7 +7,7 @@ import path from 'node:path'
 // Resolve + load non-JS text files (.sh, .py, .html, .sql, ...) imported via the
 // @/ alias so the base44 plugin never gets to parse them as JavaScript.
 function rawTextFallback() {
-  const nonJs = ['sh','py','html','txt','sql','conf','ini','toml','yaml','yml','c','h','service','md']
+  const nonJs = ['sh','py','html','txt','sql','conf','ini','toml','yaml','yml','c','h','service','md','patch','diff']
   const root = process.cwd()
   const extOf = (p) => p.split('.').pop()?.toLowerCase()
   return {
@@ -115,5 +115,5 @@ export default defineConfig({
     }),
     react()
   ],
-  assetsInclude: ['**/*.sh','**/*.py','**/*.html','**/*.sql','**/*.conf','**/*.service','**/*.txt','**/*.ini','**/*.toml','**/*.yaml','**/*.yml']
+  assetsInclude: ['**/*.sh','**/*.py','**/*.html','**/*.sql','**/*.conf','**/*.service','**/*.txt','**/*.ini','**/*.toml','**/*.yaml','**/*.yml','**/*.patch','**/*.diff']
 });
