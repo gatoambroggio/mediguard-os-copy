@@ -241,7 +241,7 @@ def diag_config_check():
     txlevel = g("Modem", "TXLevel", "50")
     out["checks"].append({"k": "Modem TXLevel", "v": txlevel, "ok": True,
                           "hint": "si hay over-deviation, probar 25-35"})
-    # version MMDVMHost
+    # version MMDVMHost — parsea la fecha (ej: "MMDVM-Host version 20260713 git #...")
     ver = "no disponible"
     for cand in ["/usr/local/bin/MMDVM-Host", "MMDVMHost", "MMDVM-Host"]:
         try:
@@ -252,8 +252,22 @@ def diag_config_check():
                 break
         except Exception:
             continue
-    out["checks"].append({"k": "MMDVMHost version", "v": ver, "ok": True,
-                          "hint": "soporte MQTT page es reciente; version muy vieja puede no procesar el comando"})
+    _vmatch = re.search(r'(\d{8})', ver)
+    _vok = True
+    _vhint = "version: %s" % ver
+    if _vmatch:
+        _vdate = _vmatch.group(1)
+        try:
+            _vy = int(_vdate[:4])
+            if _vy >= 2024:
+                _vok = True
+                _vhint = "version reciente (%s): soporta page y page_bcd por MQTT" % _vdate
+            else:
+                _vok = False
+                _vhint = "version vieja (%s): puede no procesar page_bcd; actualizar con instalador_mmdvm.sh" % _vdate
+        except Exception:
+            pass
+    out["checks"].append({"k": "MMDVMHost version", "v": ver, "ok": _vok, "hint": _vhint})
     # [MQTT] section — si no esta habilitado o el Name no coincide, dispatch_mqtt publica al vacio
     mqtt_en = g("MQTT", "Enable", "0")
     out["checks"].append({"k": "MQTT Enable", "v": mqtt_en or "0", "ok": (mqtt_en == "1"),
