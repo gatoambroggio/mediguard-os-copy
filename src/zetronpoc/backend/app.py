@@ -227,6 +227,11 @@ def diag_config_check():
     pocsag_enable = g("POCSAG", "Enable", "0")
     out["checks"].append({"k": "POCSAG Enable", "v": pocsag_enable or "0", "ok": (pocsag_enable == "1"),
                           "hint": "debe ser 1; el baud POCSAG lo define el firmware del MMDVM, no el .ini"})
+    # test_mode=1 es el #1 motivo de 'el pager no recibe nada': pocsag_handler.py
+    # NO transmite por MMDVM (solo loguea 'modo test'). Es config de la BD, no del .ini.
+    test_mode = db.get_config("test_mode", "0")
+    out["checks"].append({"k": "Modo prueba (test_mode)", "v": test_mode or "0", "ok": (test_mode == "0"),
+                          "hint": "CRITICO: si es 1, pocsag_handler.py NO transmite (solo loguea 'modo test') -> el pager NUNCA recibe. Pasar a 0 en Parametros > IVR > Modo prueba."})
     txinvert = g("Modem", "TXInvert", "0")
     out["checks"].append({"k": "Modem TXInvert", "v": txinvert, "ok": (txinvert == "1"),
                           "hint": "Jumbospot requiere 1 (polaridad FSK)"})
@@ -313,8 +318,11 @@ def diag_config_check():
                           "hint": "2=display-in+command (OK). 1=solo display-in -> RemoteControl OFF en el .ini vivo -> service stale. Fix: sobreescribir /etc/systemd/system/mmdvmhost.service con ExecStart apuntando a /opt/zetronpoc/mmdvm/MMDVM.ini + Aplicar a la placa."})
     return out
 
-def diag_test_page(cap, mensaje):
-    """Dispara un page real via dispatch_mqtt.py para observar la respuesta OK/KO."""
+def diag_test_page(cap, mensaje, funcion="alphanumeric"):
+    """Dispara un page real via dispatch_mqtt.py para observar la respuesta OK/KO.
+    funcion='numeric' -> page_bcd (func 0, BCD) para pagers numericos (NP88).
+    funcion='alphanumeric' -> page (func 3, packASCII) para pagers alfanumericos.
+    Si MMDVMHost es viejo (sin PAGE_BCD), page_bcd responde 'Invalid remote command'."""
     script = os.path.join(APP_DIR, "agi", "dispatch_mqtt.py")
     if not os.path.exists(script):
         return {"ok": False, "error": "dispatch_mqtt.py no encontrado en %s" % script}
@@ -322,12 +330,17 @@ def diag_test_page(cap, mensaje):
         cap_int = int(str(cap).split(",")[0])
     except (ValueError, TypeError):
         return {"ok": False, "error": "cap invalido: %s" % str(cap)[:80]}
+    bcd = (str(funcion).strip().lower() == "numeric")
     try:
         env = dict(os.environ, ZETRONPOC_DIR=APP_DIR)
-        r = subprocess.run([sys.executable, script, str(cap_int), str(mensaje or "TEST"), "1200"],
-                           capture_output=True, text=True, timeout=15, env=env)
+        argv = [sys.executable, script]
+        if bcd:
+            argv.append("--bcd")
+        argv += [str(cap_int), str(mensaje or "TEST"), "1200"]
+        r = subprocess.run(argv, capture_output=True, text=True, timeout=15, env=env)
         return {"ok": r.returncode == 0, "stdout": (r.stdout or "").strip()[:500],
-                "stderr": (r.stderr or "").strip()[:500], "rc": r.returncode}
+                "stderr": (r.stderr or "").strip()[:500], "rc": r.returncode, "bcd": bcd,
+                "comando": "page_bcd" if bcd else "page"}
     except Exception as e:
         return {"ok": False, "error": str(e)[:200]}
 
@@ -470,9 +483,10 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/diagnostico/test_page":
             cap = d.get("cap", "1234567")
             msg = d.get("mensaje", "TEST")
-            res = diag_test_page(cap, msg)
-            aud(self, "test_page", "diagnostico", str(cap), "rc=%s ok=%s" % (res.get("rc", "-"), res.get("ok")))
-            evlog(self, "info", "diag", "test_page cap=%s ok=%s" % (cap, res.get("ok")))
+            funcion = d.get("funcion", "alphanumeric")
+            res = diag_test_page(cap, msg, funcion)
+            aud(self, "test_page", "diagnostico", str(cap), "func=%s rc=%s ok=%s" % (funcion, res.get("rc", "-"), res.get("ok")))
+            evlog(self, "info", "diag", "test_page cap=%s func=%s ok=%s" % (cap, funcion, res.get("ok")))
             return jok(self, res)
         if p == "/api/mmdvm/apply":
             for k, v in d.items():
