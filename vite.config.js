@@ -50,7 +50,22 @@ function rawTextFallback() {
     },
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        const u = (req.url || '').split('?')[0];
+        const full = req.url || ''
+        // Direct browser navigation to <file>?raw -> return content as ESM string module
+        if (/[?&]raw(=|$)/.test(full)) {
+          const ru = full.split('?')[0]
+          const filePath = path.resolve(root, ru.replace(/^\//, ''))
+          try {
+            if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+              const content = fs.readFileSync(filePath, 'utf-8')
+              res.setHeader('Content-Type', 'text/javascript; charset=utf-8')
+              res.end('export default ' + JSON.stringify(content))
+              return
+            }
+          } catch (e) {}
+          next(); return
+        }
+        const u = full.split('?')[0];
         if (u === '/instalador.sh') {
           try {
             const c = fs.readFileSync(path.resolve(root, 'instalador.sh'));
@@ -87,8 +102,11 @@ function rawTextFallback() {
     },
     load(id) {
       if (!id) return null
+      const hasQuery = /[?#]/.test(id)
       const filePath = id.replace(/[?#].*$/, '')
-      if (filePath.endsWith('/index.html')) return null
+      // Only skip the root Vite entry (index.html with no query); nested
+      // index.html?raw imports must be handled as raw text below.
+      if (!hasQuery && filePath.endsWith('/index.html')) return null
       if (!nonJs.includes(extOf(filePath))) return null
       try {
         const content = fs.readFileSync(filePath, 'utf-8')

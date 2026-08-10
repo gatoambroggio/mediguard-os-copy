@@ -596,7 +596,22 @@ class Handler(BaseHTTPRequestHandler):
             for k, v in d.items(): db.set_config(k, "" if v is None else str(v))
             aud(self, "guardar", "config", "", "keys=%s" % ",".join(keys)[:200])
             evlog(self, "info", "config", "guardar %d keys" % len(keys))
-            return jok(self, {"ok": True})
+            # Si se guardaron claves mmdvm_*, regenerar MMDVM.ini y reiniciar mmdvmhost
+            mmdvm_aplicado = False; mmdvm_msg = ""; mmdvm_error = ""
+            if any(k.startswith("mmdvm_") for k in keys):
+                ok, msg = db.generar_mmdvm_ini()
+                if ok:
+                    try:
+                        r = subprocess.run(["systemctl", "restart", "mmdvmhost"], capture_output=True, text=True, timeout=20)
+                        if r.returncode == 0:
+                            mmdvm_aplicado = True; mmdvm_msg = "MMDVM.ini regenerado y mmdvmhost reiniciado"
+                        else:
+                            mmdvm_error = "fallo reiniciar mmdvmhost: %s" % (r.stderr or r.stdout or "")[:160]
+                    except Exception as e:
+                        mmdvm_error = "systemctl no disponible: %s" % str(e)[:120]
+                else:
+                    mmdvm_error = "fallo generar MMDVM.ini: %s" % msg
+            return jok(self, {"ok": True, "mmdvm_aplicado": mmdvm_aplicado, "mmdvm_msg": mmdvm_msg, "mmdvm_error": mmdvm_error})
         m = re.match(r'/api/extensions/(\d+)$', p)
         if m:
             db.actualizar_extension(int(m.group(1)), d)
