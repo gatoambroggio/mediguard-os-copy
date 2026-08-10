@@ -106,9 +106,7 @@ export default async function(req) {
     );
     const newTreeSha = tree.sha;
 
-    // 5. commit
-    const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    const branchName = `publish/${ts}`;
+    // 5. commit on top of main
     const commitMsg = body.commit_message || `chore: sync ZetronPOC source (${mode}) · ${new Date().toISOString()}`;
     const commit = await gh(
       `/repos/${owner}/${repo}/git/commits`,
@@ -117,41 +115,18 @@ export default async function(req) {
     );
     const commitSha = commit.sha;
 
-    // 6. create branch ref
+    // 6. fast-forward main directly (no PR merge step) so the server's
+    //    instalador.sh / pullupdate.sh (which read raw main) pick it up immediately
     await gh(
-      `/repos/${owner}/${repo}/git/refs`,
-      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ref: `refs/heads/${branchName}`, sha: commitSha }) },
-      accessToken
-    );
-
-    // 7. open PR
-    const pr = await gh(
-      `/repos/${owner}/${repo}/pulls`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: `Sync ZetronPOC (${mode}) · ${new Date().toLocaleString("es-AR")}`,
-          head: branchName,
-          base: "main",
-          body: [
-            "Sincronizacion automatica del source desde Base44.",
-            "",
-            `- Archivos: ${files.length}`,
-            `- Commit: ${commitSha.slice(0, 7)}`,
-            `- Modo: ${mode}`,
-            "",
-            "Mergea este PR a `main` para que el servidor tome los cambios con `pullupdate.sh` / `instalador.sh --update`.",
-          ].join("\n"),
-        }),
-      },
+      `/repos/${owner}/${repo}/git/refs/heads/main`,
+      { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sha: commitSha }) },
       accessToken
     );
 
     return Response.json({
       ok: true,
-      pr_url: pr.html_url,
-      branch: branchName,
+      commit_url: `https://github.com/${owner}/${repo}/commit/${commitSha}`,
+      branch: "main",
       files_count: files.length,
       commit_sha: commitSha,
       mode,
