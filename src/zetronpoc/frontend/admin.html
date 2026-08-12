@@ -350,7 +350,32 @@ tbody tr:hover{background:#f1f5f9!important}
       </div>
 
       <div class="row" style="align-items:stretch">
-        <!-- Tarjeta 1: Respuestas MQTT + page de prueba -->
+        <!-- Tarjeta 1: Diagnostico por codigo (buscable) -->
+        <div class="card" style="margin-bottom:0">
+          <h2><span>🔎 Diagnóstico por código</span></h2>
+          <div class="hint" style="margin-bottom:.7rem">Buscá el <b>código</b> del pager y seleccionalo. Se resuelve el <b>CAPCODE</b> automáticamente y, al pulsar <b>Enviar código</b>, se transmite el <b>número de código como mensaje</b> usando la función del pager (alfanumérico → <b>page</b>, numérico → <b>page_bcd</b>).</div>
+          <div class="row" style="margin-bottom:.6rem">
+            <div><label>Código</label>
+            <div style="position:relative"><input id="diag_code" autocomplete="off" placeholder="Buscar código..."><ul id="diag_code_list" style="position:absolute;z-index:6;left:0;right:0;margin-top:.2rem;background:var(--bg2);border:1px solid var(--line);border-radius:10px;max-height:280px;overflow:auto;list-style:none;padding:.3rem;display:none"></ul></div></div>
+            <div><label>CAPCODE resuelto</label><input id="diag_code_cap" readonly style="opacity:.7"></div>
+            <div><label>Función detectada</label><input id="diag_code_func" readonly style="opacity:.7"></div>
+          </div>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem">
+            <button class="btn btn-pri btn-sm" onclick="diagSendByCode()">🚀 Enviar código</button>
+          </div>
+          <pre id="diag_code_out">Esperando…</pre>
+        </div>
+
+        <!-- Tarjeta 2: Log MMDVMHost -->
+        <div class="card" style="margin-bottom:0">
+          <h2><span>📜 Log MMDVMHost</span><button class="btn btn-sec btn-sm" onclick="loadDiagMmdvm()">↻</button></h2>
+          <div class="hint" style="margin-bottom:.7rem">Filtrado: <b>pocsag / remote command / NAK / transmitted / page</b>. Busca <b>Valid remote command ... Transmitted POCSAG</b> sin NAK.</div>
+          <pre id="diag_mmdvm_out">Esperando…</pre>
+        </div>
+      </div>
+
+      <div class="row" style="align-items:stretch;margin-top:1.2rem">
+        <!-- Tarjeta 3: Respuestas MQTT + page de prueba -->
         <div class="card" style="margin-bottom:0">
           <h2><span>📡 Respuestas MQTT (host/response)</span><button class="btn btn-sec btn-sm" onclick="loadDiagMqtt()">↻</button></h2>
           <div class="hint" style="margin-bottom:.7rem">Captura 2s on-demand del topic <b>host/response</b>. <b>OK</b>=comando aceptado por MMDVMHost · <b>KO</b>=rechazado.</div>
@@ -365,45 +390,20 @@ tbody tr:hover{background:#f1f5f9!important}
           <pre id="diag_mqtt_out">Esperando…</pre>
         </div>
 
-        <!-- Tarjeta 2: Log MMDVMHost -->
-        <div class="card" style="margin-bottom:0">
-          <h2><span>📜 Log MMDVMHost</span><button class="btn btn-sec btn-sm" onclick="loadDiagMmdvm()">↻</button></h2>
-          <div class="hint" style="margin-bottom:.7rem">Filtrado: <b>pocsag / remote command / NAK / transmitted / page</b>. Busca <b>Valid remote command ... Transmitted POCSAG</b> sin NAK.</div>
-          <pre id="diag_mmdvm_out">Esperando…</pre>
-        </div>
-      </div>
-
-      <div class="row" style="align-items:stretch;margin-top:1.2rem">
-        <!-- Tarjeta 3: Check de config -->
+        <!-- Tarjeta 4: Check de config -->
         <div class="card" style="margin-bottom:0">
           <h2><span>⚙ Check de config (.ini real)</span><button class="btn btn-sec btn-sm" onclick="loadDiagConfig()">↻</button></h2>
           <div class="hint" style="margin-bottom:.7rem">Valida el MMDVM.ini aplicado. <b style="color:var(--err)">Rojo</b>=desviacion respecto a Jumbospot.</div>
           <div id="diag_cfg_out" style="display:flex;flex-direction:column;gap:.5rem">Esperando…</div>
         </div>
+      </div>
 
-        <!-- Tarjeta 4: Log dispatch -->
+      <div class="row" style="align-items:stretch;margin-top:1.2rem">
+        <!-- Tarjeta 5: Log dispatch -->
         <div class="card" style="margin-bottom:0">
           <h2><span>📤 Log dispatch_mqtt</span><button class="btn btn-sec btn-sm" onclick="loadDiagDispatch()">↻</button></h2>
           <div class="hint" style="margin-bottom:.7rem">Payload exacto enviado: <b>page &lt;cap&gt; &lt;msg&gt;</b> o <b>page_bcd &lt;cap&gt; &lt;digits&gt;</b>. Detecta truncamientos o errores de mosquitto_pub.</div>
           <pre id="diag_dispatch_out">Esperando…</pre>
-        </div>
-      </div>
-
-      <div class="row" style="align-items:stretch;margin-top:1.2rem">
-        <!-- Tarjeta 5: Diagnostico por codigo -->
-        <div class="card" style="margin-bottom:0">
-          <h2><span>🔎 Diagnóstico por código</span></h2>
-          <div class="hint" style="margin-bottom:.7rem">Ingresá el <b>código</b> del pager (ej. 99). Se resuelve el <b>CAPCODE</b> asociado y se transmite un page con el <b>mensaje igual al código</b> ingresado.</div>
-          <div class="row" style="margin-bottom:.6rem">
-            <div><label>Código</label><input id="diag_code" placeholder="ej: 99"></div>
-            <div><label>CAPCODE resuelto</label><input id="diag_code_cap" readonly style="opacity:.7"></div>
-          </div>
-          <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem">
-            <button class="btn btn-sec btn-sm" onclick="diagResolveCode()">Resolver CAPCODE</button>
-            <button class="btn btn-pri btn-sm" onclick="diagTestByCode('alphanumeric')">🚀 Enviar page (código)</button>
-            <button class="btn btn-warn btn-sm" onclick="diagTestByCode('numeric')">🚀 Enviar page_bcd (código)</button>
-          </div>
-          <pre id="diag_code_out">Esperando…</pre>
         </div>
       </div>
     </div>
@@ -656,9 +656,12 @@ function refreshDiagAll(){if(diagAutoOn)loadDiagAll();}
 async function diagTestPage(funcion){funcion=funcion||'alphanumeric';const cap=document.getElementById('diag_cap').value.trim()||'1234567';const msg=document.getElementById('diag_msg').value.trim()||'TEST';const el=document.getElementById('diag_mqtt_out');const cmd=funcion==='numeric'?('page_bcd '+cap+' '+msg):('page '+cap+' '+msg);el.textContent='Disparando '+cmd+' ...';try{const r=await api('POST','/api/diagnostico/test_page',{cap:cap,mensaje:msg,funcion:funcion});el.textContent='>>> '+cmd+'\nrc='+(r&&r.rc!=null?r.rc:'-')+' ok='+(r&&r.ok)+'\nstdout: '+(r&&r.stdout||'')+'\nstderr: '+(r&&r.stderr||'')+(r&&r.error?'\nerror: '+r.error:'');}catch(e){el.textContent='Error: '+e.message;}// refresca todo para capturar la respuesta MQTT
   setTimeout(()=>{loadDiagAll();},800);setTimeout(()=>{loadDiagAll();},2500);}
 
-// Diagnostico por codigo: resuelve pager por codigo y transmite page con mensaje=codigo
-async function diagResolveCode(){const code=document.getElementById('diag_code').value.trim();const out=document.getElementById('diag_code_out');if(!code){out.textContent='Ingrese un código';return;}try{const r=await api('GET','/api/pagers?q='+encodeURIComponent(code));const p=(r||[]).find(x=>String(x.codigo)===String(code));if(!p){out.textContent='No se encontro pager con código "'+code+'"';document.getElementById('diag_code_cap').value='';return;}document.getElementById('diag_code_cap').value=p.cap_code||'';out.textContent='Código: '+p.codigo+' → CAPCODE: '+(p.cap_code||'-')+' · Función: '+(p.funcion||'alphanumeric')+(p.activo?'':' (INACTIVO)');}catch(e){out.textContent='Error: '+e.message;}}
-async function diagTestByCode(funcion){const code=document.getElementById('diag_code').value.trim();const out=document.getElementById('diag_code_out');if(!code){out.textContent='Ingrese un código';return;}let cap=document.getElementById('diag_code_cap').value.trim();if(!cap){try{const r=await api('GET','/api/pagers?q='+encodeURIComponent(code));const p=(r||[]).find(x=>String(x.codigo)===String(code));if(p)cap=p.cap_code||'';}catch(e){}}if(!cap){out.textContent='No se encontro CAPCODE para el código "'+code+'". Pulse Resolver CAPCODE primero.';return;}const msg=code;const cmd=funcion==='numeric'?('page_bcd '+cap+' '+msg):('page '+cap+' '+msg);out.textContent='Disparando '+cmd+' ...';try{const r=await api('POST','/api/diagnostico/test_page',{cap:cap,mensaje:msg,funcion:funcion});out.textContent='>>> '+cmd+'\nrc='+(r&&r.rc!=null?r.rc:'-')+' ok='+(r&&r.ok)+'\nstdout: '+(r&&r.stdout||'')+'\nstderr: '+(r&&r.stderr||'')+(r&&r.error?'\nerror: '+r.error:'');}catch(e){out.textContent='Error: '+e.message;}setTimeout(()=>{loadDiagAll();},800);setTimeout(()=>{loadDiagAll();},2500);}
+// Diagnostico por codigo: buscable, autodetecta funcion, un solo boton (mensaje=codigo)
+let diagCodePager=null,diagCodeTimer=null;
+(function(){const el=document.getElementById('diag_code');if(!el)return;el.addEventListener('input',()=>{clearTimeout(diagCodeTimer);diagCodeTimer=setTimeout(async()=>{const q=el.value.trim();const r=await api('GET','/api/pagers'+(q?('?q='+encodeURIComponent(q)):''));const ul=document.getElementById('diag_code_list');ul.innerHTML=(r||[]).map(x=>`<li onclick="pickDiagCode(${x.id})" style="padding:.5rem .6rem;border-radius:7px;cursor:pointer;display:flex;justify-content:space-between;gap:.5rem"><span>${x.codigo} · ${((x.nombre||'')+' '+(x.apellido||'')).trim()}</span><span class="mono" style="color:var(--mut);font-size:.78rem">${x.cap_code} · ${x.funcion||''}${x.activo?'':' ⛔'}</span></li>`).join('');ul.style.display=(r||[]).length?'block':'none';},180);});})();
+document.addEventListener('click',e=>{if(e.target.id!=='diag_code'){const ul=document.getElementById('diag_code_list');if(ul)ul.style.display='none';}});
+async function pickDiagCode(id){let p=null;try{const r=await api('GET','/api/pagers');p=(r||[]).find(x=>x.id===id);}catch(e){}if(!p)return;diagCodePager=p;document.getElementById('diag_code').value=p.codigo+' · '+((p.nombre||'')+' '+(p.apellido||'')).trim()+' ('+p.cap_code+')';document.getElementById('diag_code_cap').value=p.cap_code||'';document.getElementById('diag_code_func').value=p.funcion||'alphanumeric';document.getElementById('diag_code_list').style.display='none';}
+async function diagSendByCode(){const out=document.getElementById('diag_code_out');if(!diagCodePager){out.textContent='Seleccione un código de la lista';return;}const cap=diagCodePager.cap_code||'';if(!cap){out.textContent='El pager seleccionado no tiene CAPCODE';return;}const msg=diagCodePager.codigo;const func=diagCodePager.funcion||'alphanumeric';const numeric=(func==='numeric');const cmd=numeric?('page_bcd '+cap+' '+msg):('page '+cap+' '+msg);out.textContent='Disparando '+cmd+' (función: '+func+') ...';try{const r=await api('POST','/api/diagnostico/test_page',{cap:cap,mensaje:msg,funcion:numeric?'numeric':'alphanumeric'});out.textContent='>>> '+cmd+'\nrc='+(r&&r.rc!=null?r.rc:'-')+' ok='+(r&&r.ok)+'\nstdout: '+(r&&r.stdout||'')+'\nstderr: '+(r&&r.stderr||'')+(r&&r.error?'\nerror: '+r.error:'');}catch(e){out.textContent='Error: '+e.message;}setTimeout(()=>{loadDiagAll();},800);setTimeout(()=>{loadDiagAll();},2500);}
 
 // Reloj del servidor (hora real del backend, no del navegador)
 let srvBaseTs=null,srvBaseMs=null,srvClockTimer=null;
