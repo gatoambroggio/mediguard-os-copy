@@ -672,6 +672,50 @@ def limpiar_cola(db_path=DEFAULT_DB):
     with get_conn(db_path) as conn:
         conn.execute("DELETE FROM cola_envios WHERE estado='enviado'")
 
+def _mmdvm_log_path():
+    """Ruta al MMDVM-*.log mas reciente (donde MMDVMHost escribe 'Transmitted POCSAG')."""
+    import glob
+    try:
+        files = sorted(glob.glob(os.path.join("/var/log/mmdvm", "MMDVM-*.log")), reverse=True)
+        if files:
+            return files[0]
+    except Exception:
+        pass
+    return None
+
+def _log_marker(path):
+    """Byte offset hasta donde ya se leyo del log (para solo mirar lineas NUEVAS)."""
+    try:
+        return os.path.getsize(path)
+    except Exception:
+        return 0
+
+def _wait_transmitted(path, marker, timeout=20, poll=0.5):
+    """Espera a que MMDVMHost termine la portacion POCSAG real (PTT abajo).
+    Busca en las lineas NUEVAS del log (desde 'marker') un 'Transmitted POCSAG'
+    (exito) o un 'NAK'/'Invalid remote command' (fallo). Devuelve (ok, detalle).
+    Si no hay log o se agota el timeout, devuelve (None, 'sin confirmacion') para
+    que el worker no se trabe: el resultado del handler (publish MQTT) ya decido ok/fallo."""
+    if not path:
+        return None, "sin log MMDVM"
+    import time as _t
+    deadline = _t.time() + timeout
+    while _t.time() < deadline:
+        try:
+            with open(path, "r", errors="replace") as f:
+                f.seek(marker)
+                nuevas = f.read().splitlines()
+        except Exception:
+            nuevas = []
+        for ln in nuevas:
+            low = ln.lower()
+            if "transmitted pocsag" in low:
+                return True, ln.strip()[:200]
+            if "nak" in low or "invalid remote command" in low:
+                return False, ln.strip()[:200]
+        _t.sleep(poll)
+    return None, "timeout esperando fin de transmision"
+
 def procesar_siguiente_cola(db_path=DEFAULT_DB):
     handler = os.path.join(os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc"), "agi", "pocsag_handler.py")
     if not os.path.exists(handler):
@@ -686,6 +730,9 @@ def procesar_siguiente_cola(db_path=DEFAULT_DB):
         conn.execute("UPDATE cola_envios SET estado='enviando', intentos=intentos+1 WHERE id=?", (row["id"],))
         conn.commit()
     item = dict(row)
+    # Marcador del log ANTES de publicar: solo miraremos lineas nuevas tras el page
+    _logp = _mmdvm_log_path()
+    _logmark = _log_marker(_logp)
     try:
         env = dict(os.environ, ZETRONPOC_DIR="/opt/zetronpoc", POCSAG_WORKER="1")
         rc = subprocess.run([sys.executable, handler, item["origen"] or "cola", item["codigo"], item["mensaje"], str(item["id"])],
@@ -694,6 +741,15 @@ def procesar_siguiente_cola(db_path=DEFAULT_DB):
         obs = "" if ok else (rc.stderr or rc.stdout or "fallo").strip()[:200]
     except Exception as e:
         ok = False; obs = str(e)[:200]
+    # Esperar el fin real de la portacion RF (PTT abajo) antes de tomar el
+    # siguiente item: evita que MMDVMHost apile varios pages en un mismo PTT
+    # y mande "toda la cadena del mensaje" pegada. Si el publish MQTT fallo,
+    # no esperamos (no habra Transmitted). timeout de seguridad para no trabar.
+    if ok:
+        wok, wdet = _wait_transmitted(_logp, _logmark, timeout=20)
+        if wok is False:
+            ok = False
+            obs = ("NAK/rechazado por MMDVM: " + wdet)[:200]
     with get_conn(db_path) as conn:
         if ok:
             conn.execute("UPDATE cola_envios SET estado='enviado', fecha_procesado=datetime('now','localtime'), "
