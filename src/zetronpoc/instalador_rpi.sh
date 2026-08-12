@@ -79,15 +79,15 @@ ensure_asterisk() {
   if apt-cache show asterisk >/dev/null 2>&1 && apt-get install -y asterisk 2>&1 >/dev/null; then
     log "asterisk instalado via apt (tras habilitar Raspbian main)."; return 0
   fi
-  warn "apt no pudo instalar asterisk. Compilando Asterisk 20 LTS desde fuente (puede tardar 30-60 min)..."
+  warn "apt no pudo instalar asterisk. Compilando Asterisk 22 LTS desde fuente (puede tardar 30-60 min)..."
   apt-get install -y build-essential libsqlite3-dev libedit-dev libxml2-dev \
     uuid-dev libssl-dev wget tar pkg-config 2>&1 >/dev/null || true
   local AB="/tmp/asterisk-build"
   rm -rf "$AB"; mkdir -p "$AB"; cd "$AB"
-  wget -q "https://downloads.asterisk.org/pub/telephony/asterisk/asterisk-20-current.tar.gz" -O ast.tar.gz \
+  wget -q "https://downloads.asterisk.org/pub/telephony/asterisk/asterisk-22-current.tar.gz" -O ast.tar.gz \
     || { err "No se pudo descargar el tarball de Asterisk."; return 1; }
   tar xzf ast.tar.gz
-  cd asterisk-20*/
+  cd asterisk-22*/
   # --with-pjproject-bundled: ZetronPOC usa PJSIP para registrarse contra la
   # central del hospital. Sin este flag, si el sistema no tiene libpjproject-dev
   # instalada, Asterisk compila SIN modulo chan_pjsip y el pjsip.conf es inutil.
