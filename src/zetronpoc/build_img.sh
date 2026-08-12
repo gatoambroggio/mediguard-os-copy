@@ -58,18 +58,38 @@ if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
 else
   warn "Docker no detectado -> build nativo (instalando deps del host)..."
   apt-get update -y || { err "apt-get update fallo. Revisa tus repositorios."; exit 1; }
-  # debootstrap + qemu son los criticos para el build nativo (chroot arm64).
-  # Se instalan PRIMERO y sin silenciar errores para que el mensaje de apt
-  # (paquete inexistente, repo caido, etc.) llegue al usuario.
-  apt-get install -y debootstrap qemu-user-static qemu-user-binfmt \
-    binfmt-support || { err "No se pudo instalar debootstrap/qemu. Instalalos manualmente: sudo apt-get install debootstrap qemu-user-static binfmt-support"; exit 1; }
+
+  # Instalar cada paquete critico POR SEPARADO: apt aborta TODA la
+  # transaccion si un nombre del lote no tiene candidato (ej: qemu-user-static
+  # es paquete virtual en Ubuntu 25.10 "resolute" -> no hay candidato -> se
+  # lleva puesto a debootstrap aunque este si exista). Separandolos, un paquete
+  # que no exista no impide instalar el resto.
+
+  # debootstrap + binfmt-support: criticos, no silenciados (si fallan, aborta).
+  apt-get install -y debootstrap binfmt-support \
+    || { err "No se pudo instalar debootstrap/binfmt-support. Revisa apt arriba."; exit 1; }
+
+  # qemu para el chroot arm64: en distros viejas el paquete real es
+  # qemu-user-static; en Ubuntu 25.10+ es virtual y hay que pedir el proveedor
+  # qemu-user-binfmt. Probar primero el real y caer al proveedor si falla.
+  if ! apt-get install -y qemu-user-static 2>/dev/null; then
+    warn "qemu-user-static no disponible (probablemente virtual en esta distro)."
+    warn "Instalando proveedor qemu-user-binfmt en su lugar..."
+    apt-get install -y qemu-user-binfmt \
+      || { err "No se pudo instalar ni qemu-user-static ni qemu-user-binfmt."; exit 1; }
+  fi
+
   # resto de deps del builder (algunas pueden faltar segun distro, no son fatales)
   apt-get install -y coreutils quilt parted zerofree zip dosfstools e2fsprogs \
     libarchive-tools libcap2-bin grep rsync xz-utils file git curl bc gpg pigz \
     xxd arch-test bmap-tools kmod 2>&1 || warn "Algunas deps secundarias no instalaron (build puede igual funcionar)."
+
   # Registrar binfmt para que qemu ejecute binarios arm64 dentro del chroot
-  update-binfmts --enable qemu-aarch64 2>/dev/null || warn "update-binfmts fallo (quizas necesites reiniciar o cargar el modulo binfmt_misc)."
-  command -v debootstrap >/dev/null 2>&1 || { err "debootstrap sigue ausente tras apt-get install. Instalalo manualmente y reejecuta."; exit 1; }
+  update-binfmts --enable qemu-aarch64 2>/dev/null \
+    || warn "update-binfmts fallo (quizas necesites reiniciar o cargar el modulo binfmt_misc)."
+
+  command -v debootstrap >/dev/null 2>&1 \
+    || { err "debootstrap sigue ausente tras apt-get install. Instalalo manualmente y reejecuta."; exit 1; }
   log "Deps nativas listas."
 fi
 
