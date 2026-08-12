@@ -151,6 +151,8 @@ tbody tr:hover{background:#f1f5f9!important}
       <button class="nav-btn" onclick="tab('aud',this)"><span class="ic">◉</span>Auditoria</button>
       <button class="nav-btn" onclick="tab('cfg',this)"><span class="ic">⚙</span>Parametros</button>
       <button class="nav-btn" onclick="tab('config',this)"><span class="ic">🛠</span>Configuración</button>
+      <button class="nav-btn" onclick="tab('chlog',this)"><span class="ic">✎</span>Cambios código</button>
+      <button class="nav-btn" onclick="tab('dbadmin',this)"><span class="ic">🗄</span>DB Admin</button>
       <button class="nav-btn" onclick="tab('pbx',this)"><span class="ic">⇄</span>PBX</button>
       <button class="nav-btn" onclick="tab('cola',this)"><span class="ic">≡</span>Cola</button>
       <button class="nav-btn" onclick="tab('bd',this)"><span class="ic">⛁</span>Base datos</button>
@@ -292,6 +294,63 @@ tbody tr:hover{background:#f1f5f9!important}
         <div id="cfg_all_res" class="toast"></div>
       </div>
     </div>
+    <div class="tab" id="t-chlog">
+      <div class="card">
+        <div class="subtabs">
+          <button class="subtab active" onclick="subtabCh('editor',this)">✎ Editor de pagers</button>
+          <button class="subtab" onclick="subtabCh('historial',this)">◷ Historial de cambios</button>
+          <button class="subtab" onclick="subtabCh('diag',this)">🔎 Diagnóstico por código</button>
+        </div>
+        <div class="subpane active" data-chsub="editor">
+          <div class="hint">Buscá el pager por código, nombre o cap. Editá <b>capcode, nombre, apellido, área, baudios, función, descripción, activo</b>. Al guardar se registra cada campo cambiado (antes → después) en el <b>Historial</b>. El alta/baja/listado siguen en la solapa <b>Pagers</b>.</div>
+          <label>Buscar pager para editar</label>
+          <div style="position:relative"><input id="pe_search" autocomplete="off" placeholder="Buscar pager..."><ul id="pe_list" style="position:absolute;z-index:6;left:0;right:0;margin-top:.2rem;background:var(--bg2);border:1px solid var(--line);border-radius:10px;max-height:280px;overflow:auto;list-style:none;padding:.3rem;display:none"></ul></div>
+          <div id="pe_form" style="display:none;margin-top:.8rem">
+            <div class="row"><div><label>Código</label><input id="pe_codigo"></div><div><label>CapCode</label><input id="pe_cap"></div></div>
+            <div class="row"><div><label>Nombre</label><input id="pe_nombre"></div><div><label>Apellido</label><input id="pe_apellido"></div></div>
+            <div class="row"><div><label>Área</label><input id="pe_area"></div><div><label>Baudios</label><input id="pe_baud" type="number" value="512"></div></div>
+            <div class="row"><div><label>Función</label><select id="pe_func"><option value="alphanumeric">Alfanumérico</option><option value="numeric">Numérico</option><option value="tone">Tono</option></select></div><div><label>Activo</label><select id="pe_activo"><option value="1">Sí</option><option value="0">No</option></select></div></div>
+            <label>Descripción</label><input id="pe_desc">
+            <div style="display:flex;gap:.5rem;margin-top:.9rem;align-items:center"><button class="btn btn-pri" onclick="savePagerEdit()">Guardar cambios</button><span id="pe_res" class="badge mut"></span></div>
+          </div>
+        </div>
+        <div class="subpane" data-chsub="historial">
+          <div class="hint">Cada edición de un pager queda como un resumen expandible con el detalle por campo (anterior → nuevo).</div>
+          <div class="row" style="margin-bottom:.8rem"><div><label>Desde</label><input id="pc_desde" type="date"></div><div><label>Hasta</label><input id="pc_hasta" type="date"></div></div>
+          <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem"><button class="btn btn-pri" onclick="loadPagerCambios(0)">Filtrar</button><button class="btn btn-ok" onclick="exportPagerCambios()">⇩ Excel</button></div>
+          <div style="display:flex;flex-direction:column;gap:.5rem" id="pc_list"><div style="color:var(--mut);padding:1rem;text-align:center">Pulsá Filtrar para ver los cambios.</div></div>
+          <div class="pager"><span id="pc_info">—</span><div><button id="pc_prev" onclick="pcGo(-1)">←</button> <button id="pc_next" onclick="pcGo(1)">→</button></div></div>
+        </div>
+        <div class="subpane" data-chsub="diag">
+          <div class="hint" style="margin-bottom:.7rem">Buscá el <b>código</b> del pager y seleccionalo. Se resuelve el <b>CAPCODE</b> automáticamente y, al pulsar <b>Enviar código</b>, se transmite el <b>número de código como mensaje</b> usando la función del pager (alfanumérico → <b>page</b>, numérico → <b>page_bcd</b>).</div>
+          <div class="row" style="margin-bottom:.6rem">
+            <div><label>Código</label>
+            <div style="position:relative"><input id="diag_code" autocomplete="off" placeholder="Buscar código..."><ul id="diag_code_list" style="position:absolute;z-index:6;left:0;right:0;margin-top:.2rem;background:var(--bg2);border:1px solid var(--line);border-radius:10px;max-height:280px;overflow:auto;list-style:none;padding:.3rem;display:none"></ul></div></div>
+            <div><label>CAPCODE resuelto</label><input id="diag_code_cap" readonly style="opacity:.7"></div>
+            <div><label>Función detectada</label><input id="diag_code_func" readonly style="opacity:.7"></div>
+          </div>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem">
+            <button class="btn btn-pri btn-sm" onclick="diagSendByCode()">🚀 Enviar código</button>
+          </div>
+          <pre id="diag_code_out">Esperando…</pre>
+        </div>
+      </div>
+    </div>
+    <div class="tab" id="t-dbadmin">
+      <div class="card"><h2>🗄 Administrar base de datos (estilo phpMyAdmin)</h2>
+        <div class="hint">Tablas de la base SQLite. Hacé clic en una tabla para ver sus filas (100 por página). Exportá a CSV o ejecutá SQL de solo lectura.</div>
+        <div class="row" style="align-items:flex-start">
+          <div style="flex:0 0 200px"><div class="sec-title">Tablas</div><div id="dba_tables" style="display:flex;flex-direction:column;gap:.2rem;max-height:440px;overflow:auto"></div></div>
+          <div style="flex:1;min-width:0"><div id="dba_view" style="color:var(--mut);padding:1rem">Seleccioná una tabla.</div></div>
+        </div>
+      </div>
+      <div class="card"><h2>⌨ Ejecutar SQL (solo lectura)</h2>
+        <div class="hint">Solo <b>SELECT / WITH / EXPLAIN</b>. Hasta 500 filas.</div>
+        <textarea id="dba_sql" rows="4" placeholder="SELECT * FROM bitacora ORDER BY id DESC LIMIT 10" style="font-family:'JetBrains Mono',monospace;font-size:.82rem"></textarea>
+        <div style="display:flex;gap:.5rem;margin-top:.6rem;align-items:center"><button class="btn btn-pri" onclick="dbaRunSql()">Ejecutar</button><span id="dba_sql_info" class="badge mut"></span></div>
+        <div id="dba_sql_out" style="margin-top:.8rem;overflow:auto"></div>
+      </div>
+    </div>
     <div class="tab" id="t-pbx"><div class="card"><h2>⇄ Consola PBX (Asterisk)</h2>
       <div class="hint">Los registros SIP deben mostrar <b>Registered</b>. Si no, verifica IP/claves en Parametros y pulsa <b>Forzar registro</b>. Marca <b>*99</b> desde la central para probar el IVR (dos beeps).</div>
       <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.5rem">
@@ -359,22 +418,6 @@ tbody tr:hover{background:#f1f5f9!important}
       </div>
 
       <div class="row" style="align-items:stretch">
-        <!-- Tarjeta 1: Diagnostico por codigo (buscable) -->
-        <div class="card" style="margin-bottom:0">
-          <h2><span>🔎 Diagnóstico por código</span></h2>
-          <div class="hint" style="margin-bottom:.7rem">Buscá el <b>código</b> del pager y seleccionalo. Se resuelve el <b>CAPCODE</b> automáticamente y, al pulsar <b>Enviar código</b>, se transmite el <b>número de código como mensaje</b> usando la función del pager (alfanumérico → <b>page</b>, numérico → <b>page_bcd</b>).</div>
-          <div class="row" style="margin-bottom:.6rem">
-            <div><label>Código</label>
-            <div style="position:relative"><input id="diag_code" autocomplete="off" placeholder="Buscar código..."><ul id="diag_code_list" style="position:absolute;z-index:6;left:0;right:0;margin-top:.2rem;background:var(--bg2);border:1px solid var(--line);border-radius:10px;max-height:280px;overflow:auto;list-style:none;padding:.3rem;display:none"></ul></div></div>
-            <div><label>CAPCODE resuelto</label><input id="diag_code_cap" readonly style="opacity:.7"></div>
-            <div><label>Función detectada</label><input id="diag_code_func" readonly style="opacity:.7"></div>
-          </div>
-          <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem">
-            <button class="btn btn-pri btn-sm" onclick="diagSendByCode()">🚀 Enviar código</button>
-          </div>
-          <pre id="diag_code_out">Esperando…</pre>
-        </div>
-
         <!-- Tarjeta 2: Log MMDVMHost -->
         <div class="card" style="margin-bottom:0">
           <h2><span>📜 Log MMDVMHost</span><button class="btn btn-sec btn-sm" onclick="loadDiagMmdvm()">↻</button></h2>
@@ -514,11 +557,11 @@ const CFG_KEYS=['admin_user','admin_pass','mensaje_timeout','ptt_preactivo','dig
 
 function api(m,u,b,raw){const o={method:m,headers:{'Authorization':'Bearer '+TOKEN}};if(b!==undefined){if(raw){o.body=b;}else{o.headers['Content-Type']='application/json';o.body=JSON.stringify(b);}}return fetch(u,o).then(async r=>{if(r.status===401){logout(true);throw new Error('no autorizado');}const txt=await r.text();try{return JSON.parse(txt);}catch(e){return txt;}});}
 function showErr(r,ctx){const e=r&&(r.error||r.detalle);if(e){alert((ctx?ctx+': ':'')+'Error: '+e+(r.traceback?'\n\n--- traceback ---\n'+r.traceback:''));return true;}return false;}
-function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',central:'Config central',hist:'Historial',cfg:'Parametros',config:'Configuración',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria',diag:'Diagnostico',vpn:'VPN'};document.getElementById('tit').textContent=t[id]||'';
+function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',central:'Config central',hist:'Historial',cfg:'Parametros',config:'Configuración',chlog:'Cambios código',dbadmin:'DB Admin',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria',diag:'Diagnostico',vpn:'VPN'};document.getElementById('tit').textContent=t[id]||'';
 if(extTimer){clearInterval(extTimer);extTimer=null;}if(histTimer){clearInterval(histTimer);histTimer=null;}if(colaTimer){clearInterval(colaTimer);colaTimer=null;}if(diagTimer){clearInterval(diagTimer);diagTimer=null;}
 if(id==='ext'){loadExt();extTimer=setInterval(loadExt,5000);}
 if(id==='central')loadConfigCentral();
-if(id==='pagers')loadPagers();if(id==='grupos')loadGrupos();if(id==='cfg'){loadConfig();mmdvmStatus();}if(id==='config')loadConfiguracion();if(id==='hist'){loadHist(0);histTimer=setInterval(()=>loadHist(hoff),8000);}if(id==='pbx')pbx('status');if(id==='cola'){loadCola();colaTimer=setInterval(loadCola,4000);}if(id==='enviar')initSend();if(id==='dash')loadDash();if(id==='plantillas')loadPlantillas();if(id==='programados')loadProgramados();if(id==='logs')loadLogs('api');if(id==='aud')loadAud();if(id==='diag'){loadDiagAll();if(diagTimer)clearInterval(diagTimer);diagTimer=setInterval(refreshDiagAll,diagInterval*1000);}if(id==='vpn'){loadVpn();vpnServerStatus();vpnProtoHint();vpnClientHint();}}
+if(id==='pagers')loadPagers();if(id==='grupos')loadGrupos();if(id==='cfg'){loadConfig();mmdvmStatus();}if(id==='config')loadConfiguracion();if(id==='dbadmin')loadDbaTables();if(id==='hist'){loadHist(0);histTimer=setInterval(()=>loadHist(hoff),8000);}if(id==='pbx')pbx('status');if(id==='cola'){loadCola();colaTimer=setInterval(loadCola,4000);}if(id==='enviar')initSend();if(id==='dash')loadDash();if(id==='plantillas')loadPlantillas();if(id==='programados')loadProgramados();if(id==='logs')loadLogs('api');if(id==='aud')loadAud();if(id==='diag'){loadDiagAll();if(diagTimer)clearInterval(diagTimer);diagTimer=setInterval(refreshDiagAll,diagInterval*1000);}if(id==='vpn'){loadVpn();vpnServerStatus();vpnProtoHint();vpnClientHint();}}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function toggleMenu(){document.querySelector('.side nav').classList.toggle('open');}
@@ -719,6 +762,31 @@ function vpnProtoHint(){const p=document.getElementById('vpn_srv_proto').value;c
 async function vpnServerStatus(){const r=await api('GET','/api/vpn/server/status');if(r&&r.error){document.getElementById('vpn_srv_st').innerHTML='<span class="badge err">'+r.error+'</span>';return;}const box=document.getElementById('vpn_srv_st');box.innerHTML=Object.entries(r).filter(([k])=>typeof r[k]==='object').map(([k,v])=>`<span class="badge ${v.active==='active'?'ok':'mut'}">${k}: ${v.active||'-'} (${v.enabled?'on':'off'})</span>`).join('')||'<span class="badge mut">sin datos</span>';document.getElementById('vpn_ports').textContent=r.listening||'(sin puertos VPN en escucha: 1194/1723/500/4500/1701)';}
 async function vpnServerApply(){const d={protocol:document.getElementById('vpn_srv_proto').value,port:document.getElementById('vpn_srv_port').value,proto:document.getElementById('vpn_srv_otro').value,network:document.getElementById('vpn_srv_net').value,mask:document.getElementById('vpn_srv_mask').value,local_ip:document.getElementById('vpn_srv_localip').value,remote_ip:document.getElementById('vpn_srv_remoteip').value,user:document.getElementById('vpn_srv_user').value,password:document.getElementById('vpn_srv_pass').value,psk:document.getElementById('vpn_srv_psk').value,address:document.getElementById('vpn_srv_wgaddr')?document.getElementById('vpn_srv_wgaddr').value:''};if(!confirm('Aplicar y arrancar servidor '+d.protocol+'? Esto reescribe la configuracion y reinicia el servicio.'))return;const t=document.getElementById('vpn_srv_res');t.className='toast show ok';t.textContent='Aplicando '+d.protocol+'...';const r=await api('POST','/api/vpn/server/apply',d);if(r.ok){t.className='toast show ok';t.textContent='Servidor '+d.protocol+' arrancado.'+(r.conf?' conf='+r.conf:'')+(r.key?' key='+r.key:'')+(r.user?' user='+r.user:'');if(r.client_conf){const box=document.getElementById('vpn_wg_box');const ta=document.getElementById('vpn_wg_client_conf');if(box)box.style.display='block';if(ta)ta.value=r.client_conf;}}else{t.className='toast show err';t.textContent='Error: '+(r.error||'fallo');}vpnServerStatus();}
 async function vpnServerStop(){const proto=document.getElementById('vpn_srv_proto').value;if(!confirm('Detener servidor '+proto+'?'))return;const r=await api('POST','/api/vpn/server/stop',{protocol:proto});const t=document.getElementById('vpn_srv_res');t.className='toast show '+(r.ok?'ok':'err');t.textContent=r.ok?('Servidor '+proto+' detenido.'):'Error: '+(r.error||'');vpnServerStatus();}
+
+// Sub-tabs Cambios de código
+function subtabCh(id,el){document.querySelectorAll('#t-chlog .subpane').forEach(p=>p.classList.toggle('active',p.dataset.chsub===id));document.querySelectorAll('#t-chlog .subtab').forEach(b=>b.classList.remove('active'));if(el)el.classList.add('active');if(id==='historial')loadPagerCambios(0);}
+
+// Editor de pagers (dentro de Cambios de código)
+let peChosen=null,peTimer=null;
+(function(){const el=document.getElementById('pe_search');if(!el)return;el.addEventListener('input',()=>{clearTimeout(peTimer);peTimer=setTimeout(async()=>{const q=el.value.trim();const r=await api('GET','/api/pagers'+(q?('?q='+encodeURIComponent(q)):''));const ul=document.getElementById('pe_list');ul.innerHTML=(r||[]).map(x=>`<li onclick="pickPagerEdit(${x.id})" style="padding:.5rem .6rem;border-radius:7px;cursor:pointer;display:flex;justify-content:space-between;gap:.5rem"><span>${x.codigo} · ${((x.nombre||'')+' '+(x.apellido||'')).trim()}</span><span class="mono" style="color:var(--mut);font-size:.78rem">${x.cap_code}${x.activo?'':' ⛔'}</span></li>`).join('');ul.style.display=(r||[]).length?'block':'none';},180);});})();
+document.addEventListener('click',e=>{if(e.target.id!=='pe_search'){const ul=document.getElementById('pe_list');if(ul)ul.style.display='none';}});
+async function pickPagerEdit(id){let p=null;try{const r=await api('GET','/api/pagers');p=(r||[]).find(x=>x.id===id);}catch(e){}if(!p)return;peChosen=p;document.getElementById('pe_search').value=p.codigo+' · '+((p.nombre||'')+' '+(p.apellido||'')).trim()+' ('+p.cap_code+')';document.getElementById('pe_codigo').value=p.codigo||'';document.getElementById('pe_cap').value=p.cap_code||'';document.getElementById('pe_nombre').value=p.nombre||'';document.getElementById('pe_apellido').value=p.apellido||'';document.getElementById('pe_area').value=p.area||'';document.getElementById('pe_baud').value=p.baudios||512;document.getElementById('pe_func').value=p.funcion||'alphanumeric';document.getElementById('pe_activo').value=p.activo?'1':'0';document.getElementById('pe_desc').value=p.descripcion||'';document.getElementById('pe_form').style.display='block';document.getElementById('pe_list').style.display='none';document.getElementById('pe_res').className='badge mut';document.getElementById('pe_res').textContent='';}
+async function savePagerEdit(){if(!peChosen){alert('Seleccioná un pager de la lista');return;}const d={codigo:document.getElementById('pe_codigo').value,cap_code:document.getElementById('pe_cap').value,nombre:document.getElementById('pe_nombre').value,apellido:document.getElementById('pe_apellido').value,area:document.getElementById('pe_area').value,baudios:+document.getElementById('pe_baud').value,funcion:document.getElementById('pe_func').value,descripcion:document.getElementById('pe_desc').value,activo:+document.getElementById('pe_activo').value,origen:'cambios'};const r=await api('PUT','/api/pagers/'+peChosen.id,d);if(showErr(r,'Pager'))return;const res=document.getElementById('pe_res');const n=r.cambios||0;res.className='badge '+(n?'ok':'mut');res.textContent=n?(n+' campo(s) cambiado(s) — ver Historial'):'Sin cambios';}
+
+// Historial de cambios de pagers (resumen + detalle expandible)
+let pcoff=0,pctot=0;const PCPG=25;
+function safeJson(s){try{return JSON.parse(s)||[];}catch(e){return [];}}
+async function loadPagerCambios(off){pcoff=off||0;const p=new URLSearchParams();p.set('limit',PCPG);p.set('offset',pcoff);const d=document.getElementById('pc_desde').value,h=document.getElementById('pc_hasta').value;if(d)p.set('desde',d);if(h)p.set('hasta',h+'T23:59:59');const r=await api('GET','/api/pager_cambios?'+p);pctot=r.total||0;const rows=r.rows||[];const box=document.getElementById('pc_list');box.innerHTML=rows.length?rows.map(x=>{const cams=safeJson(x.campos_json);const det=cams.map(c=>`<div style="display:grid;grid-template-columns:130px 1fr 1fr;gap:.5rem;padding:.3rem 0;border-bottom:1px dashed var(--line);font-size:.82rem"><span style="color:var(--acc);font-weight:700">${c.label||c.campo}</span><span class="mono" style="color:var(--err)">${String(c.antes==null?'':c.antes).replace(/</g,'&lt;')}</span><span class="mono" style="color:var(--ok)">${String(c.despues==null?'':c.despues).replace(/</g,'&lt;')}</span></div>`).join('')||'<div style="color:var(--mut);font-size:.82rem">Sin detalle</div>';return `<div style="border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden"><div style="display:flex;align-items:center;gap:.6rem;padding:.6rem .8rem;cursor:pointer;background:#f8fafc" onclick="togglePcDetail(${x.id})"><span class="mono" style="font-size:.78rem;color:var(--mut)">${fmtF(x.fecha_hora)}</span><strong style="font-size:.88rem">${x.codigo||'—'}</strong><span class="badge ${x.cantidad?'ok':'mut'}">${x.cantidad} campo(s)</span><span style="font-size:.78rem;color:var(--mut);margin-left:auto">${(x.usuario||'').replace(/</g,'&lt;')} ▾</span></div><div id="pcd_${x.id}" style="display:none;padding:.6rem .8rem;border-top:1px solid var(--line)">${det}</div></div>`;}).join(''):'<div style="color:var(--mut);padding:1rem;text-align:center">Sin registros</div>';document.getElementById('pc_info').textContent=`${rows.length?pcoff+1:0}-${pcoff+rows.length} de ${pctot}`;document.getElementById('pc_prev').disabled=pcoff<=0;document.getElementById('pc_next').disabled=pcoff+PCPG>=pctot;}
+function pcGo(d){loadPagerCambios(Math.max(0,pcoff+d*PCPG));}
+function togglePcDetail(id){const el=document.getElementById('pcd_'+id);if(el)el.style.display=el.style.display==='none'?'block':'none';}
+function exportPagerCambios(){const p=new URLSearchParams();const d=document.getElementById('pc_desde').value,h=document.getElementById('pc_hasta').value;if(d)p.set('desde',d);if(h)p.set('hasta',h+'T23:59:59');dlXlsx('/api/pager_cambios/export?'+p,'cambios_pagers.xlsx');}
+
+
+// DB Admin (phpmyadmin-like)
+async function loadDbaTables(){const r=await api('GET','/api/dbadmin/tables');const box=document.getElementById('dba_tables');const tables=r||[];box.innerHTML=tables.length?tables.map(t=>`<button class="nav-btn" style="text-align:left;padding:.4rem .6rem" onclick="dbaSelectTable('${t}')">${t}</button>`).join(''):'<div style="color:var(--mut);font-size:.8rem">Sin tablas</div>';}
+async function dbaSelectTable(t){const r=await api('GET','/api/dbadmin/select?table='+encodeURIComponent(t)+'&limit=100&offset=0');const v=document.getElementById('dba_view');if(r.error){v.innerHTML='<div style="color:var(--err)">'+r.error+'</div>';return;}const cols=r.columns||[];const rows=r.rows||[];let html='<div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem;flex-wrap:wrap"><h3 style="margin:0">'+t+'</h3><span class="badge mut">'+r.count+' filas</span><button class="btn btn-sec btn-sm" onclick="dbaExport(\''+t+'\')">⇩ CSV</button></div>';html+='<div style="overflow:auto;max-height:440px;border:1px solid var(--line);border-radius:9px"><table><thead><tr>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>';html+=rows.length?rows.map(row=>'<tr>'+cols.map(c=>'<td class="mono" style="white-space:pre-wrap;max-width:300px;overflow:hidden">'+String(row[c]!=null?row[c]:'').replace(/</g,'&lt;').slice(0,200)+'</td>').join('')+'</tr>').join(''):'<tr><td colspan="'+cols.length+'" style="text-align:center;color:var(--mut);padding:1rem">Sin filas</td></tr>';html+='</tbody></table></div>';v.innerHTML=html;}
+async function dbaExport(t){const r=await fetch('/api/dbadmin/export?table='+encodeURIComponent(t),{headers:{'Authorization':'Bearer '+TOKEN}});if(r.status===401){logout(true);return;}const blob=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=t+'.csv';a.click();}
+async function dbaRunSql(){const sql=document.getElementById('dba_sql').value.trim();if(!sql)return;const r=await api('POST','/api/dbadmin/sql',{sql});const out=document.getElementById('dba_sql_out');const info=document.getElementById('dba_sql_info');if(r.error){info.className='badge err';info.textContent=r.error;out.innerHTML='';return;}const cols=r.columns||[];const rows=r.rows||[];info.className='badge ok';info.textContent=rows.length+' filas';out.innerHTML='<div style="overflow:auto;max-height:440px;border:1px solid var(--line);border-radius:9px"><table><thead><tr>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+cols.map((c,i)=>'<td class="mono" style="white-space:pre-wrap;max-width:300px;overflow:hidden">'+String(row[i]!=null?row[i]:'').replace(/</g,'&lt;').slice(0,200)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';}
 
 // Health
 async function health(){try{const h=await fetch('/api/health').then(r=>r.json());const p=document.getElementById('h');p.textContent=h.status==='ok'?'EN LINEA':'CAIDO';p.className='pill '+(h.status==='ok'?'':'off');}catch(e){}}
