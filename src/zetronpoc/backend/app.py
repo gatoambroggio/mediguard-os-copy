@@ -479,10 +479,18 @@ class Handler(BaseHTTPRequestHandler):
             return jok(self, db.listar_pager_cambios(q.get("desde",[""])[0], q.get("hasta",[""])[0], int(q.get("limit",["100"])[0]), int(q.get("offset",["0"])[0])))
         if p == "/api/pager_cambios/export":
             res = db.listar_pager_cambios(q.get("desde",[""])[0], q.get("hasta",[""])[0], 100000, 0)
-            out = io.StringIO(); w = csv.writer(out)
-            w.writerow(["fecha_hora","pager_id","codigo","usuario","cantidad","campos"])
-            for r in res.get("rows",[]): w.writerow([r.get("fecha_hora"), r.get("pager_id"), r.get("codigo"), r.get("usuario"), r.get("cantidad"), r.get("campos_json","")])
-            return jtext(self, out.getvalue(), 200, "text/csv; charset=utf-8")
+            import json as _json
+            rows_out = []
+            for r in res.get("rows",[]):
+                try: cams = _json.loads(r.get("campos_json") or "[]")
+                except Exception: cams = []
+                if not cams:
+                    rows_out.append([r.get("fecha_hora"), r.get("codigo"), r.get("usuario"), r.get("cantidad"), "", "", ""])
+                for c in cams:
+                    rows_out.append([r.get("fecha_hora"), r.get("codigo"), r.get("usuario"), r.get("cantidad"),
+                                     c.get("label") or c.get("campo",""), c.get("antes",""), c.get("despues","")])
+            data = build_xlsx(["Fecha/Hora","Código","Usuario","Cantidad","Campo","Antes","Después"], rows_out, "Cambios pagers")
+            return serve_xlsx(self, "cambios_pagers.xlsx", data)
         if p == "/api/dbadmin/tables": return jok(self, db.db_admin_tables())
         if p == "/api/dbadmin/select":
             return jok(self, db.db_admin_select(q.get("table",[""])[0], int(q.get("limit",["100"])[0]), int(q.get("offset",["0"])[0])))
