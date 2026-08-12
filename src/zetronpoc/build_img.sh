@@ -45,7 +45,8 @@ echo "==================================================="
 echo " build_img.sh - MediGuard OS para Raspberry Pi (64b)"
 echo "==================================================="
 echo " Salida esperada : $HERE/$IMG_NAME.img"
-echo " Tiempo estimado : 20-60 min segun metodo y hardware"
+echo " Tiempo estimado : 1.5-3 h (Asterisk se compila desde fuente bajo qemu)"
+echo " RAM host        : 4+ GB libres (compilacion ARM emulada)"
 echo " Disco necesario : ~6 GB libres en $HERE"
 echo ""
 
@@ -127,11 +128,22 @@ touch "$PIGEN/stage0/SKIP_IMAGES" 2>/dev/null || true
 # -------------------- 4. INYECTAR stage2-mediguard --------------------
 echo "==> 4/6 Inyectando stage $STAGE..."
 mkdir -p "$PIGEN/$STAGE"
+# Bajar cada archivo del stage y VALIDARLO: curl -f aborta en 404, pero un error
+# 500/redirect puede devolver una pagina HTML vacia que pi-gen aceptaria como
+# script roto -> el stage corre sin hacer nada -> build termina sin .img.
+# Se verifica tamaño minimo y que no arranque con '<' (HTML de error).
 for f in 00-packages 01-mediguard-install.sh 02-mediguard-firstboot.sh; do
-  curl -fsSL "$REPO/pi-gen-stage/$f" -o "$PIGEN/$STAGE/$f" || { err "No se pudo bajar pi-gen-stage/$f"; exit 1; }
-  [[ "$f" == *.sh ]] && chmod +x "$PIGEN/$STAGE/$f"
+  local dst="$PIGEN/$STAGE/$f"
+  curl -fsSL "$REPO/pi-gen-stage/$f" -o "$dst" || { err "No se pudo bajar pi-gen-stage/$f (HTTP/red)."; exit 1; }
+  local sz=$(wc -c < "$dst" 2>/dev/null || echo 0)
+  local head=$(head -c 1 "$dst" 2>/dev/null || true)
+  if [[ $sz -lt 50 ]] || [[ "$head" == "<" ]]; then
+    err "pi-gen-stage/$f vino vacio o como HTML (size=$sz). Abortando antes de pi-gen."
+    exit 1
+  fi
+  [[ "$f" == *.sh ]] && chmod +x "$dst"
 done
-log "Stage inyectado (3 archivos)."
+log "Stage inyectado (3 archivos validados)."
 
 # -------------------- 5. BUILD --------------------
 echo "==> 5/6 Construyendo imagen (paciencia)..."

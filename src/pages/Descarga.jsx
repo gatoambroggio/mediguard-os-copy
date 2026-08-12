@@ -473,11 +473,12 @@ export default function Descarga() {
           <CmdBlock
             id="img"
             text={`curl -fsSL ${RAW_BUILD} | sudo bash`}
-            label="construir .img (PC Linux x86, ~30 min)"
+            label="construir .img (PC Linux x86, ~1.5-3 h)"
           />
           <p className="text-[11px] text-slate-400 mt-2">
-            Requiere Docker (recomendado) o debootstrap + qemu-user-binfmt. ~6 GB libres.{" "}
-            <code className="font-mono text-sky-600">--skip-build</code> para solo configurar sin construir.
+          Requiere Docker (recomendado) o debootstrap + qemu-user-binfmt, 4+ GB RAM y ~6 GB libres.{" "}
+          <code className="font-mono text-sky-600">--skip-build</code> para solo configurar sin construir.{" "}
+          <code className="font-mono text-sky-600">Asterisk</code> se compila desde fuente durante el build (lento pero queda listo en la imagen).
           </p>
         </motion.div>
       </section>

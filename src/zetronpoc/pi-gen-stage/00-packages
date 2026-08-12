@@ -21,8 +21,12 @@ jq
 # explicitamente para no romper si el branch arm64 apunta a trixie.
 gpiod
 
-# Telefonia / IVR
-asterisk
+# Telefonia / IVR: NO listar 'asterisk' como paquete apt. En Pi OS Bookworm
+# arm64 el paquete 'asterisk' no existe en repos oficiales (Debian lo removio).
+# Bajo set -e, apt-get install asterisk aborta TODO el stage antes de que corra
+# 01-mediguard-install.sh, y el build termina sin .img en deploy/. Asterisk se
+# compila desde fuente dentro del chroot via instalador_rpi.sh -> ensure_asterisk
+# (--with-pjproject-bundled, make -j1), que garantiza chan_pjsip.so para ZetronPOC.
 
 # VPN (cliente + servidor: OpenVPN, WireGuard, PPTP, L2TP/IPsec)
 network-manager
