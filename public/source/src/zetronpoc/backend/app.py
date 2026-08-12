@@ -97,6 +97,21 @@ def parse_rows_from_upload(filename, raw):
             rows.append(dict(zip(keys, vals)))
     return rows, None
 
+def build_xlsx(headers, rows, sheet="Sheet1"):
+    import openpyxl
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = sheet
+    ws.append(headers)
+    for r in rows: ws.append(r)
+    buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
+
+def serve_xlsx(handler, filename, data):
+    handler.send_response(200)
+    handler.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    handler.send_header("Content-Disposition", 'attachment; filename="%s"' % filename)
+    handler.send_header("Content-Length", str(len(data)))
+    handler.end_headers()
+    handler.wfile.write(data)
+
 def pbx_run(cmd):
     if not ALLOWED_PBX.match(cmd):
         return {"error": "comando no permitido"}
@@ -366,8 +381,13 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
     def _body(self):
-        n = int(self.headers.get("Content-Length", 0))
-        return self.rfile.read(n) if n else b""
+        # Cachea el body: _post llama _json() para todos los endpoints y luego
+        # los de upload (import / db restore) llaman _body() de nuevo. Sin cache,
+        # la 2da lectura devuelve b"" (stream ya consumido) -> import 0 filas.
+        if not hasattr(self, "_cached_body"):
+            n = int(self.headers.get("Content-Length", 0))
+            self._cached_body = self.rfile.read(n) if n else b""
+        return self._cached_body
 
     def _json(self):
         try: return json.loads(self._body() or "{}")
@@ -408,9 +428,36 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/grupos": return jok(self, db.buscar_grupos(q.get("q", [""])[0]))
         if p == "/api/historial/public":
             return jok(self, db.historial({}, 100, 0))
+        if p == "/api/enviar/estado":
+            qid = int(q.get("id", ["0"])[0] or 0)
+            st = db.estado_cola_id(qid)
+            return jok(self, st or {"estado": "no_encontrado"})
         if p == "/api/plantillas": return jok(self, db.listar_plantillas())
         if p == "/api/login": return jtext(self, "use POST", 405)
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
+
+        if p == "/api/pagers/export":
+            rows = db.buscar_pagers("")
+            data = build_xlsx(["codigo","cap_code","nombre","apellido","area","baudios","funcion","descripcion"],
+                [[r.get("codigo"), r.get("cap_code"), r.get("nombre") or "", r.get("apellido") or "",
+                  r.get("area") or "", r.get("baudios"), r.get("funcion") or "", r.get("descripcion") or ""] for r in rows])
+            return serve_xlsx(self, "pagers.xlsx", data)
+        if p == "/api/grupos/export":
+            rows = db.buscar_grupos("")
+            data = build_xlsx(["codigo","nombre","baudios","cap_codes"],
+                [[r.get("codigo"), r.get("nombre") or "", r.get("baudios"), ",".join(r.get("miembros") or [])] for r in rows])
+            return serve_xlsx(self, "grupos.xlsx", data)
+        if p == "/api/pagers/example":
+            data = build_xlsx(["codigo","cap_code","nombre","apellido","area","baudios","funcion","descripcion"],
+                [["1001","1234567","Juan","Perez","Guardia",512,"alphanumeric","Pager guardia turno manana"],
+                 ["1002","7654321","Maria","Lopez","UCI",1200,"numeric","Numeric UCI"],
+                 ["1003","1111111","Carlos","Soto","Codigos",512,"tone","Solo tono"]])
+            return serve_xlsx(self, "ejemplo_pagers.xlsx", data)
+        if p == "/api/grupos/example":
+            data = build_xlsx(["codigo","nombre","baudios","cap_codes"],
+                [["G01","Guardia general",512,"1234567,7654321"],
+                 ["G02","UCI",1200,"1111111,2222222"]])
+            return serve_xlsx(self, "ejemplo_grupos.xlsx", data)
 
         if p == "/api/diagnostico/mqtt_response": return jok(self, diag_mqtt_response())
         if p == "/api/diagnostico/mmdvm_log": return jok(self, diag_mmdvm_log(int(q.get("lines", ["100"])[0])))

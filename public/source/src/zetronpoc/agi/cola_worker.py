@@ -43,7 +43,7 @@ def main():
             if result is None:
                 time.sleep(2)
             else:
-                clog("[OK] Procesado item id=%s" % result); time.sleep(0.5)
+                clog("[OK] Procesado item id=%s" % result); time.sleep(0.1)
         except Exception as e:
             clog("[ERROR] %s" % e); time.sleep(5)
 

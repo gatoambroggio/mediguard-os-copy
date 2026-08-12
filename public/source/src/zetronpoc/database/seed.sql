@@ -129,6 +129,5 @@ INSERT OR IGNORE INTO grupos(codigo,nombre,baudios,activo) VALUES('CODE','Codigo
 INSERT OR IGNORE INTO grupo_miembros(grupo_id,cap_code,orden)
   SELECT g.id,'1234567',0 FROM grupos g WHERE g.codigo='CODE';
 
--- === Plantilla ===
-INSERT OR IGNORE INTO plantillas(nombre,mensaje,categoria,orden,activo)
-  VALUES('Emergencia','URGENCIA: ','urgencias',1,1);
+-- === Plantillas ===
+-- No se crea ninguna plantilla por defecto. El admin las crea desde el panel.

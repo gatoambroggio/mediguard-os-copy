@@ -657,6 +657,12 @@ def estado_cola(db_path=DEFAULT_DB):
         return {r["estado"]: r["c"] for r in
                 conn.execute("SELECT estado, COUNT(*) as c FROM cola_envios GROUP BY estado")}
 
+def estado_cola_id(qid, db_path=DEFAULT_DB):
+    """Estado de un unico item de cola (para que el front publique vea Enviando/Enviado/Error)."""
+    with get_conn(db_path) as conn:
+        r = conn.execute("SELECT estado, observaciones, fecha_procesado FROM cola_envios WHERE id=?", (qid,)).fetchone()
+        return dict(r) if r else None
+
 def reintentar_cola(cid, db_path=DEFAULT_DB):
     with get_conn(db_path) as conn:
         conn.execute("UPDATE cola_envios SET estado='pendiente', intentos=0, observaciones='', proximo_intento=NULL "
@@ -665,6 +671,95 @@ def reintentar_cola(cid, db_path=DEFAULT_DB):
 def limpiar_cola(db_path=DEFAULT_DB):
     with get_conn(db_path) as conn:
         conn.execute("DELETE FROM cola_envios WHERE estado='enviado'")
+
+def _mmdvm_log_path():
+    """Ruta al MMDVM-*.log mas reciente (donde MMDVMHost escribe 'Transmitted POCSAG')."""
+    import glob
+    try:
+        files = sorted(glob.glob(os.path.join("/var/log/mmdvm", "MMDVM-*.log")), reverse=True)
+        if files:
+            return files[0]
+    except Exception:
+        pass
+    return None
+
+def _log_marker(path):
+    """Byte offset hasta donde ya se leyo del log (para solo mirar lineas NUEVAS)."""
+    try:
+        return os.path.getsize(path)
+    except Exception:
+        return 0
+
+def _pocsag_safe_duration(baudios, msg_len, db_path=DEFAULT_DB):
+    """Calcula el tiempo (segundos) que tarda una transmision POCSAG completa
+    en salir por RF y bajar el PTT. Se usa como tope de espera cuando no hay
+    log de MMDVMHost disponible (journald vacio / sin archivo): garantiza que
+    el siguiente item de la cola no arranque antes de que cierre el PTT.
+    Sobrestima levemente (mejor esperar de mas que solapar PTT)."""
+    try: baud = int(baudios) or 512
+    except (ValueError, TypeError): baud = 512
+    if baud < 64: baud = 512
+    try: n = int(msg_len) if msg_len is not None else 0
+    except (ValueError, TypeError): n = 0
+    if n < 0: n = 0
+    try:
+        ptt_pre = int(get_config("mmdvm_ptt_delay", "500", db_path)) / 1000.0
+    except Exception:
+        ptt_pre = 0.5
+    # POCSAG: 576 bits de preamble + codewords de 32 bits. ~11 bits por char
+    # (7-bit ASCII empaquetado + framing/sync de batch). Conservador.
+    msg_bits = max(n * 11, 64)
+    total_bits = 576 + msg_bits + 256
+    rf_time = total_bits / float(baud)
+    safe = ptt_pre + rf_time + 0.6
+    return min(max(safe, 1.2), 30.0)
+
+def _wait_transmitted(path, marker, timeout=8, poll=0.2):
+    """Espera a que MMDVMHost termine la portacion POCSAG real (PTT abajo) antes
+    de soltar el siguiente item de la cola. Busca un 'Transmitted POCSAG' (exito:
+    el batch salio completo por RF y bajo el PTT) o un 'NAK'/'Invalid remote
+    command' (fallo). Lee del log archivo (/var/log/mmdvm/MMDVM-*.log) si existe;
+    si no (MMDVMHost logueando a journald), cae a journalctl -u mmdvmhost desde el
+    instante en que se publico el page. Devuelve (ok, detalle) o (None, timeout)
+    para no trabar la cola si no hay forma de confirmar."""
+    import time as _t
+    deadline = _t.time() + timeout
+    # ---- fuente de lineas: archivo o journald ----
+    use_file = bool(path)
+    if not use_file:
+        # cursor temporal: solo lineas posteriores a este instante
+        since = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    while _t.time() < deadline:
+        if use_file:
+            try:
+                with open(path, "r", errors="replace") as f:
+                    f.seek(marker)
+                    nuevas = f.read().splitlines()
+            except Exception:
+                nuevas = []
+        else:
+            try:
+                r = subprocess.run(["journalctl", "-u", "mmdvmhost", "--since", since,
+                                    "--no-pager", "-o", "cat"], capture_output=True, text=True, timeout=4)
+                nuevas = [l for l in (r.stdout or "").splitlines() if l.strip()]
+            except Exception:
+                nuevas = []
+        for ln in nuevas:
+            low = ln.lower()
+            # Exito: el batch POCSAG salio completo por RF y bajo el PTT.
+            # La frase exacta varia por version: "Transmitted POCSAG",
+            # "POCSAG, transmitted", "POCSAG transmission complete", etc.
+            if "pocsag" in low and ("transmit" in low or "transmitted" in low):
+                return True, ln.strip()[:200]
+            # PTT bajo: MMDVMHost volvio a RX (señal alternativa de fin).
+            if "returning to receive" in low or "ptt off" in low:
+                return True, ln.strip()[:200]
+            if "nak" in low or "invalid remote command" in low:
+                return False, ln.strip()[:200]
+        _t.sleep(poll)
+    # timeout = duracion de seguridad: esperamos lo suficiente para que el PTT
+    # cierre aunque no haya log. Asumimos exito (no solapa el siguiente item).
+    return True, "duracion de seguridad alcanzada (sin log MMDVM)"
 
 def procesar_siguiente_cola(db_path=DEFAULT_DB):
     handler = os.path.join(os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc"), "agi", "pocsag_handler.py")
@@ -680,6 +775,9 @@ def procesar_siguiente_cola(db_path=DEFAULT_DB):
         conn.execute("UPDATE cola_envios SET estado='enviando', intentos=intentos+1 WHERE id=?", (row["id"],))
         conn.commit()
     item = dict(row)
+    # Marcador del log ANTES de publicar: solo miraremos lineas nuevas tras el page
+    _logp = _mmdvm_log_path()
+    _logmark = _log_marker(_logp)
     try:
         env = dict(os.environ, ZETRONPOC_DIR="/opt/zetronpoc", POCSAG_WORKER="1")
         rc = subprocess.run([sys.executable, handler, item["origen"] or "cola", item["codigo"], item["mensaje"], str(item["id"])],
@@ -688,6 +786,23 @@ def procesar_siguiente_cola(db_path=DEFAULT_DB):
         obs = "" if ok else (rc.stderr or rc.stdout or "fallo").strip()[:200]
     except Exception as e:
         ok = False; obs = str(e)[:200]
+    # Esperar el fin real de la portacion RF (PTT abajo) antes de tomar el
+    # siguiente item: evita que MMDVMHost apile varios pages en un mismo PTT
+    # y mande "toda la cadena del mensaje" pegada. Si el publish MQTT fallo,
+    # no esperamos (no habra Transmitted). timeout de seguridad para no trabar.
+    if ok:
+        _safe = _pocsag_safe_duration(item.get("baudios"), len(item.get("mensaje") or ""), db_path)
+        wok, wdet = _wait_transmitted(_logp, _logmark, timeout=_safe)
+        if wok is False:
+            ok = False
+            obs = ("NAK/rechazado por MMDVM: " + wdet)[:200]
+    # Pausa entre mensajes para que no salgan pegados por RF (configurable).
+    try:
+        _delay = float(get_config("cola_delay_segundos", "2", db_path) or "2")
+    except (ValueError, TypeError):
+        _delay = 2.0
+    if _delay > 0:
+        time.sleep(_delay)
     with get_conn(db_path) as conn:
         if ok:
             conn.execute("UPDATE cola_envios SET estado='enviado', fecha_procesado=datetime('now','localtime'), "

@@ -150,6 +150,7 @@ tbody tr:hover{background:#f1f5f9!important}
       <button class="nav-btn" onclick="tab('logs',this)"><span class="ic">▤</span>Logs</button>
       <button class="nav-btn" onclick="tab('aud',this)"><span class="ic">◉</span>Auditoria</button>
       <button class="nav-btn" onclick="tab('cfg',this)"><span class="ic">⚙</span>Parametros</button>
+      <button class="nav-btn" onclick="tab('config',this)"><span class="ic">🛠</span>Configuración</button>
       <button class="nav-btn" onclick="tab('pbx',this)"><span class="ic">⇄</span>PBX</button>
       <button class="nav-btn" onclick="tab('cola',this)"><span class="ic">≡</span>Cola</button>
       <button class="nav-btn" onclick="tab('bd',this)"><span class="ic">⛁</span>Base datos</button>
@@ -187,20 +188,22 @@ tbody tr:hover{background:#f1f5f9!important}
       <div style="margin-top:.8rem"><label>Mensaje</label><textarea id="s_msg" rows="3" placeholder="Mensaje alfanumerico..."></textarea></div>
       <button class="btn btn-pri" onclick="sendMsg()"> Transmitir</button><div id="s_res" class="toast"></div></div></div>
 
-    <div class="tab" id="t-pagers"><div class="card"><h2><span>👤 Pagers</span><button class="btn btn-pri btn-sm" onclick="openPager()">+ Nuevo</button></h2>
+    <div class="tab" id="t-pagers"><div class="card"><h2><span>👤 Pagers</span><div style="display:flex;gap:.4rem"><button class="btn btn-sec btn-sm" onclick="exportPagers()">⇩ Excel</button><button class="btn btn-pri btn-sm" onclick="openPager()">+ Nuevo</button></div></h2>
+      <div id="pagers_stats" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem"></div>
       <div class="toolbar"><div class="search"><input id="pq" placeholder="Buscar por nombre, codigo o area..."></div></div>
-      <div style="overflow-x:auto"><table><thead><tr><th>Codigo</th><th>CapCode</th><th>Nombre</th><th>Apellido</th><th>Area</th><th>Baud</th><th>Func</th><th>Activo</th><th></th></tr></thead><tbody id="tb_pagers"></tbody></table></div></div></div>
-    <div class="tab" id="t-grupos"><div class="card"><h2><span>⌥ Grupos</span><button class="btn btn-pri btn-sm" onclick="openGrupo()">+ Nuevo</button></h2>
+      <div style="overflow-x:auto"><table><thead><tr><th id="th_p_codigo" onclick="sortPagers('codigo')" style="cursor:pointer">Codigo</th><th id="th_p_cap_code" onclick="sortPagers('cap_code')" style="cursor:pointer">CapCode</th><th id="th_p_nombre" onclick="sortPagers('nombre')" style="cursor:pointer">Nombre</th><th id="th_p_apellido" onclick="sortPagers('apellido')" style="cursor:pointer">Apellido</th><th id="th_p_area" onclick="sortPagers('area')" style="cursor:pointer">Area</th><th id="th_p_baudios" onclick="sortPagers('baudios')" style="cursor:pointer">Baud</th><th id="th_p_funcion" onclick="sortPagers('funcion')" style="cursor:pointer">Func</th><th id="th_p_activo" onclick="sortPagers('activo')" style="cursor:pointer">Activo</th><th></th></tr></thead><tbody id="tb_pagers"></tbody></table></div></div></div>
+    <div class="tab" id="t-grupos"><div class="card"><h2><span>⌥ Grupos</span><div style="display:flex;gap:.4rem"><button class="btn btn-sec btn-sm" onclick="exportGrupos()">⇩ Excel</button><button class="btn btn-pri btn-sm" onclick="openGrupo()">+ Nuevo</button></div></h2>
+      <div id="grupos_stats" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem"></div>
       <div class="toolbar"><div class="search"><input id="gq" placeholder="Buscar grupo..."></div></div>
-      <div style="overflow-x:auto"><table><thead><tr><th>Codigo</th><th>Nombre</th><th>CapCodes</th><th>Baud</th><th></th></tr></thead><tbody id="tb_grupos"></tbody></table></div></div></div>
+      <div style="overflow-x:auto"><table><thead><tr><th id="th_g_codigo" onclick="sortGrupos('codigo')" style="cursor:pointer">Codigo</th><th id="th_g_nombre" onclick="sortGrupos('nombre')" style="cursor:pointer">Nombre</th><th id="th_g_cap_codes" onclick="sortGrupos('cap_codes')" style="cursor:pointer">CapCodes</th><th id="th_g_baudios" onclick="sortGrupos('baudios')" style="cursor:pointer">Baud</th><th></th></tr></thead><tbody id="tb_grupos"></tbody></table></div></div></div>
     <div class="tab" id="t-import"><div class="card"><h2>⇲ Importar codigos (Excel/CSV)</h2>
       <div class="hint">Columnas: codigo, cap_code, nombre, apellido, area, baudios, funcion, descripcion.</div>
       <div class="drop" id="drop"><input type="file" id="ifile" accept=".xls,.xlsx,.csv" style="display:none"><div id="dftxt">Arrastre archivo o haga click</div></div>
-      <div style="margin-top:1rem"><button class="btn btn-pri" id="impbtn" onclick="doImport()" disabled>Importar</button></div>
+      <div style="margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn btn-pri" id="impbtn" onclick="doImport()" disabled>Importar</button><button class="btn btn-sec btn-sm" onclick="dlEjemploPagers()">⇩ Descargar ejemplo</button></div>
       <div id="imp_res" class="toast"></div></div>
       <div class="card"><h2>⇲ Importar grupos</h2><div class="hint">Columnas: codigo, nombre, baudios, cap_codes (separados por coma).</div>
       <div class="drop" id="dropG"><input type="file" id="ifileG" accept=".xls,.xlsx,.csv" style="display:none"><div id="dftxtG">Arrastre archivo o haga click</div></div>
-      <div style="margin-top:1rem"><button class="btn btn-pri" id="impbtnG" onclick="doImportGrupos()" disabled>Importar grupos</button></div>
+      <div style="margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn btn-pri" id="impbtnG" onclick="doImportGrupos()" disabled>Importar grupos</button><button class="btn btn-sec btn-sm" onclick="dlEjemploGrupos()">⇩ Descargar ejemplo</button></div>
       <div id="impG_res" class="toast"></div></div></div>
     <div class="tab" id="t-hist"><div class="card"><h2>◷ Historial</h2>
       <div class="row" style="margin-bottom:.8rem"><div><label>Desde</label><input id="h_desde" type="date"></div><div><label>Hasta</label><input id="h_hasta" type="date"></div><div><label>Codigo</label><input id="h_codigo"></div><div><label>Interno</label><input id="h_interno"></div><div><label>Estado</label><select id="h_estado"><option value="">Todos</option><option>encolado</option><option>enviado</option><option>test</option><option>error</option></select></div></div>
@@ -214,7 +217,6 @@ tbody tr:hover{background:#f1f5f9!important}
         <button class="subtab" onclick="subtab('mmdvm',this)">MMDVM</button>
         <button class="subtab" onclick="subtab('ivr',this)">IVR / GPIO</button>
         <button class="subtab" onclick="subtab('smtp',this)">SMTP</button>
-        <button class="subtab" onclick="subtab('front',this)">Front</button>
         <button class="subtab" onclick="subtab('adv',this)">Avanzado</button>
       </div>
       <div class="subpane active" data-sub="pbx">
@@ -250,6 +252,7 @@ tbody tr:hover{background:#f1f5f9!important}
       <div class="subpane" data-sub="ivr">
       <div class="sec-title">⚙ IVR / GPIO / Admin</div>
       <div class="row"><div><label>Timeout mensaje (seg)</label><input id="c_mensaje_timeout" type="number"></div><div><label>PTT pre-activo (seg)</label><input id="c_ptt_preactivo" type="number" step="0.1"></div><div><label>Timeout digitos</label><input id="c_digit_timeout" type="number"></div><div><label>Timeout respuesta</label><input id="c_response_timeout" type="number"></div></div>
+      <div class="row"><div><label>Delay entre mensajes (seg)</label><input id="c_cola_delay_segundos" type="number" step="0.5" min="0"></div></div>
       <div class="row"><div><label>Modo prueba</label><select id="c_test_mode"><option value="0">No</option><option value="1">Si</option></select></div><div><label>GPIO chip</label><input id="c_gpio_chip"></div><div><label>GPIO pin (PTT)</label><input id="c_gpio_pin" type="number"></div></div>
       <div class="row"><div><label>Usuario admin</label><input id="c_admin_user"></div><div><label>Clave admin</label><input id="c_admin_pass" type="text"></div></div>
 
@@ -261,16 +264,7 @@ tbody tr:hover{background:#f1f5f9!important}
       <div class="row"><div><label>Email backups</label><input id="c_backup_email"></div></div>
 
       </div>
-      <div class="subpane" data-sub="front">
-      <div class="sec-title">🖥 Front (página pública)</div>
-      <div class="hint">Configura lo que ve el usuario en la página principal. Los cambios aplican al recargar el front.</div>
-      <div class="row"><div><label>Título</label><input id="c_front_titulo"></div><div><label>Subtítulo</label><input id="c_front_subtitulo"></div></div>
-      <div class="row"><div><label>Logo (texto/emoji)</label><input id="c_front_logo"></div></div>
-      <div class="row"><div><label>Color primario</label><input id="c_front_color_primario" type="color" style="height:38px;padding:2px"></div><div><label>Color acento</label><input id="c_front_color_acento" type="color" style="height:38px;padding:2px"></div></div>
-      <div class="row"><div><label>Color fondo</label><input id="c_front_color_fondo" type="color" style="height:38px;padding:2px"></div><div><label>Color texto</label><input id="c_front_color_texto" type="color" style="height:38px;padding:2px"></div></div>
-      <div class="row"><div><label>Sección Enviar</label><select id="c_front_seccion_enviar"><option value="1">Visible</option><option value="0">Oculto</option></select></div><div><label>Sección Historial</label><select id="c_front_seccion_historial"><option value="1">Visible</option><option value="0">Oculto</option></select></div></div>
 
-      </div>
       <div class="subpane" data-sub="adv">
       <div class="sec-title">⚙ Todos los parametros (avanzado · dinamico)</div>
       <div class="hint">Cada clave de la base de datos, editable. Incluye <b>todo</b> lo del sistema que no este en los campos de arriba; lo que sumes aca se guarda tal cual.</div>
@@ -281,6 +275,23 @@ tbody tr:hover{background:#f1f5f9!important}
       <button class="btn btn-sec" onclick="smtpTest()">Probar SMTP</button>
       <div id="cfg_res" class="toast"></div></div></div>
 
+    <div class="tab" id="t-config">
+      <div class="card"><h2>🖥 Front (página pública)</h2>
+        <div class="hint">Configura lo que ve el usuario en la página principal. Los cambios aplican al recargar el front.</div>
+        <div class="row"><div><label>Título</label><input id="cf_front_titulo"></div><div><label>Subtítulo</label><input id="cf_front_subtitulo"></div></div>
+        <div class="row"><div><label>Logo (texto/emoji)</label><input id="cf_front_logo"></div></div>
+        <div class="row"><div><label>Color primario</label><input id="cf_front_color_primario" type="color" style="height:38px;padding:2px"></div><div><label>Color acento</label><input id="cf_front_color_acento" type="color" style="height:38px;padding:2px"></div></div>
+        <div class="row"><div><label>Color fondo</label><input id="cf_front_color_fondo" type="color" style="height:38px;padding:2px"></div><div><label>Color texto</label><input id="cf_front_color_texto" type="color" style="height:38px;padding:2px"></div></div>
+        <div class="row"><div><label>Sección Enviar</label><select id="cf_front_seccion_enviar"><option value="1">Visible</option><option value="0">Oculto</option></select></div><div><label>Sección Historial</label><select id="cf_front_seccion_historial"><option value="1">Visible</option><option value="0">Oculto</option></select></div></div>
+      </div>
+      <div class="card"><h2><span>⚙ Todos los parámetros (absolutamente todo)</span><button class="btn btn-pri btn-sm" style="margin-left:auto" onclick="saveConfiguracion()">Guardar todo</button></h2>
+        <div class="hint">Cada clave del sistema, editable en un solo lugar. Incluye <b>todos</b> los módulos (PBX, MMDVM, IVR, SMTP, MQTT, front, etc.). Usá el buscador para encontrar rápido.</div>
+        <div class="search" style="margin-bottom:1rem"><input id="cfg_all_q" placeholder="Buscar parámetro..." oninput="filterConfigAll()"></div>
+        <div id="cfg_all" style="display:flex;flex-direction:column;gap:.6rem"></div>
+        <button class="btn btn-pri" style="margin-top:1rem" onclick="saveConfiguracion()">Guardar todo</button>
+        <div id="cfg_all_res" class="toast"></div>
+      </div>
+    </div>
     <div class="tab" id="t-pbx"><div class="card"><h2>⇄ Consola PBX (Asterisk)</h2>
       <div class="hint">Los registros SIP deben mostrar <b>Registered</b>. Si no, verifica IP/claves en Parametros y pulsa <b>Forzar registro</b>. Marca <b>*99</b> desde la central para probar el IVR (dos beeps).</div>
       <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.5rem">
@@ -348,7 +359,32 @@ tbody tr:hover{background:#f1f5f9!important}
       </div>
 
       <div class="row" style="align-items:stretch">
-        <!-- Tarjeta 1: Respuestas MQTT + page de prueba -->
+        <!-- Tarjeta 1: Diagnostico por codigo (buscable) -->
+        <div class="card" style="margin-bottom:0">
+          <h2><span>🔎 Diagnóstico por código</span></h2>
+          <div class="hint" style="margin-bottom:.7rem">Buscá el <b>código</b> del pager y seleccionalo. Se resuelve el <b>CAPCODE</b> automáticamente y, al pulsar <b>Enviar código</b>, se transmite el <b>número de código como mensaje</b> usando la función del pager (alfanumérico → <b>page</b>, numérico → <b>page_bcd</b>).</div>
+          <div class="row" style="margin-bottom:.6rem">
+            <div><label>Código</label>
+            <div style="position:relative"><input id="diag_code" autocomplete="off" placeholder="Buscar código..."><ul id="diag_code_list" style="position:absolute;z-index:6;left:0;right:0;margin-top:.2rem;background:var(--bg2);border:1px solid var(--line);border-radius:10px;max-height:280px;overflow:auto;list-style:none;padding:.3rem;display:none"></ul></div></div>
+            <div><label>CAPCODE resuelto</label><input id="diag_code_cap" readonly style="opacity:.7"></div>
+            <div><label>Función detectada</label><input id="diag_code_func" readonly style="opacity:.7"></div>
+          </div>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem">
+            <button class="btn btn-pri btn-sm" onclick="diagSendByCode()">🚀 Enviar código</button>
+          </div>
+          <pre id="diag_code_out">Esperando…</pre>
+        </div>
+
+        <!-- Tarjeta 2: Log MMDVMHost -->
+        <div class="card" style="margin-bottom:0">
+          <h2><span>📜 Log MMDVMHost</span><button class="btn btn-sec btn-sm" onclick="loadDiagMmdvm()">↻</button></h2>
+          <div class="hint" style="margin-bottom:.7rem">Filtrado: <b>pocsag / remote command / NAK / transmitted / page</b>. Busca <b>Valid remote command ... Transmitted POCSAG</b> sin NAK.</div>
+          <pre id="diag_mmdvm_out">Esperando…</pre>
+        </div>
+      </div>
+
+      <div class="row" style="align-items:stretch;margin-top:1.2rem">
+        <!-- Tarjeta 3: Respuestas MQTT + page de prueba -->
         <div class="card" style="margin-bottom:0">
           <h2><span>📡 Respuestas MQTT (host/response)</span><button class="btn btn-sec btn-sm" onclick="loadDiagMqtt()">↻</button></h2>
           <div class="hint" style="margin-bottom:.7rem">Captura 2s on-demand del topic <b>host/response</b>. <b>OK</b>=comando aceptado por MMDVMHost · <b>KO</b>=rechazado.</div>
@@ -363,23 +399,16 @@ tbody tr:hover{background:#f1f5f9!important}
           <pre id="diag_mqtt_out">Esperando…</pre>
         </div>
 
-        <!-- Tarjeta 2: Log MMDVMHost -->
-        <div class="card" style="margin-bottom:0">
-          <h2><span>📜 Log MMDVMHost</span><button class="btn btn-sec btn-sm" onclick="loadDiagMmdvm()">↻</button></h2>
-          <div class="hint" style="margin-bottom:.7rem">Filtrado: <b>pocsag / remote command / NAK / transmitted / page</b>. Busca <b>Valid remote command ... Transmitted POCSAG</b> sin NAK.</div>
-          <pre id="diag_mmdvm_out">Esperando…</pre>
-        </div>
-      </div>
-
-      <div class="row" style="align-items:stretch;margin-top:1.2rem">
-        <!-- Tarjeta 3: Check de config -->
+        <!-- Tarjeta 4: Check de config -->
         <div class="card" style="margin-bottom:0">
           <h2><span>⚙ Check de config (.ini real)</span><button class="btn btn-sec btn-sm" onclick="loadDiagConfig()">↻</button></h2>
           <div class="hint" style="margin-bottom:.7rem">Valida el MMDVM.ini aplicado. <b style="color:var(--err)">Rojo</b>=desviacion respecto a Jumbospot.</div>
           <div id="diag_cfg_out" style="display:flex;flex-direction:column;gap:.5rem">Esperando…</div>
         </div>
+      </div>
 
-        <!-- Tarjeta 4: Log dispatch -->
+      <div class="row" style="align-items:stretch;margin-top:1.2rem">
+        <!-- Tarjeta 5: Log dispatch -->
         <div class="card" style="margin-bottom:0">
           <h2><span>📤 Log dispatch_mqtt</span><button class="btn btn-sec btn-sm" onclick="loadDiagDispatch()">↻</button></h2>
           <div class="hint" style="margin-bottom:.7rem">Payload exacto enviado: <b>page &lt;cap&gt; &lt;msg&gt;</b> o <b>page_bcd &lt;cap&gt; &lt;digits&gt;</b>. Detecta truncamientos o errores de mosquitto_pub.</div>
@@ -481,15 +510,15 @@ tbody tr:hover{background:#f1f5f9!important}
 let TOKEN=localStorage.getItem('zetron_tok')||'';
 let editP=null,editG=null,editX=null,editPL=null,editPR=null; const HPG=50; let hoff=0,htot=0;
 let extTimer=null,histTimer=null,colaTimer=null,diagTimer=null; let curLogType='api';
-const CFG_KEYS=['admin_user','admin_pass','mensaje_timeout','ptt_preactivo','digit_timeout','response_timeout','test_mode','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','smtp_secure','backup_email','hospital_pbx_ip','hospital_pbx_port','pocsag_mode','transport_bind','transport_protocol','codecs','retry_interval','expiration','mmdvm_callsign','mmdvm_serial_port','mmdvm_baud','mmdvm_connection_type','mmdvm_uart_speed','mmdvm_frequency','mmdvm_duplex','mmdvm_pocsag_baud','mmdvm_tx_invert','mmdvm_tx_level','mmdvm_tx_offset','mmdvm_ptt_delay','mmdvm_display','mmdvm_remote_port','mmdvm_enable_pocsag','mmdvm_dapnet_enable','mmdvm_dapnet_address','mmdvm_dapnet_passcode','gpio_chip','gpio_pin','front_titulo','front_subtitulo','front_logo','front_color_primario','front_color_acento','front_color_fondo','front_color_texto','front_seccion_enviar','front_seccion_historial'];
+const CFG_KEYS=['admin_user','admin_pass','mensaje_timeout','ptt_preactivo','digit_timeout','response_timeout','cola_delay_segundos','test_mode','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','smtp_secure','backup_email','hospital_pbx_ip','hospital_pbx_port','pocsag_mode','transport_bind','transport_protocol','codecs','retry_interval','expiration','mmdvm_callsign','mmdvm_serial_port','mmdvm_baud','mmdvm_connection_type','mmdvm_uart_speed','mmdvm_frequency','mmdvm_duplex','mmdvm_pocsag_baud','mmdvm_tx_invert','mmdvm_tx_level','mmdvm_tx_offset','mmdvm_ptt_delay','mmdvm_display','mmdvm_remote_port','mmdvm_enable_pocsag','mmdvm_dapnet_enable','mmdvm_dapnet_address','mmdvm_dapnet_passcode','gpio_chip','gpio_pin','front_titulo','front_subtitulo','front_logo','front_color_primario','front_color_acento','front_color_fondo','front_color_texto','front_seccion_enviar','front_seccion_historial'];
 
 function api(m,u,b,raw){const o={method:m,headers:{'Authorization':'Bearer '+TOKEN}};if(b!==undefined){if(raw){o.body=b;}else{o.headers['Content-Type']='application/json';o.body=JSON.stringify(b);}}return fetch(u,o).then(async r=>{if(r.status===401){logout(true);throw new Error('no autorizado');}const txt=await r.text();try{return JSON.parse(txt);}catch(e){return txt;}});}
 function showErr(r,ctx){const e=r&&(r.error||r.detalle);if(e){alert((ctx?ctx+': ':'')+'Error: '+e+(r.traceback?'\n\n--- traceback ---\n'+r.traceback:''));return true;}return false;}
-function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',central:'Config central',hist:'Historial',cfg:'Parametros',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria',diag:'Diagnostico',vpn:'VPN'};document.getElementById('tit').textContent=t[id]||'';
+function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',central:'Config central',hist:'Historial',cfg:'Parametros',config:'Configuración',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria',diag:'Diagnostico',vpn:'VPN'};document.getElementById('tit').textContent=t[id]||'';
 if(extTimer){clearInterval(extTimer);extTimer=null;}if(histTimer){clearInterval(histTimer);histTimer=null;}if(colaTimer){clearInterval(colaTimer);colaTimer=null;}if(diagTimer){clearInterval(diagTimer);diagTimer=null;}
 if(id==='ext'){loadExt();extTimer=setInterval(loadExt,5000);}
 if(id==='central')loadConfigCentral();
-if(id==='pagers')loadPagers();if(id==='grupos')loadGrupos();if(id==='cfg'){loadConfig();mmdvmStatus();}if(id==='hist'){loadHist(0);histTimer=setInterval(()=>loadHist(hoff),8000);}if(id==='pbx')pbx('status');if(id==='cola'){loadCola();colaTimer=setInterval(loadCola,4000);}if(id==='enviar')initSend();if(id==='dash')loadDash();if(id==='plantillas')loadPlantillas();if(id==='programados')loadProgramados();if(id==='logs')loadLogs('api');if(id==='aud')loadAud();if(id==='diag'){loadDiagAll();if(diagTimer)clearInterval(diagTimer);diagTimer=setInterval(refreshDiagAll,diagInterval*1000);}if(id==='vpn'){loadVpn();vpnServerStatus();vpnProtoHint();vpnClientHint();}}
+if(id==='pagers')loadPagers();if(id==='grupos')loadGrupos();if(id==='cfg'){loadConfig();mmdvmStatus();}if(id==='config')loadConfiguracion();if(id==='hist'){loadHist(0);histTimer=setInterval(()=>loadHist(hoff),8000);}if(id==='pbx')pbx('status');if(id==='cola'){loadCola();colaTimer=setInterval(loadCola,4000);}if(id==='enviar')initSend();if(id==='dash')loadDash();if(id==='plantillas')loadPlantillas();if(id==='programados')loadProgramados();if(id==='logs')loadLogs('api');if(id==='aud')loadAud();if(id==='diag'){loadDiagAll();if(diagTimer)clearInterval(diagTimer);diagTimer=setInterval(refreshDiagAll,diagInterval*1000);}if(id==='vpn'){loadVpn();vpnServerStatus();vpnProtoHint();vpnClientHint();}}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function toggleMenu(){document.querySelector('.side nav').classList.toggle('open');}
@@ -511,7 +540,12 @@ document.addEventListener('click',e=>{if(e.target.id!=='s_q')document.getElement
 async function sendMsg(){const t=document.getElementById('s_res');if(!sChosen){t.className='toast show err';t.textContent='Seleccione destinatario';return;}const msg=document.getElementById('s_msg').value.trim();if(!msg){t.className='toast show err';t.textContent='Escriba un mensaje';return;}t.className='toast show ok';t.textContent='Transmitiendo...';const r=await api('POST','/api/enviar',{codigo:sChosen,mensaje:msg,origen:'admin'});if(r.status==='enviado'||r.status==='encolado'){t.className='toast show ok';t.textContent=r.status==='encolado'?'Encolado.':'Enviado.';document.getElementById('s_msg').value='';}else{t.className='toast show err';t.textContent='Error: '+(r.detalle||'fallo');}}
 
 // Pagers
-async function loadPagers(){const q=document.getElementById('pq').value.trim();const r=await api('GET','/api/pagers'+(q?('?q='+encodeURIComponent(q)):''));document.getElementById('tb_pagers').innerHTML=(r||[]).map(x=>`<tr><td>${x.codigo}</td><td class="mono">${x.cap_code}</td><td>${x.nombre||''}</td><td>${x.apellido||''}</td><td>${x.area||''}</td><td>${x.baudios}</td><td>${x.funcion||''}</td><td><button class="sw ${x.activo?'on':''}" onclick="toggleP(${x.id},${x.activo?0:1})"></button></td><td><button class="btn btn-sec btn-sm" onclick="openPager(${x.id})">✎</button> <button class="btn btn-del btn-sm" onclick="delP(${x.id})">✕</button></td></tr>`).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--mut);padding:1rem">Sin resultados</td></tr>';}
+let _pagersData=[],_pSort={col:'codigo',dir:1};
+function _pSortVal(x,c){if(c==='codigo'){const n=Number(x.codigo);return isNaN(n)?String(x.codigo||'').toLowerCase():n;}if(c==='cap_code')return String(x.cap_code||'');if(c==='baudios')return Number(x.baudios||0);if(c==='activo')return x.activo?1:0;return (String(x[c]||'')).toLowerCase();}
+function renderPagers(){const data=_pagersData.slice().sort((a,b)=>{const av=_pSortVal(a,_pSort.col),bv=_pSortVal(b,_pSort.col);if(av<bv)return -1*_pSort.dir;if(av>bv)return 1*_pSort.dir;return 0;});const _act=_pagersData.filter(x=>x.activo).length,_inact=_pagersData.length-_act;const _ps=document.getElementById('pagers_stats');if(_ps)_ps.innerHTML='<span class="badge ok">Activos: '+_act+'</span><span class="badge err">Inactivos: '+_inact+'</span>';document.getElementById('tb_pagers').innerHTML=data.length?data.map(x=>`<tr><td>${x.codigo}</td><td class="mono">${x.cap_code}</td><td>${x.nombre||''}</td><td>${x.apellido||''}</td><td>${x.area||''}</td><td>${x.baudios}</td><td>${x.funcion||''}</td><td><button class="sw ${x.activo?'on':''}" onclick="toggleP(${x.id},${x.activo?0:1})"></button></td><td><button class="btn btn-sec btn-sm" onclick="openPager(${x.id})">✎</button> <button class="btn btn-del btn-sm" onclick="delP(${x.id})">✕</button></td></tr>`).join(''):'<tr><td colspan="9" style="text-align:center;color:var(--mut);padding:1rem">Sin resultados</td></tr>';}
+function sortPagers(col){if(_pSort.col===col){_pSort.dir=-_pSort.dir;}else{_pSort.col=col;_pSort.dir=1;}renderPagers();_updatePHeaders();}
+function _updatePHeaders(){const cols={codigo:'Codigo',cap_code:'CapCode',nombre:'Nombre',apellido:'Apellido',area:'Area',baudios:'Baud',funcion:'Func',activo:'Activo'};Object.keys(cols).forEach(c=>{const el=document.getElementById('th_p_'+c);if(!el)return;el.textContent=cols[c]+(_pSort.col===c?(_pSort.dir===1?' ▲':' ▼'):'');});}
+async function loadPagers(){const q=document.getElementById('pq').value.trim();const r=await api('GET','/api/pagers'+(q?('?q='+encodeURIComponent(q)):''));_pagersData=r||[];renderPagers();_updatePHeaders();}
 document.getElementById('pq').addEventListener('input',()=>{clearTimeout(window._pt);window._pt=setTimeout(loadPagers,200);});
 async function toggleP(id,a){await api('PUT','/api/pagers/'+id+'/estado',{activo:a});loadPagers();}
 async function openPager(id){editP=id||null;let x=null;if(id){const r=await api('GET','/api/pagers');x=(r||[]).find(i=>i.id===id);}['codigo','cap','nombre','apellido','area','desc'].forEach(f=>document.getElementById('p_'+f).value=x?x[f==='cap'?'cap_code':f]||'':'');document.getElementById('p_baud').value=x?x.baudios:512;document.getElementById('p_func').value=x?x.funcion||'alphanumeric':'alphanumeric';document.getElementById('mPT').textContent=id?'Editar pager':'Nuevo pager';openModal('mPager');}
@@ -519,7 +553,12 @@ async function savePager(){const d={codigo:document.getElementById('p_codigo').v
 async function delP(id){if(confirm('Eliminar pager?')){await api('DELETE','/api/pagers/'+id);loadPagers();}}
 
 // Grupos
-async function loadGrupos(){const q=document.getElementById('gq').value.trim();const r=await api('GET','/api/grupos'+(q?('?q='+encodeURIComponent(q)):''));document.getElementById('tb_grupos').innerHTML=(r||[]).map(x=>`<tr><td>${x.codigo}</td><td>${x.nombre||''}</td><td class="mono">${(x.miembros||[]).join(', ')}</td><td>${x.baudios}</td><td><button class="btn btn-sec btn-sm" onclick="openGrupo(${x.id})">✎</button> <button class="btn btn-del btn-sm" onclick="delG(${x.id})">✕</button></td></tr>`).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--mut);padding:1rem">Sin resultados</td></tr>';}
+let _gruposData=[],_gSort={col:'codigo',dir:1};
+function _gSortVal(x,c){if(c==='codigo'){const n=Number(x.codigo);return isNaN(n)?String(x.codigo||'').toLowerCase():n;}if(c==='baudios')return Number(x.baudios||0);if(c==='cap_codes')return (x.miembros||[]).join(',');return (String(x[c]||'')).toLowerCase();}
+function renderGrupos(){const data=_gruposData.slice().sort((a,b)=>{const av=_gSortVal(a,_gSort.col),bv=_gSortVal(b,_gSort.col);if(av<bv)return -1*_gSort.dir;if(av>bv)return 1*_gSort.dir;return 0;});const _act=_gruposData.filter(x=>x.activo).length,_inact=_gruposData.length-_act;const _gs=document.getElementById('grupos_stats');if(_gs)_gs.innerHTML='<span class="badge ok">Activos: '+_act+'</span><span class="badge err">Inactivos: '+_inact+'</span>';document.getElementById('tb_grupos').innerHTML=data.length?data.map(x=>`<tr><td>${x.codigo}</td><td>${x.nombre||''}</td><td class="mono">${(x.miembros||[]).join(', ')}</td><td>${x.baudios}</td><td><button class="btn btn-sec btn-sm" onclick="openGrupo(${x.id})">✎</button> <button class="btn btn-del btn-sm" onclick="delG(${x.id})">✕</button></td></tr>`).join(''):'<tr><td colspan="5" style="text-align:center;color:var(--mut);padding:1rem">Sin resultados</td></tr>';}
+function sortGrupos(col){if(_gSort.col===col){_gSort.dir=-_gSort.dir;}else{_gSort.col=col;_gSort.dir=1;}renderGrupos();_updateGHeaders();}
+function _updateGHeaders(){const cols={codigo:'Codigo',nombre:'Nombre',cap_codes:'CapCodes',baudios:'Baud'};Object.keys(cols).forEach(c=>{const el=document.getElementById('th_g_'+c);if(!el)return;el.textContent=cols[c]+(_gSort.col===c?(_gSort.dir===1?' ▲':' ▼'):'');});}
+async function loadGrupos(){const q=document.getElementById('gq').value.trim();const r=await api('GET','/api/grupos'+(q?('?q='+encodeURIComponent(q)):''));_gruposData=r||[];renderGrupos();_updateGHeaders();}
 document.getElementById('gq').addEventListener('input',()=>{clearTimeout(window._gt);window._gt=setTimeout(loadGrupos,200);});
 async function openGrupo(id){editG=id||null;let x=null;if(id){const r=await api('GET','/api/grupos');x=(r||[]).find(i=>i.id===id);}document.getElementById('g_codigo').value=x?x.codigo:'';document.getElementById('g_nombre').value=x?x.nombre||'':'';document.getElementById('g_baud').value=x?x.baudios:512;gMembers=x?(x.miembros||[]).slice():[];renderGChips();document.getElementById('g_search').value='';document.getElementById('mGT').textContent=id?'Editar grupo':'Nuevo grupo';openModal('mGrupo');}
 async function saveGrupo(){const d={codigo:document.getElementById('g_codigo').value,nombre:document.getElementById('g_nombre').value,baudios:+document.getElementById('g_baud').value,miembros:gMembers.slice(0,20)};if(!d.codigo){alert('Falta el codigo del grupo');return;}if(!d.miembros.length){alert('Agregue al menos un cap code');return;}const r=editG?await api('PUT','/api/grupos/'+editG,d):await api('POST','/api/grupos',d);if(showErr(r,'Grupo'))return;closeModal('mGrupo');loadGrupos();}
@@ -532,6 +571,12 @@ setupDrop(document.getElementById('drop'),document.getElementById('ifile'),docum
 setupDrop(document.getElementById('dropG'),document.getElementById('ifileG'),document.getElementById('dftxtG'),document.getElementById('impbtnG'),f=>impGFile=f);
 async function doImport(){if(!impFile)return;const buf=await impFile.arrayBuffer();const r=await fetch('/api/pagers/import',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'X-Filename':encodeURIComponent(impFile.name)},body:buf}).then(r=>r.json());const t=document.getElementById('imp_res');t.className='toast show '+(r.error?'err':'ok');t.textContent=r.error?('Error: '+r.error):`Importados: ${r.importados} · Errores: ${r.errores}`;if(!r.error)loadPagers();}
 async function doImportGrupos(){if(!impGFile)return;const buf=await impGFile.arrayBuffer();const r=await fetch('/api/grupos/import',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'X-Filename':encodeURIComponent(impGFile.name)},body:buf}).then(r=>r.json());const t=document.getElementById('impG_res');t.className='toast show '+(r.error?'err':'ok');t.textContent=r.error?('Error: '+r.error):`Importados: ${r.importados} · Errores: ${r.errores}`;if(!r.error)loadGrupos();}
+// Export / ejemplo XLSX (backend openpyxl)
+function dlXlsx(url,filename){fetch(url,{headers:{'Authorization':'Bearer '+TOKEN}}).then(async r=>{if(r.status===401){logout(true);return;}if(!r.ok){alert('Error HTTP '+r.status);return;}const blob=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();}).catch(e=>alert('Error: '+e.message));}
+function exportPagers(){dlXlsx('/api/pagers/export','pagers.xlsx');}
+function exportGrupos(){dlXlsx('/api/grupos/export','grupos.xlsx');}
+function dlEjemploPagers(){dlXlsx('/api/pagers/example','ejemplo_pagers.xlsx');}
+function dlEjemploGrupos(){dlXlsx('/api/grupos/example','ejemplo_grupos.xlsx');}
 
 // Extensiones
 async function loadExt(){const [r,st]=await Promise.all([api('GET','/api/extensions'),api('GET','/api/extensions/status')]);const s=st||{};document.getElementById('tb_ext').innerHTML=(r||[]).map(x=>{const reg=s[x.numero]||'-';const rc=reg==='Registered'?'ok':reg==='Rejected'||reg==='Unregistered'?'err':'mut';return `<tr><td class="mono">${x.numero}</td><td>${'*'.repeat((x.password||'').length||4)}</td><td>${x.contexto||''}</td><td>${x.descripcion||''}</td><td><span class="badge ${rc}">${reg}</span></td><td><button class="sw ${x.activo?'on':''}" onclick="toggleX(${x.id},${x.activo?0:1})"></button></td><td><button class="btn btn-sec btn-sm" onclick="openExt(${x.id})">✎</button> <button class="btn btn-del btn-sm" onclick="delX(${x.id})">✕</button></td></tr>`;}).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:1rem">Sin extensiones</td></tr>';}
@@ -541,10 +586,12 @@ async function saveExt(){const d={numero:document.getElementById('x_numero').val
 async function delX(id){if(confirm('Eliminar extension?')){await api('DELETE','/api/extensions/'+id);loadExt();}}
 async function aplicarExt(){const r=await api('POST','/api/extensions/aplicar');alert(r.salida||r.error||'ok');loadExt();}
 
+function fmtF(s){if(!s)return '';const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);return m?(m[3]+'/'+m[2]+'/'+m[1]+' '+m[4]+':'+m[5]+':'+m[6]):s;}
+
 // Historial
 function hQuery(){const p=new URLSearchParams();p.set('limit',HPG);p.set('offset',hoff);const map=[['h_desde','fecha_desde'],['h_hasta','fecha_hasta'],['h_codigo','codigo'],['h_interno','interno'],['h_estado','estado']];map.forEach(([k,col])=>{const v=document.getElementById(k).value;if(!v)return;if(col==='fecha_hasta')p.set(col,v+'T23:59:59');else p.set(col,v);});return p;}
 const badge=e=>`<span class="badge ${e==='enviado'?'ok':(e==='encolado'||e==='test')?'mut':'err'}">${e||'-'}</span>`;
-async function loadHist(off){hoff=off||0;try{const r=await api('GET','/api/historial?'+hQuery());htot=r.total||0;const rows=r.rows||[];document.getElementById('tb_hist').innerHTML=rows.length?rows.map(x=>`<tr><td class="mono">${x.fecha_hora}</td><td>${x.interno_origen||''}</td><td>${x.codigo}</td><td class="mono">${x.cap_code||''}</td><td>${x.mensaje||''}</td><td>${x.baudios||''}</td><td>${badge(x.estado)}</td><td>${x.observaciones||''}</td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:1rem">Sin registros</td></tr>';document.getElementById('hg_info').textContent=`${rows.length?hoff+1:0}-${hoff+rows.length} de ${htot}`;document.getElementById('hg_prev').disabled=hoff<=0;document.getElementById('hg_next').disabled=hoff+HPG>=htot;}catch(e){}}
+async function loadHist(off){hoff=off||0;try{const r=await api('GET','/api/historial?'+hQuery());htot=r.total||0;const rows=r.rows||[];document.getElementById('tb_hist').innerHTML=rows.length?rows.map(x=>`<tr><td class="mono">${fmtF(x.fecha_hora)}</td><td>${x.interno_origen||''}</td><td>${x.codigo}</td><td class="mono">${x.cap_code||''}</td><td>${x.mensaje||''}</td><td>${x.baudios||''}</td><td>${badge(x.estado)}</td><td>${x.observaciones||''}</td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:1rem">Sin registros</td></tr>';document.getElementById('hg_info').textContent=`${rows.length?hoff+1:0}-${hoff+rows.length} de ${htot}`;document.getElementById('hg_prev').disabled=hoff<=0;document.getElementById('hg_next').disabled=hoff+HPG>=htot;}catch(e){}}
 function hgGo(d){loadHist(Math.max(0,hoff+d*HPG));}
 async function exportHist(){const p=new URLSearchParams();['h_desde','h_hasta','h_codigo','h_interno','h_estado'].forEach(k=>{const v=document.getElementById(k).value;if(v){if(k==='h_hasta')p.set('fecha_hasta',v+'T23:59:59');else if(k==='h_desde')p.set('fecha_desde',v);else p.set(k.replace('h_',''),v);}});const r=await fetch('/api/historial/export?'+p,{headers:{'Authorization':'Bearer '+TOKEN}});if(r.status===401){logout(true);return;}const blob=await r.blob();const cd=r.headers.get('Content-Disposition')||'';const m=cd.match(/filename="?([^"]+)"?/);const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=m?m[1]:'historial.csv';a.click();}
 
@@ -559,13 +606,20 @@ async function mmdvmStatus(){try{const r=await api('GET','/api/mmdvm/status');co
 async function installMmdvm(){if(!confirm('Instalar MMDVMHost en este servidor? Compila y deja el servicio corriendo (1-3 min).'))return;const t=document.getElementById('mmdvm_inst');t.className='toast show ok';t.textContent='Instalando... (puede tardar 1-3 min)';const r=await api('POST','/api/mmdvm/install');if(r.ok){t.className='toast show ok';t.textContent='Instalacion OK. '+(r.salida||'').slice(-500);mmdvmStatus();}else{t.className='toast show err';t.textContent='Error: '+(r.error||'')+'\\n'+(r.salida||'').slice(-500);mmdvmStatus();}}
 async function smtpTest(){const email=prompt('Email destino:',document.getElementById('c_backup_email').value);if(!email)return;const r=await api('POST','/api/smtp/test',{email});const t=document.getElementById('cfg_res');t.className='toast show '+(r.ok?'ok':'err');t.textContent=r.ok?'Enviado a '+email:'Error: '+(r.error||'');setTimeout(()=>t.className='toast',4000);}
 
+// Configuración (módulo: absolutamente todo editable)
+const FRONT_KEYS=['front_titulo','front_subtitulo','front_logo','front_color_primario','front_color_acento','front_color_fondo','front_color_texto','front_seccion_enviar','front_seccion_historial'];
+async function loadConfiguracion(){const c=await api('GET','/api/config');FRONT_KEYS.forEach(k=>{const el=document.getElementById('cf_'+k);if(el&&c[k]!=null)el.value=c[k];});renderConfigAll(c);}
+function renderConfigAll(c){const box=document.getElementById('cfg_all');if(!box)return;const frontset=new Set(FRONT_KEYS);const keys=Object.keys(c||{}).filter(k=>!frontset.has(k)).sort();if(!keys.length){box.innerHTML='<div style="color:var(--mut)">Sin parámetros.</div>';return;}const groups={};keys.forEach(k=>{const g=cfgGroupOf(k);(groups[g]=groups[g]||[]).push(k);});let html='';for(const g of Object.keys(groups).sort()){html+='<div><div style="font-size:.66rem;color:var(--acc);letter-spacing:.1em;text-transform:uppercase;font-family:JetBrains Mono,monospace;margin:.3rem 0">'+g+'</div><div class="row">';groups[g].forEach(k=>{const v=c[k]!=null?String(c[k]):'';html+='<div class="cfg-all-row"><label>'+k+'</label><input class="cfg-all" data-k="'+k+'" value="'+v.replace(/"/g,'&quot;').replace(/</g,'&lt;')+'"></div>';});html+='</div></div>';}box.innerHTML=html;filterConfigAll();}
+function filterConfigAll(){const q=(document.getElementById('cfg_all_q').value||'').trim().toLowerCase();document.querySelectorAll('.cfg-all-row').forEach(div=>{const lbl=div.querySelector('label')?div.querySelector('label').textContent.toLowerCase():'';div.style.display=(!q||lbl.includes(q))?'':'none';});}
+async function saveConfiguracion(){const d={};FRONT_KEYS.forEach(k=>{const el=document.getElementById('cf_'+k);if(el)d[k]=el.value;});document.querySelectorAll('.cfg-all').forEach(el=>{d[el.dataset.k]=el.value;});const r=await api('PUT','/api/config',d);const t=document.getElementById('cfg_all_res');let msg='Configuración guardada.';if(r&&r.mmdvm_aplicado){msg+=' MMDVM.ini regenerado y mmdvmhost reiniciado.';}else if(r&&r.mmdvm_error){msg+=' Aviso MMDVM: '+r.mmdvm_error;}t.className='toast show '+(r&&r.mmdvm_error?'err':'ok');t.textContent=msg;setTimeout(()=>t.className='toast',5000);}
+
 // Config central (instalador .sh para la central del hospital)
 async function loadConfigCentral(){try{const r=await api('GET','/api/config/hospital_installer?view=1');const el=document.getElementById('central_out');const nb=document.getElementById('centralN');if(r&&r.error){el.textContent='Error: '+r.error;return;}el.textContent=r.script||'(vacío)';if(nb)nb.textContent=(r.internos||0)+' interno(s)';}catch(e){document.getElementById('central_out').textContent='Error: '+e.message;}}
 async function descargarSh(){const r=await fetch('/api/config/hospital_installer',{headers:{'Authorization':'Bearer '+TOKEN}});if(r.status===401){logout(true);return;}const blob=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='config_hospital.sh';a.click();}
 async function copiarScript(){try{const r=await api('GET','/api/config/hospital_installer?view=1');if(!r||!r.script)return;await navigator.clipboard.writeText(r.script);const el=document.getElementById('central_out');el.textContent=(el.textContent||'')+'\n\n[COPIADO AL PORTAPAPELES]';}catch(e){alert('No se pudo copiar: '+e.message);}}
 
 // Cola
-async function loadCola(){try{const stats=await api('GET','/api/cola/estado');const items=await api('GET','/api/cola');document.getElementById('cola_stats').innerHTML=Object.entries(stats||{}).map(([k,v])=>`<span class="badge ${k==='pendiente'?'mut':k==='enviado'?'ok':(k==='error'||k==='fallido')?'err':'mut'}">${k}: ${v}</span>`).join('')||'<span class="badge mut">cola vacia</span>';const rows=items||[];document.getElementById('tb_cola').innerHTML=rows.length?rows.map(x=>`<tr><td class="mono">${x.id}</td><td>${x.fecha_encola}</td><td>${x.codigo}</td><td>${(x.mensaje||'').slice(0,40)}</td><td>${x.origen||''}</td><td><span class="badge ${x.estado==='enviado'?'ok':(x.estado==='error'||x.estado==='fallido')?'err':'mut'}">${x.estado}</span></td><td>${x.intentos||0}</td><td>${(x.observaciones||'').slice(0,30)}</td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:1rem">Cola vacia</td></tr>';}catch(e){}}
+async function loadCola(){try{const stats=await api('GET','/api/cola/estado');const items=await api('GET','/api/cola');document.getElementById('cola_stats').innerHTML=Object.entries(stats||{}).map(([k,v])=>`<span class="badge ${k==='pendiente'?'mut':k==='enviado'?'ok':(k==='error'||k==='fallido')?'err':'mut'}">${k}: ${v}</span>`).join('')||'<span class="badge mut">cola vacia</span>';const rows=items||[];document.getElementById('tb_cola').innerHTML=rows.length?rows.map(x=>`<tr><td class="mono">${x.id}</td><td>${fmtF(x.fecha_encola)}</td><td>${x.codigo}</td><td>${(x.mensaje||'').slice(0,40)}</td><td>${x.origen||''}</td><td><span class="badge ${x.estado==='enviado'?'ok':(x.estado==='error'||x.estado==='fallido')?'err':'mut'}">${x.estado}</span></td><td>${x.intentos||0}</td><td>${(x.observaciones||'').slice(0,30)}</td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:1rem">Cola vacia</td></tr>';}catch(e){}}
 async function colaReintentar(){if(!confirm('Reintentar fallidos?'))return;for(const est of ['fallido','error']){const items=await api('GET','/api/cola?estado='+est);for(const item of (items||[]))await api('POST','/api/cola/reintentar',{id:item.id});}loadCola();}
 async function colaLimpiar(){if(!confirm('Eliminar enviados?'))return;await api('POST','/api/cola/limpiar');loadCola();}
 
@@ -595,20 +649,20 @@ async function savePlantilla(){const d={nombre:document.getElementById('pl_nombr
 async function delPlantilla(id){if(confirm('Eliminar?')){await api('DELETE','/api/plantillas/'+id);loadPlantillas();}}
 
 // Programados
-async function loadProgramados(){const r=await api('GET','/api/programados');document.getElementById('tb_programados').innerHTML=(r||[]).map(x=>`<tr><td>${x.codigo}</td><td>${(x.mensaje||'').slice(0,50)}</td><td>${x.tipo||''}</td><td class="mono">${x.proxima_ejecucion||x.fecha_programada||''}</td><td><span class="badge ${x.activo?'ok':'mut'}">${x.activo?'si':'no'}</span></td><td><button class="btn btn-sec btn-sm" onclick="openProgramado(${x.id})">✎</button> <button class="btn btn-del btn-sm" onclick="delProgramado(${x.id})">✕</button></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--mut);padding:1rem">Sin envios</td></tr>';}
+async function loadProgramados(){const r=await api('GET','/api/programados');document.getElementById('tb_programados').innerHTML=(r||[]).map(x=>`<tr><td>${x.codigo}</td><td>${(x.mensaje||'').slice(0,50)}</td><td>${x.tipo||''}</td><td class="mono">${fmtF(x.proxima_ejecucion||x.fecha_programada||'')}</td><td><span class="badge ${x.activo?'ok':'mut'}">${x.activo?'si':'no'}</span></td><td><button class="btn btn-sec btn-sm" onclick="openProgramado(${x.id})">✎</button> <button class="btn btn-del btn-sm" onclick="delProgramado(${x.id})">✕</button></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--mut);padding:1rem">Sin envios</td></tr>';}
 async function openProgramado(id){editPR=id||null;let x=null;if(id){const r=await api('GET','/api/programados');x=(r||[]).find(i=>i.id===id);}prChosen=x?x.codigo:null;document.getElementById('pr_codigo').value=x?x.codigo:'';document.getElementById('pr_tipo').value=x?x.tipo||'unico':'unico';document.getElementById('pr_mensaje').value=x?x.mensaje:'';document.getElementById('pr_fecha').value=x?x.fecha_programada||'':'';document.getElementById('pr_hora').value=x?x.recurrencia_hora||'08:00':'08:00';document.getElementById('mPRT').textContent=id?'Editar':'Nuevo';openModal('mProgramado');}
 async function saveProgramado(){const codeField=document.getElementById('pr_codigo').value.trim();const codigo=prChosen||codeField;if(!codigo){alert('Seleccione o ingrese un codigo');return;}const d={codigo:codigo,mensaje:document.getElementById('pr_mensaje').value,tipo:document.getElementById('pr_tipo').value,fecha_programada:document.getElementById('pr_fecha').value,recurrencia_hora:document.getElementById('pr_hora').value};const r=editPR?await api('PUT','/api/programados/'+editPR,d):await api('POST','/api/programados',d);if(showErr(r,'Programado'))return;closeModal('mProgramado');loadProgramados();}
 async function delProgramado(id){if(confirm('Eliminar?')){await api('DELETE','/api/programados/'+id);loadProgramados();}}
 
 // Logs / Auditoria
 async function loadLogs(t){curLogType=t;const r=await api('GET','/api/logs?tipo='+t+'&limit=300');if(r&&r.error){document.getElementById('log_out').textContent='Error: '+r.error;return;}document.getElementById('log_out').textContent=(r.lineas||[]).join('\n')||'(vacio)';}
-async function loadAud(){const r=await api('GET','/api/auditoria?limit=200');document.getElementById('tb_aud').innerHTML=(r.rows||[]).map(x=>`<tr><td class="mono">${x.fecha_hora}</td><td>${x.usuario||''}</td><td>${x.accion||''}</td><td>${x.entidad||''}</td><td>${x.entidad_id||''}</td><td>${(x.detalle||'').slice(0,50)}</td><td>${x.ip||''}</td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:1rem">Sin registros</td></tr>';}
+async function loadAud(){const r=await api('GET','/api/auditoria?limit=200');document.getElementById('tb_aud').innerHTML=(r.rows||[]).map(x=>`<tr><td class="mono">${fmtF(x.fecha_hora)}</td><td>${x.usuario||''}</td><td>${x.accion||''}</td><td>${x.entidad||''}</td><td>${x.entidad_id||''}</td><td>${(x.detalle||'').slice(0,50)}</td><td>${x.ip||''}</td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:1rem">Sin registros</td></tr>';}
 
 // Diagnostico POCSAG en vivo
 let diagAutoOn=true; let diagInterval=3;
 function setDiagInterval(v){diagInterval=Math.max(3,Math.min(30,+v||3));const lbl=document.getElementById('diagIntervalLbl');if(lbl)lbl.textContent=diagInterval+'s';if(diagAutoOn&&diagTimer){clearInterval(diagTimer);diagTimer=setInterval(refreshDiagAll,diagInterval*1000);}}
 function toggleDiagAuto(){diagAutoOn=!diagAutoOn;document.getElementById('diagAuto').classList.toggle('on',diagAutoOn);if(diagAutoOn){if(diagTimer)clearInterval(diagTimer);diagTimer=setInterval(refreshDiagAll,diagInterval*1000);}else{if(diagTimer){clearInterval(diagTimer);diagTimer=null;}}}
-function diagStamp(){document.getElementById('diagTs').textContent=new Date().toLocaleTimeString();}
+function diagStamp(){const n=new Date(),p=x=>String(x).padStart(2,'0');document.getElementById('diagTs').textContent=p(n.getDate())+'/'+p(n.getMonth()+1)+'/'+n.getFullYear()+' '+p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds());}
 async function loadDiagMqtt(){try{const r=await api('GET','/api/diagnostico/mqtt_response');const el=document.getElementById('diag_mqtt_out');if(r&&r.ok){el.textContent=r.lineas.length?('['+r.topic+']\n'+r.lineas.join('\n')):'(sin respuestas en 2s)';}else{el.textContent='No disponible: '+(r&&r.error||'?');}}catch(e){document.getElementById('diag_mqtt_out').textContent='Error: '+e.message;}}
 async function loadDiagMmdvm(){try{const r=await api('GET','/api/diagnostico/mmdvm_log?lines=100');const el=document.getElementById('diag_mmdvm_out');if(r&&r.ok){el.textContent=r.lineas.length?r.lineas.join('\n'):'(sin lineas POCSAG/NAK/transmitted en '+r.path+')';}else{el.textContent='No disponible: '+(r&&r.error||'?');}}catch(e){document.getElementById('diag_mmdvm_out').textContent='Error: '+e.message;}}
 async function loadDiagDispatch(){try{const r=await api('GET','/api/diagnostico/dispatch_log?lines=50');const el=document.getElementById('diag_dispatch_out');if(r&&r.ok){el.textContent=r.lineas.length?r.lineas.join('\n'):'(log vacio)';}else{el.textContent='No disponible: '+(r&&r.error||'?');}}catch(e){document.getElementById('diag_dispatch_out').textContent='Error: '+e.message;}}
@@ -618,10 +672,17 @@ function refreshDiagAll(){if(diagAutoOn)loadDiagAll();}
 async function diagTestPage(funcion){funcion=funcion||'alphanumeric';const cap=document.getElementById('diag_cap').value.trim()||'1234567';const msg=document.getElementById('diag_msg').value.trim()||'TEST';const el=document.getElementById('diag_mqtt_out');const cmd=funcion==='numeric'?('page_bcd '+cap+' '+msg):('page '+cap+' '+msg);el.textContent='Disparando '+cmd+' ...';try{const r=await api('POST','/api/diagnostico/test_page',{cap:cap,mensaje:msg,funcion:funcion});el.textContent='>>> '+cmd+'\nrc='+(r&&r.rc!=null?r.rc:'-')+' ok='+(r&&r.ok)+'\nstdout: '+(r&&r.stdout||'')+'\nstderr: '+(r&&r.stderr||'')+(r&&r.error?'\nerror: '+r.error:'');}catch(e){el.textContent='Error: '+e.message;}// refresca todo para capturar la respuesta MQTT
   setTimeout(()=>{loadDiagAll();},800);setTimeout(()=>{loadDiagAll();},2500);}
 
+// Diagnostico por codigo: buscable, autodetecta funcion, un solo boton (mensaje=codigo)
+let diagCodePager=null,diagCodeTimer=null;
+(function(){const el=document.getElementById('diag_code');if(!el)return;el.addEventListener('input',()=>{clearTimeout(diagCodeTimer);diagCodeTimer=setTimeout(async()=>{const q=el.value.trim();const r=await api('GET','/api/pagers'+(q?('?q='+encodeURIComponent(q)):''));const ul=document.getElementById('diag_code_list');ul.innerHTML=(r||[]).map(x=>`<li onclick="pickDiagCode(${x.id})" style="padding:.5rem .6rem;border-radius:7px;cursor:pointer;display:flex;justify-content:space-between;gap:.5rem"><span>${x.codigo} · ${((x.nombre||'')+' '+(x.apellido||'')).trim()}</span><span class="mono" style="color:var(--mut);font-size:.78rem">${x.cap_code} · ${x.funcion||''}${x.activo?'':' ⛔'}</span></li>`).join('');ul.style.display=(r||[]).length?'block':'none';},180);});})();
+document.addEventListener('click',e=>{if(e.target.id!=='diag_code'){const ul=document.getElementById('diag_code_list');if(ul)ul.style.display='none';}});
+async function pickDiagCode(id){let p=null;try{const r=await api('GET','/api/pagers');p=(r||[]).find(x=>x.id===id);}catch(e){}if(!p)return;diagCodePager=p;document.getElementById('diag_code').value=p.codigo+' · '+((p.nombre||'')+' '+(p.apellido||'')).trim()+' ('+p.cap_code+')';document.getElementById('diag_code_cap').value=p.cap_code||'';document.getElementById('diag_code_func').value=p.funcion||'alphanumeric';document.getElementById('diag_code_list').style.display='none';}
+async function diagSendByCode(){const out=document.getElementById('diag_code_out');if(!diagCodePager){out.textContent='Seleccione un código de la lista';return;}const cap=diagCodePager.cap_code||'';if(!cap){out.textContent='El pager seleccionado no tiene CAPCODE';return;}const msg=diagCodePager.codigo;const func=diagCodePager.funcion||'alphanumeric';const numeric=(func==='numeric');const cmd=numeric?('page_bcd '+cap+' '+msg):('page '+cap+' '+msg);out.textContent='Disparando '+cmd+' (función: '+func+') ...';try{const r=await api('POST','/api/diagnostico/test_page',{cap:cap,mensaje:msg,funcion:numeric?'numeric':'alphanumeric'});out.textContent='>>> '+cmd+'\nrc='+(r&&r.rc!=null?r.rc:'-')+' ok='+(r&&r.ok)+'\nstdout: '+(r&&r.stdout||'')+'\nstderr: '+(r&&r.stderr||'')+(r&&r.error?'\nerror: '+r.error:'');}catch(e){out.textContent='Error: '+e.message;}setTimeout(()=>{loadDiagAll();},800);setTimeout(()=>{loadDiagAll();},2500);}
+
 // Reloj del servidor (hora real del backend, no del navegador)
 let srvBaseTs=null,srvBaseMs=null,srvClockTimer=null;
 async function loadSrvClock(){try{const r=await fetch('/api/server/time').then(r=>r.json());if(r&&r.datetime){srvBaseTs=Date.now();srvBaseMs=new Date(r.datetime.replace(/-/g,'/')).getTime();tickSrvClock();if(srvClockTimer)clearInterval(srvClockTimer);srvClockTimer=setInterval(tickSrvClock,1000);}}catch(e){}}
-function tickSrvClock(){const el=document.getElementById('srvClock');if(!el||srvBaseMs==null)return;const now=new Date(srvBaseMs + (Date.now()-srvBaseTs));const p=n=>String(n).padStart(2,'0');el.textContent=now.getFullYear()+'-'+p(now.getMonth()+1)+'-'+p(now.getDate())+' '+p(now.getHours())+':'+p(now.getMinutes())+':'+p(now.getSeconds());}
+function tickSrvClock(){const el=document.getElementById('srvClock');if(!el||srvBaseMs==null)return;const now=new Date(srvBaseMs + (Date.now()-srvBaseTs));const p=n=>String(n).padStart(2,'0');el.textContent=p(now.getDate())+'/'+p(now.getMonth()+1)+'/'+now.getFullYear()+' '+p(now.getHours())+':'+p(now.getMinutes())+':'+p(now.getSeconds());}
 
 // Programados: selector buscable de codigo
 let prChosen=null,prTimer=null;
