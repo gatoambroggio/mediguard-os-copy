@@ -690,23 +690,36 @@ def _log_marker(path):
     except Exception:
         return 0
 
-def _wait_transmitted(path, marker, timeout=20, poll=0.5):
-    """Espera a que MMDVMHost termine la portacion POCSAG real (PTT abajo).
-    Busca en las lineas NUEVAS del log (desde 'marker') un 'Transmitted POCSAG'
-    (exito) o un 'NAK'/'Invalid remote command' (fallo). Devuelve (ok, detalle).
-    Si no hay log o se agota el timeout, devuelve (None, 'sin confirmacion') para
-    que el worker no se trabe: el resultado del handler (publish MQTT) ya decido ok/fallo."""
-    if not path:
-        return None, "sin log MMDVM"
+def _wait_transmitted(path, marker, timeout=25, poll=0.5):
+    """Espera a que MMDVMHost termine la portacion POCSAG real (PTT abajo) antes
+    de soltar el siguiente item de la cola. Busca un 'Transmitted POCSAG' (exito:
+    el batch salio completo por RF y bajo el PTT) o un 'NAK'/'Invalid remote
+    command' (fallo). Lee del log archivo (/var/log/mmdvm/MMDVM-*.log) si existe;
+    si no (MMDVMHost logueando a journald), cae a journalctl -u mmdvmhost desde el
+    instante en que se publico el page. Devuelve (ok, detalle) o (None, timeout)
+    para no trabar la cola si no hay forma de confirmar."""
     import time as _t
     deadline = _t.time() + timeout
+    # ---- fuente de lineas: archivo o journald ----
+    use_file = bool(path)
+    if not use_file:
+        # cursor temporal: solo lineas posteriores a este instante
+        since = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     while _t.time() < deadline:
-        try:
-            with open(path, "r", errors="replace") as f:
-                f.seek(marker)
-                nuevas = f.read().splitlines()
-        except Exception:
-            nuevas = []
+        if use_file:
+            try:
+                with open(path, "r", errors="replace") as f:
+                    f.seek(marker)
+                    nuevas = f.read().splitlines()
+            except Exception:
+                nuevas = []
+        else:
+            try:
+                r = subprocess.run(["journalctl", "-u", "mmdvmhost", "--since", since,
+                                    "--no-pager", "-o", "cat"], capture_output=True, text=True, timeout=4)
+                nuevas = [l for l in (r.stdout or "").splitlines() if l.strip()]
+            except Exception:
+                nuevas = []
         for ln in nuevas:
             low = ln.lower()
             if "transmitted pocsag" in low:
@@ -714,7 +727,7 @@ def _wait_transmitted(path, marker, timeout=20, poll=0.5):
             if "nak" in low or "invalid remote command" in low:
                 return False, ln.strip()[:200]
         _t.sleep(poll)
-    return None, "timeout esperando fin de transmision"
+    return None, "timeout esperando fin de transmision (PTT)"
 
 def procesar_siguiente_cola(db_path=DEFAULT_DB):
     handler = os.path.join(os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc"), "agi", "pocsag_handler.py")
