@@ -473,6 +473,16 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/vpn/server/status": return jok(self, vpnmod.server_status())
         if p == "/api/vpn/logs": return jok(self, vpnmod.logs(q.get("kind", ["server"])[0], int(q.get("lines", ["80"])[0])))
 
+        if p == "/api/changelog":
+            return jok(self, db.listar_changelog(q.get("fecha_desde",[""])[0], q.get("fecha_hasta",[""])[0], int(q.get("limit",["200"])[0]), int(q.get("offset",["0"])[0])))
+        if p == "/api/dbadmin/tables": return jok(self, db.db_admin_tables())
+        if p == "/api/dbadmin/select":
+            return jok(self, db.db_admin_select(q.get("table",[""])[0], int(q.get("limit",["100"])[0]), int(q.get("offset",["0"])[0])))
+        if p == "/api/dbadmin/export":
+            r = db.db_admin_select(q.get("table",[""])[0], 100000, 0)
+            out = io.StringIO(); w = csv.writer(out); w.writerow(r.get("columns", []))
+            for row in r.get("rows", []): w.writerow([row.get(c,"") for c in r.get("columns",[])])
+            return jtext(self, out.getvalue(), 200, "text/csv; charset=utf-8")
         if p == "/api/config": return jok(self, db.all_config())
         if p == "/api/mmdvm/config": return jok(self, {k: v for k, v in db.all_config().items() if k.startswith("mmdvm_")})
         if p == "/api/extensions": return jok(self, db.listar_extensiones())
@@ -570,6 +580,14 @@ class Handler(BaseHTTPRequestHandler):
             return jok(self, res)
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
         d = self._json()
+        if p == "/api/changelog":
+            nid = db.crear_changelog(d)
+            aud(self, "crear", "changelog", nid, d.get("titulo", ""))
+            return jok(self, {"id": nid})
+        if p == "/api/dbadmin/sql":
+            res = db.db_admin_run_sql(d.get("sql", ""))
+            aud(self, "sql", "dbadmin", "", (d.get("sql","") or "")[:120])
+            return jok(self, res)
         if p == "/api/diagnostico/test_page":
             cap = d.get("cap", "1234567")
             msg = d.get("mensaje", "TEST")
@@ -815,6 +833,11 @@ class Handler(BaseHTTPRequestHandler):
     def _delete(self):
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
         p = urllib.parse.urlparse(self.path).path
+        m = re.match(r'/api/changelog/(\d+)$', p)
+        if m:
+            db.borrar_changelog(int(m.group(1)))
+            aud(self, "borrar", "changelog", m.group(1), "")
+            return jok(self, {"ok": True})
         m = re.match(r'/api/extensions/(\d+)$', p)
         if m:
             db.borrar_extension(int(m.group(1)))

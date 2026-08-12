@@ -36,6 +36,10 @@ def _migrate_schema(conn):
                       ("observaciones", "TEXT DEFAULT ''")]:
         if col not in cols_cola:
             conn.execute("ALTER TABLE cola_envios ADD COLUMN %s %s" % (col, defn))
+    # changelog (registro de cambios de codigo)
+    conn.execute("""CREATE TABLE IF NOT EXISTS changelog (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha_hora TEXT, titulo TEXT, modulo TEXT, descripcion TEXT, autor TEXT, commit_sha TEXT)""")
 
 def init_db(db_path=DEFAULT_DB):
     base = os.path.dirname(__file__)
@@ -1090,6 +1094,58 @@ def enviar_email(to, subject, body, attachment_path=None, db_path=DEFAULT_DB):
         return {"ok": True}
     except Exception as e:
         return {"error": str(e)}
+
+# ===================== CHANGELOG (registro de cambios de codigo) =====================
+def listar_changelog(fecha_desde=None, fecha_hasta=None, limit=200, offset=0, db_path=DEFAULT_DB):
+    where=[]; args=[]
+    if fecha_desde: where.append("fecha_hora >= ?"); args.append(fecha_desde)
+    if fecha_hasta: where.append("fecha_hora <= ?"); args.append(fecha_hasta)
+    wsql=(" WHERE "+" AND ".join(where)) if where else ""
+    with get_conn(db_path) as conn:
+        total=conn.execute("SELECT COUNT(*) AS c FROM changelog"+wsql, args).fetchone()["c"]
+        rows=[dict(r) for r in conn.execute("SELECT * FROM changelog"+wsql+" ORDER BY id DESC LIMIT ? OFFSET ?", args+[limit, offset])]
+    return {"rows":rows,"total":total,"limit":limit,"offset":offset}
+
+def crear_changelog(data, db_path=DEFAULT_DB):
+    with get_conn(db_path) as conn:
+        cur=conn.execute("INSERT INTO changelog (fecha_hora,titulo,modulo,descripcion,autor,commit_sha) VALUES (?,?,?,?,?,?)",
+            (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), data.get("titulo",""), data.get("modulo",""),
+             data.get("descripcion",""), data.get("autor",""), data.get("commit_sha","")))
+        return cur.lastrowid
+
+def borrar_changelog(cid, db_path=DEFAULT_DB):
+    with get_conn(db_path) as conn:
+        conn.execute("DELETE FROM changelog WHERE id=?", (cid,))
+
+# ===================== DB ADMIN (phpmyadmin-like, solo lectura) =====================
+import re as _re
+def _valid_table(table):
+    return bool(table and _re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', table))
+
+def db_admin_tables(db_path=DEFAULT_DB):
+    with get_conn(db_path) as conn:
+        rows=[dict(r) for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")]
+    return [r["name"] for r in rows]
+
+def db_admin_select(table, limit=100, offset=0, db_path=DEFAULT_DB):
+    if not _valid_table(table): return {"error":"tabla invalida"}
+    with get_conn(db_path) as conn:
+        cols=[r[1] for r in conn.execute("PRAGMA table_info(%s)" % table)]
+        rows=[dict(r) for r in conn.execute("SELECT * FROM %s LIMIT ? OFFSET ?" % table, (limit, offset))]
+        count=conn.execute("SELECT COUNT(*) FROM %s" % table).fetchone()[0]
+    return {"columns":cols,"rows":rows,"count":count,"limit":limit,"offset":offset}
+
+def db_admin_run_sql(sql, db_path=DEFAULT_DB):
+    s=(sql or "").strip().rstrip(";")
+    if not s: return {"error":"SQL vacio"}
+    first=s.split()[0].lower()
+    if first not in ("select","with","explain"):
+        return {"error":"solo se permite SELECT / WITH / EXPLAIN (read-only)"}
+    with get_conn(db_path) as conn:
+        cur=conn.execute(s)
+        cols=[d[0] for d in cur.description] if cur.description else []
+        rows=[list(r) for r in cur.fetchmany(500)]
+    return {"columns":cols,"rows":rows}
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "init":

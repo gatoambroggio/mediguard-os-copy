@@ -151,6 +151,8 @@ tbody tr:hover{background:#f1f5f9!important}
       <button class="nav-btn" onclick="tab('aud',this)"><span class="ic">◉</span>Auditoria</button>
       <button class="nav-btn" onclick="tab('cfg',this)"><span class="ic">⚙</span>Parametros</button>
       <button class="nav-btn" onclick="tab('config',this)"><span class="ic">🛠</span>Configuración</button>
+      <button class="nav-btn" onclick="tab('chlog',this)"><span class="ic">✎</span>Cambios código</button>
+      <button class="nav-btn" onclick="tab('dbadmin',this)"><span class="ic">🗄</span>DB Admin</button>
       <button class="nav-btn" onclick="tab('pbx',this)"><span class="ic">⇄</span>PBX</button>
       <button class="nav-btn" onclick="tab('cola',this)"><span class="ic">≡</span>Cola</button>
       <button class="nav-btn" onclick="tab('bd',this)"><span class="ic">⛁</span>Base datos</button>
@@ -290,6 +292,28 @@ tbody tr:hover{background:#f1f5f9!important}
         <div id="cfg_all" style="display:flex;flex-direction:column;gap:.6rem"></div>
         <button class="btn btn-pri" style="margin-top:1rem" onclick="saveConfiguracion()">Guardar todo</button>
         <div id="cfg_all_res" class="toast"></div>
+      </div>
+    </div>
+    <div class="tab" id="t-chlog"><div class="card"><h2><span>✎ Registro de cambios de código</span><button class="btn btn-pri btn-sm" style="margin-left:auto" onclick="openChlog()">+ Nuevo</button></h2>
+      <div class="hint">Bitácora de los cambios de código realizados. Se guarda en la base con fecha y autor.</div>
+      <div class="row" style="margin-bottom:.8rem"><div><label>Desde</label><input id="cl_desde" type="date"></div><div><label>Hasta</label><input id="cl_hasta" type="date"></div></div>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap"><button class="btn btn-pri" onclick="loadChlog(0)">Filtrar</button></div>
+      <div style="overflow-x:auto;margin-top:.8rem"><table><thead><tr><th>Fecha</th><th>Título</th><th>Módulo</th><th>Descripción</th><th>Autor</th><th>Commit</th><th></th></tr></thead><tbody id="tb_chlog"></tbody></table></div>
+      <div class="pager"><span id="cl_info">—</span><div><button id="cl_prev" onclick="clGo(-1)">←</button> <button id="cl_next" onclick="clGo(1)">→</button></div></div>
+    </div></div>
+    <div class="tab" id="t-dbadmin">
+      <div class="card"><h2>🗄 Administrar base de datos (estilo phpMyAdmin)</h2>
+        <div class="hint">Tablas de la base SQLite. Hacé clic en una tabla para ver sus filas (100 por página). Exportá a CSV o ejecutá SQL de solo lectura.</div>
+        <div class="row" style="align-items:flex-start">
+          <div style="flex:0 0 200px"><div class="sec-title">Tablas</div><div id="dba_tables" style="display:flex;flex-direction:column;gap:.2rem;max-height:440px;overflow:auto"></div></div>
+          <div style="flex:1;min-width:0"><div id="dba_view" style="color:var(--mut);padding:1rem">Seleccioná una tabla.</div></div>
+        </div>
+      </div>
+      <div class="card"><h2>⌨ Ejecutar SQL (solo lectura)</h2>
+        <div class="hint">Solo <b>SELECT / WITH / EXPLAIN</b>. Hasta 500 filas.</div>
+        <textarea id="dba_sql" rows="4" placeholder="SELECT * FROM bitacora ORDER BY id DESC LIMIT 10" style="font-family:'JetBrains Mono',monospace;font-size:.82rem"></textarea>
+        <div style="display:flex;gap:.5rem;margin-top:.6rem;align-items:center"><button class="btn btn-pri" onclick="dbaRunSql()">Ejecutar</button><span id="dba_sql_info" class="badge mut"></span></div>
+        <div id="dba_sql_out" style="margin-top:.8rem;overflow:auto"></div>
       </div>
     </div>
     <div class="tab" id="t-pbx"><div class="card"><h2>⇄ Consola PBX (Asterisk)</h2>
@@ -487,6 +511,11 @@ tbody tr:hover{background:#f1f5f9!important}
   <label>Mensaje</label><textarea id="pr_mensaje" rows="3"></textarea>
   <div class="row"><div><label>Fecha (unico)</label><input id="pr_fecha" type="datetime-local"></div><div><label>Hora recurrente</label><input id="pr_hora" type="time" value="08:00"></div></div>
   <div style="display:flex;gap:.5rem;margin-top:.9rem"><button class="btn btn-pri" onclick="saveProgramado()">Guardar</button><button class="btn btn-sec" onclick="closeModal('mProgramado')">Cancelar</button></div></div></div>
+<div class="modal" id="mChlog"><div class="card"><h2 id="mChT">Nuevo cambio de código</h2>
+  <div class="row"><div><label>Título</label><input id="ch_titulo"></div><div><label>Módulo</label><input id="ch_modulo"></div></div>
+  <label>Descripción</label><textarea id="ch_desc" rows="3"></textarea>
+  <div class="row"><div><label>Autor</label><input id="ch_autor"></div><div><label>Commit SHA (opcional)</label><input id="ch_commit"></div></div>
+  <div style="display:flex;gap:.5rem;margin-top:.9rem"><button class="btn btn-pri" onclick="saveChlog()">Guardar</button><button class="btn btn-sec" onclick="closeModal('mChlog')">Cancelar</button></div></div></div>
 <div class="modal" id="mVpn"><div class="card"><h2 id="mVT">Cliente VPN</h2>
   <div class="row"><div><label>Nombre</label><input id="v_name"></div><div><label>Protocolo</label><select id="v_proto" onchange="vpnClientHint()"><option value="openvpn">OpenVPN</option><option value="wireguard">WireGuard</option><option value="l2tp">L2TP/IPsec</option><option value="pptp">PPTP</option></select></div></div>
   <div id="v_std">
@@ -514,11 +543,11 @@ const CFG_KEYS=['admin_user','admin_pass','mensaje_timeout','ptt_preactivo','dig
 
 function api(m,u,b,raw){const o={method:m,headers:{'Authorization':'Bearer '+TOKEN}};if(b!==undefined){if(raw){o.body=b;}else{o.headers['Content-Type']='application/json';o.body=JSON.stringify(b);}}return fetch(u,o).then(async r=>{if(r.status===401){logout(true);throw new Error('no autorizado');}const txt=await r.text();try{return JSON.parse(txt);}catch(e){return txt;}});}
 function showErr(r,ctx){const e=r&&(r.error||r.detalle);if(e){alert((ctx?ctx+': ':'')+'Error: '+e+(r.traceback?'\n\n--- traceback ---\n'+r.traceback:''));return true;}return false;}
-function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',central:'Config central',hist:'Historial',cfg:'Parametros',config:'Configuración',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria',diag:'Diagnostico',vpn:'VPN'};document.getElementById('tit').textContent=t[id]||'';
+function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',central:'Config central',hist:'Historial',cfg:'Parametros',config:'Configuración',chlog:'Cambios código',dbadmin:'DB Admin',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria',diag:'Diagnostico',vpn:'VPN'};document.getElementById('tit').textContent=t[id]||'';
 if(extTimer){clearInterval(extTimer);extTimer=null;}if(histTimer){clearInterval(histTimer);histTimer=null;}if(colaTimer){clearInterval(colaTimer);colaTimer=null;}if(diagTimer){clearInterval(diagTimer);diagTimer=null;}
 if(id==='ext'){loadExt();extTimer=setInterval(loadExt,5000);}
 if(id==='central')loadConfigCentral();
-if(id==='pagers')loadPagers();if(id==='grupos')loadGrupos();if(id==='cfg'){loadConfig();mmdvmStatus();}if(id==='config')loadConfiguracion();if(id==='hist'){loadHist(0);histTimer=setInterval(()=>loadHist(hoff),8000);}if(id==='pbx')pbx('status');if(id==='cola'){loadCola();colaTimer=setInterval(loadCola,4000);}if(id==='enviar')initSend();if(id==='dash')loadDash();if(id==='plantillas')loadPlantillas();if(id==='programados')loadProgramados();if(id==='logs')loadLogs('api');if(id==='aud')loadAud();if(id==='diag'){loadDiagAll();if(diagTimer)clearInterval(diagTimer);diagTimer=setInterval(refreshDiagAll,diagInterval*1000);}if(id==='vpn'){loadVpn();vpnServerStatus();vpnProtoHint();vpnClientHint();}}
+if(id==='pagers')loadPagers();if(id==='grupos')loadGrupos();if(id==='cfg'){loadConfig();mmdvmStatus();}if(id==='config')loadConfiguracion();if(id==='chlog')loadChlog(0);if(id==='dbadmin')loadDbaTables();if(id==='hist'){loadHist(0);histTimer=setInterval(()=>loadHist(hoff),8000);}if(id==='pbx')pbx('status');if(id==='cola'){loadCola();colaTimer=setInterval(loadCola,4000);}if(id==='enviar')initSend();if(id==='dash')loadDash();if(id==='plantillas')loadPlantillas();if(id==='programados')loadProgramados();if(id==='logs')loadLogs('api');if(id==='aud')loadAud();if(id==='diag'){loadDiagAll();if(diagTimer)clearInterval(diagTimer);diagTimer=setInterval(refreshDiagAll,diagInterval*1000);}if(id==='vpn'){loadVpn();vpnServerStatus();vpnProtoHint();vpnClientHint();}}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function toggleMenu(){document.querySelector('.side nav').classList.toggle('open');}
@@ -719,6 +748,20 @@ function vpnProtoHint(){const p=document.getElementById('vpn_srv_proto').value;c
 async function vpnServerStatus(){const r=await api('GET','/api/vpn/server/status');if(r&&r.error){document.getElementById('vpn_srv_st').innerHTML='<span class="badge err">'+r.error+'</span>';return;}const box=document.getElementById('vpn_srv_st');box.innerHTML=Object.entries(r).filter(([k])=>typeof r[k]==='object').map(([k,v])=>`<span class="badge ${v.active==='active'?'ok':'mut'}">${k}: ${v.active||'-'} (${v.enabled?'on':'off'})</span>`).join('')||'<span class="badge mut">sin datos</span>';document.getElementById('vpn_ports').textContent=r.listening||'(sin puertos VPN en escucha: 1194/1723/500/4500/1701)';}
 async function vpnServerApply(){const d={protocol:document.getElementById('vpn_srv_proto').value,port:document.getElementById('vpn_srv_port').value,proto:document.getElementById('vpn_srv_otro').value,network:document.getElementById('vpn_srv_net').value,mask:document.getElementById('vpn_srv_mask').value,local_ip:document.getElementById('vpn_srv_localip').value,remote_ip:document.getElementById('vpn_srv_remoteip').value,user:document.getElementById('vpn_srv_user').value,password:document.getElementById('vpn_srv_pass').value,psk:document.getElementById('vpn_srv_psk').value,address:document.getElementById('vpn_srv_wgaddr')?document.getElementById('vpn_srv_wgaddr').value:''};if(!confirm('Aplicar y arrancar servidor '+d.protocol+'? Esto reescribe la configuracion y reinicia el servicio.'))return;const t=document.getElementById('vpn_srv_res');t.className='toast show ok';t.textContent='Aplicando '+d.protocol+'...';const r=await api('POST','/api/vpn/server/apply',d);if(r.ok){t.className='toast show ok';t.textContent='Servidor '+d.protocol+' arrancado.'+(r.conf?' conf='+r.conf:'')+(r.key?' key='+r.key:'')+(r.user?' user='+r.user:'');if(r.client_conf){const box=document.getElementById('vpn_wg_box');const ta=document.getElementById('vpn_wg_client_conf');if(box)box.style.display='block';if(ta)ta.value=r.client_conf;}}else{t.className='toast show err';t.textContent='Error: '+(r.error||'fallo');}vpnServerStatus();}
 async function vpnServerStop(){const proto=document.getElementById('vpn_srv_proto').value;if(!confirm('Detener servidor '+proto+'?'))return;const r=await api('POST','/api/vpn/server/stop',{protocol:proto});const t=document.getElementById('vpn_srv_res');t.className='toast show '+(r.ok?'ok':'err');t.textContent=r.ok?('Servidor '+proto+' detenido.'):'Error: '+(r.error||'');vpnServerStatus();}
+
+// Cambios de código (changelog)
+let cloff=0,cltot=0;const CLPG=50;
+async function loadChlog(off){cloff=off||0;const p=new URLSearchParams();p.set('limit',CLPG);p.set('offset',cloff);const d=document.getElementById('cl_desde').value,h=document.getElementById('cl_hasta').value;if(d)p.set('fecha_desde',d);if(h)p.set('fecha_hasta',h+'T23:59:59');const r=await api('GET','/api/changelog?'+p);cltot=r.total||0;const rows=r.rows||[];document.getElementById('tb_chlog').innerHTML=rows.length?rows.map(x=>`<tr><td class="mono">${fmtF(x.fecha_hora)}</td><td>${(x.titulo||'').replace(/</g,'&lt;')}</td><td>${(x.modulo||'').replace(/</g,'&lt;')}</td><td>${(x.descripcion||'').replace(/</g,'&lt;')}</td><td>${(x.autor||'').replace(/</g,'&lt;')}</td><td class="mono">${(x.commit_sha||'').slice(0,8)}</td><td><button class="btn btn-del btn-sm" onclick="delChlog(${x.id})">✕</button></td></tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:1rem">Sin registros</td></tr>';document.getElementById('cl_info').textContent=`${rows.length?cloff+1:0}-${cloff+rows.length} de ${cltot}`;document.getElementById('cl_prev').disabled=cloff<=0;document.getElementById('cl_next').disabled=cloff+CLPG>=cltot;}
+function clGo(d){loadChlog(Math.max(0,cloff+d*CLPG));}
+function openChlog(){['ch_titulo','ch_modulo','ch_desc','ch_autor','ch_commit'].forEach(f=>document.getElementById(f).value='');openModal('mChlog');}
+async function saveChlog(){const d={titulo:document.getElementById('ch_titulo').value,modulo:document.getElementById('ch_modulo').value,descripcion:document.getElementById('ch_desc').value,autor:document.getElementById('ch_autor').value,commit_sha:document.getElementById('ch_commit').value};if(!d.titulo){alert('Falta el título');return;}const r=await api('POST','/api/changelog',d);if(showErr(r,'Changelog'))return;closeModal('mChlog');loadChlog(cloff);}
+async function delChlog(id){if(confirm('Eliminar registro?')){await api('DELETE','/api/changelog/'+id);loadChlog(cloff);}}
+
+// DB Admin (phpmyadmin-like)
+async function loadDbaTables(){const r=await api('GET','/api/dbadmin/tables');const box=document.getElementById('dba_tables');const tables=r||[];box.innerHTML=tables.length?tables.map(t=>`<button class="nav-btn" style="text-align:left;padding:.4rem .6rem" onclick="dbaSelectTable('${t}')">${t}</button>`).join(''):'<div style="color:var(--mut);font-size:.8rem">Sin tablas</div>';}
+async function dbaSelectTable(t){const r=await api('GET','/api/dbadmin/select?table='+encodeURIComponent(t)+'&limit=100&offset=0');const v=document.getElementById('dba_view');if(r.error){v.innerHTML='<div style="color:var(--err)">'+r.error+'</div>';return;}const cols=r.columns||[];const rows=r.rows||[];let html='<div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem;flex-wrap:wrap"><h3 style="margin:0">'+t+'</h3><span class="badge mut">'+r.count+' filas</span><button class="btn btn-sec btn-sm" onclick="dbaExport(\''+t+'\')">⇩ CSV</button></div>';html+='<div style="overflow:auto;max-height:440px;border:1px solid var(--line);border-radius:9px"><table><thead><tr>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>';html+=rows.length?rows.map(row=>'<tr>'+cols.map(c=>'<td class="mono" style="white-space:pre-wrap;max-width:300px;overflow:hidden">'+String(row[c]!=null?row[c]:'').replace(/</g,'&lt;').slice(0,200)+'</td>').join('')+'</tr>').join(''):'<tr><td colspan="'+cols.length+'" style="text-align:center;color:var(--mut);padding:1rem">Sin filas</td></tr>';html+='</tbody></table></div>';v.innerHTML=html;}
+async function dbaExport(t){const r=await fetch('/api/dbadmin/export?table='+encodeURIComponent(t),{headers:{'Authorization':'Bearer '+TOKEN}});if(r.status===401){logout(true);return;}const blob=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=t+'.csv';a.click();}
+async function dbaRunSql(){const sql=document.getElementById('dba_sql').value.trim();if(!sql)return;const r=await api('POST','/api/dbadmin/sql',{sql});const out=document.getElementById('dba_sql_out');const info=document.getElementById('dba_sql_info');if(r.error){info.className='badge err';info.textContent=r.error;out.innerHTML='';return;}const cols=r.columns||[];const rows=r.rows||[];info.className='badge ok';info.textContent=rows.length+' filas';out.innerHTML='<div style="overflow:auto;max-height:440px;border:1px solid var(--line);border-radius:9px"><table><thead><tr>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+cols.map((c,i)=>'<td class="mono" style="white-space:pre-wrap;max-width:300px;overflow:hidden">'+String(row[i]!=null?row[i]:'').replace(/</g,'&lt;').slice(0,200)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';}
 
 // Health
 async function health(){try{const h=await fetch('/api/health').then(r=>r.json());const p=document.getElementById('h');p.textContent=h.status==='ok'?'EN LINEA':'CAIDO';p.className='pill '+(h.status==='ok'?'':'off');}catch(e){}}
