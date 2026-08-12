@@ -690,6 +690,30 @@ def _log_marker(path):
     except Exception:
         return 0
 
+def _pocsag_safe_duration(baudios, msg_len, db_path=DEFAULT_DB):
+    """Calcula el tiempo (segundos) que tarda una transmision POCSAG completa
+    en salir por RF y bajar el PTT. Se usa como tope de espera cuando no hay
+    log de MMDVMHost disponible (journald vacio / sin archivo): garantiza que
+    el siguiente item de la cola no arranque antes de que cierre el PTT.
+    Sobrestima levemente (mejor esperar de mas que solapar PTT)."""
+    try: baud = int(baudios) or 512
+    except (ValueError, TypeError): baud = 512
+    if baud < 64: baud = 512
+    try: n = int(msg_len) if msg_len is not None else 0
+    except (ValueError, TypeError): n = 0
+    if n < 0: n = 0
+    try:
+        ptt_pre = int(get_config("mmdvm_ptt_delay", "500", db_path)) / 1000.0
+    except Exception:
+        ptt_pre = 0.5
+    # POCSAG: 576 bits de preamble + codewords de 32 bits. ~11 bits por char
+    # (7-bit ASCII empaquetado + framing/sync de batch). Conservador.
+    msg_bits = max(n * 11, 64)
+    total_bits = 576 + msg_bits + 256
+    rf_time = total_bits / float(baud)
+    safe = ptt_pre + rf_time + 0.6
+    return min(max(safe, 1.2), 30.0)
+
 def _wait_transmitted(path, marker, timeout=8, poll=0.2):
     """Espera a que MMDVMHost termine la portacion POCSAG real (PTT abajo) antes
     de soltar el siguiente item de la cola. Busca un 'Transmitted POCSAG' (exito:
@@ -733,7 +757,9 @@ def _wait_transmitted(path, marker, timeout=8, poll=0.2):
             if "nak" in low or "invalid remote command" in low:
                 return False, ln.strip()[:200]
         _t.sleep(poll)
-    return None, "timeout esperando fin de transmision (PTT)"
+    # timeout = duracion de seguridad: esperamos lo suficiente para que el PTT
+    # cierre aunque no haya log. Asumimos exito (no solapa el siguiente item).
+    return True, "duracion de seguridad alcanzada (sin log MMDVM)"
 
 def procesar_siguiente_cola(db_path=DEFAULT_DB):
     handler = os.path.join(os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc"), "agi", "pocsag_handler.py")
@@ -765,7 +791,8 @@ def procesar_siguiente_cola(db_path=DEFAULT_DB):
     # y mande "toda la cadena del mensaje" pegada. Si el publish MQTT fallo,
     # no esperamos (no habra Transmitted). timeout de seguridad para no trabar.
     if ok:
-        wok, wdet = _wait_transmitted(_logp, _logmark, timeout=20)
+        _safe = _pocsag_safe_duration(item.get("baudios"), len(item.get("mensaje") or ""), db_path)
+        wok, wdet = _wait_transmitted(_logp, _logmark, timeout=_safe)
         if wok is False:
             ok = False
             obs = ("NAK/rechazado por MMDVM: " + wdet)[:200]
