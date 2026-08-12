@@ -50,7 +50,13 @@ apt-get install -y sqlite3 python3 python3-pip sox git curl ca-certificates \
 # 4) si tampoco, compilar Asterisk 20 LTS desde fuente (lento, pero garantizado).
 ensure_asterisk() {
   if command -v asterisk >/dev/null 2>&1 || [[ -x /usr/sbin/asterisk ]]; then
-    log "asterisk ya instalado."; return 0
+    # Si ya hay Asterisk pero le falta chan_pjsip.so (compilacion vieja sin
+    # --with-pjproject-bundled), forzamos recompilar para que ZetronPOC pueda
+    # registrar los internos via PJSIP.
+    if [[ -f /usr/lib/asterisk/modules/chan_pjsip.so ]]; then
+      log "asterisk ya instalado con PJSIP."; return 0
+    fi
+    warn "asterisk existe pero sin chan_pjsip.so -> recompilando con pjproject bundled..."
   fi
   # Trixie: el keyring viejo no firma el repo nuevo -> apt falla con "Missing key
   # A0DA38D0D76E8B5D638872819165938D90FDDD2E". Refrescar keyrings ANTES de cualquier
@@ -82,7 +88,11 @@ ensure_asterisk() {
     || { err "No se pudo descargar el tarball de Asterisk."; return 1; }
   tar xzf ast.tar.gz
   cd asterisk-20*/
-  ./configure --with-jansson-bundled 2>&1 | tail -3
+  # --with-pjproject-bundled: ZetronPOC usa PJSIP para registrarse contra la
+  # central del hospital. Sin este flag, si el sistema no tiene libpjproject-dev
+  # instalada, Asterisk compila SIN modulo chan_pjsip y el pjsip.conf es inutil.
+  # Bundlear pjproject garantiza PJSIP presente sin depender de paquetes del OS.
+  ./configure --with-pjproject-bundled --with-jansson-bundled 2>&1 | tail -5
   # make -j1: en aarch64 el build paralelo rompe con "app_voicemail.o: No such
   # file or directory" (race en dir apps/). Serial es mas lento pero determinista.
   if ! make -j1 2>&1 | tail -5; then
