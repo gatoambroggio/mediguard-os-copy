@@ -690,7 +690,7 @@ def _log_marker(path):
     except Exception:
         return 0
 
-def _wait_transmitted(path, marker, timeout=25, poll=0.5):
+def _wait_transmitted(path, marker, timeout=25, poll=0.2):
     """Espera a que MMDVMHost termine la portacion POCSAG real (PTT abajo) antes
     de soltar el siguiente item de la cola. Busca un 'Transmitted POCSAG' (exito:
     el batch salio completo por RF y bajo el PTT) o un 'NAK'/'Invalid remote
