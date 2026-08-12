@@ -428,6 +428,10 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/grupos": return jok(self, db.buscar_grupos(q.get("q", [""])[0]))
         if p == "/api/historial/public":
             return jok(self, db.historial({}, 100, 0))
+        if p == "/api/enviar/estado":
+            qid = int(q.get("id", ["0"])[0] or 0)
+            st = db.estado_cola_id(qid)
+            return jok(self, st or {"estado": "no_encontrado"})
         if p == "/api/plantillas": return jok(self, db.listar_plantillas())
         if p == "/api/login": return jtext(self, "use POST", 405)
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)

@@ -62,6 +62,7 @@ footer{text-align:center;color:var(--mut);font-size:.78rem;padding:1.4rem 0 .6re
   <header>
     <div class="brand"><div class="logo">📻</div><div>ZetronPOC<small>MediGuard OS · Paginación hospitalaria</small></div></div>
     <span class="tag">● Envío público</span>
+    <span class="tag" id="clock" style="font-family:'JetBrains Mono',monospace;background:#f1f5f9;border-color:#cbd5e1;color:var(--txt)">--/--/---- --:--:--</span>
   </header>
 
   <div class="card">
@@ -204,6 +205,27 @@ document.addEventListener("click", e=>{
   if(!e.target.closest(".codewrap")){ const d=$("#codeDrop"); if(d){ d.classList.remove("show"); d.innerHTML=""; } }
 });
 
+let _pollTimer=null;
+function pollEnvio(qid){
+  const btn=$("#send");
+  if(_pollTimer)clearInterval(_pollTimer);
+  show("info","⟳ Enviando… (saldrá por MMDVM)");
+  btn.disabled=true;
+  let n=0;
+  const tick=async()=>{
+    try{
+      const r=await fetch('/api/enviar/estado?id='+qid).then(r=>r.json());
+      const st=r.estado||'';
+      if(st==='enviado'){ show("ok","✓ Enviado por MMDVM"); clearInterval(_pollTimer); _pollTimer=null; btn.disabled=false; loadHist(); }
+      else if(st==='error'||st==='fallido'){ show("err","✗ Error al enviar"+(r.observaciones?(": "+r.observaciones):"")); clearInterval(_pollTimer); _pollTimer=null; btn.disabled=false; loadHist(); }
+      else { show("info","⟳ Enviando… (saldrá por MMDVM)"); }
+    }catch(e){ /* transitorio, seguir */ }
+    if(++n>40){ clearInterval(_pollTimer); _pollTimer=null; show("info","Enviando… (mirá el estado en Últimos envíos)"); btn.disabled=false; loadHist(); }
+  };
+  tick();
+  _pollTimer=setInterval(tick,1500);
+}
+
 $("#f").addEventListener("submit", async ev=>{
   ev.preventDefault();
   const codigo = $("#codigo").value.trim();
@@ -219,18 +241,20 @@ $("#f").addEventListener("submit", async ev=>{
     });
     const d = await r.json();
     if(d.status === "encolado" || d.status === "ok"){
-      show("ok", "Mensaje encolado OK (id " + (d.id||"") + "). Saldrá por MMDVM.");
       $("#mensaje").value=""; $("#codigo").value=""; SEL_FUNC="alphanumeric"; applyMsgMode();
       const dd=$("#codeDrop"); if(dd){ dd.classList.remove("show"); dd.innerHTML=""; }
-      loadHist();
+      pollEnvio(d.id);
     } else {
-      show("err","No se pudo enviar: "+(d.detalle||d.status||"error"));
+      show("err","✗ Error al enviar: "+(d.detalle||d.status||"error"));
+      btn.disabled = false;
     }
-  }catch(e){ show("err","Error de red: "+e.message); }
-  finally{ btn.disabled = false; }
+  }catch(e){ show("err","Error de red: "+e.message); btn.disabled=false; }
 });
 
 async function loadSrvTimePub(){try{const r=await fetch('/api/server/time').then(r=>r.json());if(r&&r.datetime){const el=document.getElementById('srvTime');if(el)el.textContent='servidor: '+fmtF(r.datetime)+' ('+(r.timezone||'')+')';}}catch(e){}}
-loadCatalog(); loadHist(); setInterval(loadHist, 8000); loadSrvTimePub(); setInterval(loadSrvTimePub, 30000);
+let clkBaseTs=null,clkBaseMs=null,clkTimer=null;
+async function loadClock(){try{const r=await fetch('/api/server/time').then(r=>r.json());if(r&&r.datetime){clkBaseTs=Date.now();clkBaseMs=new Date(r.datetime.replace(/-/g,'/')).getTime();tickClock();if(clkTimer)clearInterval(clkTimer);clkTimer=setInterval(tickClock,1000);}}catch(e){}}
+function tickClock(){const el=document.getElementById('clock');if(!el||clkBaseMs==null)return;const n=new Date(clkBaseMs+(Date.now()-clkBaseTs));const p=x=>String(x).padStart(2,'0');el.textContent=p(n.getDate())+'/'+p(n.getMonth()+1)+'/'+n.getFullYear()+' '+p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds());}
+loadCatalog(); loadHist(); setInterval(loadHist, 8000); loadSrvTimePub(); setInterval(loadSrvTimePub, 30000); loadClock();
 </script>
 </body></html>

@@ -657,6 +657,12 @@ def estado_cola(db_path=DEFAULT_DB):
         return {r["estado"]: r["c"] for r in
                 conn.execute("SELECT estado, COUNT(*) as c FROM cola_envios GROUP BY estado")}
 
+def estado_cola_id(qid, db_path=DEFAULT_DB):
+    """Estado de un unico item de cola (para que el front publique vea Enviando/Enviado/Error)."""
+    with get_conn(db_path) as conn:
+        r = conn.execute("SELECT estado, observaciones, fecha_procesado FROM cola_envios WHERE id=?", (qid,)).fetchone()
+        return dict(r) if r else None
+
 def reintentar_cola(cid, db_path=DEFAULT_DB):
     with get_conn(db_path) as conn:
         conn.execute("UPDATE cola_envios SET estado='pendiente', intentos=0, observaciones='', proximo_intento=NULL "
