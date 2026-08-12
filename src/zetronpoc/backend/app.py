@@ -381,8 +381,13 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
     def _body(self):
-        n = int(self.headers.get("Content-Length", 0))
-        return self.rfile.read(n) if n else b""
+        # Cachea el body: _post llama _json() para todos los endpoints y luego
+        # los de upload (import / db restore) llaman _body() de nuevo. Sin cache,
+        # la 2da lectura devuelve b"" (stream ya consumido) -> import 0 filas.
+        if not hasattr(self, "_cached_body"):
+            n = int(self.headers.get("Content-Length", 0))
+            self._cached_body = self.rfile.read(n) if n else b""
+        return self._cached_body
 
     def _json(self):
         try: return json.loads(self._body() or "{}")
