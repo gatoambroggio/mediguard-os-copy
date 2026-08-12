@@ -100,6 +100,7 @@ footer{text-align:center;color:var(--mut);font-size:.78rem;padding:1.4rem 0 .6re
 <script>
 const $ = s => document.querySelector(s);
 const res = $("#res");
+function fmtF(s){if(!s)return '';const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);return m?(m[3]+'/'+m[2]+'/'+m[1]+' '+m[4]+':'+m[5]+':'+m[6]):s;}
 function show(cls, txt){ res.className = "msg show " + cls; res.textContent = txt; }
 function fmtEstado(e){ return ({enviado:"b-env",encolado:"b-enc",error:"b-err",fallido:"b-fall"}[e]) || "b-enc"; }
 
@@ -177,7 +178,7 @@ async function loadHist(){
     h.innerHTML = rows.map(x=>`<div class="hi">
       <span class="badge ${fmtEstado(x.estado)}">${x.estado||"—"}</span>
       <div><div class="txt">${(x.mensaje||"").replace(/</g,"&lt;")}</div><span class="cap">${x.codigo||"—"} · ${x.cap_code||"—"}</span></div>
-      <span class="ts">${(x.fecha_hora||"").slice(5,16)}</span>
+      <span class="ts">${fmtF(x.fecha_hora)}</span>
     </div>`).join("");
   }catch(e){ $("#hist").innerHTML = '<div class="empty">no se pudo cargar el historial</div>'; }
 }
@@ -229,7 +230,7 @@ $("#f").addEventListener("submit", async ev=>{
   finally{ btn.disabled = false; }
 });
 
-async function loadSrvTimePub(){try{const r=await fetch('/api/server/time').then(r=>r.json());if(r&&r.datetime){const el=document.getElementById('srvTime');if(el)el.textContent='servidor: '+r.datetime+' ('+(r.timezone||'')+')';}}catch(e){}}
+async function loadSrvTimePub(){try{const r=await fetch('/api/server/time').then(r=>r.json());if(r&&r.datetime){const el=document.getElementById('srvTime');if(el)el.textContent='servidor: '+fmtF(r.datetime)+' ('+(r.timezone||'')+')';}}catch(e){}}
 loadCatalog(); loadHist(); setInterval(loadHist, 8000); loadSrvTimePub(); setInterval(loadSrvTimePub, 30000);
 </script>
 </body></html>
