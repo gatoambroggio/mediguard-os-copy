@@ -40,6 +40,11 @@ def _migrate_schema(conn):
     conn.execute("""CREATE TABLE IF NOT EXISTS changelog (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         fecha_hora TEXT, titulo TEXT, modulo TEXT, descripcion TEXT, autor TEXT, commit_sha TEXT)""")
+    # pager_cambios (historial de edicion de campos de pagers)
+    conn.execute("""CREATE TABLE IF NOT EXISTS pager_cambios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha_hora TEXT, pager_id INTEGER, codigo TEXT, usuario TEXT,
+        campos_json TEXT, cantidad INTEGER)""")
 
 def init_db(db_path=DEFAULT_DB):
     base = os.path.dirname(__file__)
@@ -1116,6 +1121,62 @@ def crear_changelog(data, db_path=DEFAULT_DB):
 def borrar_changelog(cid, db_path=DEFAULT_DB):
     with get_conn(db_path) as conn:
         conn.execute("DELETE FROM changelog WHERE id=?", (cid,))
+
+# ===================== PAGER CAMBIOS (historial de edicion de campos) =====================
+PAGER_CAMPO_LABELS = {"codigo":"Código","cap_code":"CapCode","nombre":"Nombre",
+    "apellido":"Apellido","area":"Área","baudios":"Baudios","funcion":"Función",
+    "descripcion":"Descripción","activo":"Activo"}
+
+def _norm_campo(c, v):
+    if v is None: return ""
+    if c in ("activo","baudios"):
+        try: return str(int(v))
+        except Exception: return str(v)
+    return str(v)
+
+def actualizar_pager_con_cambio(pid, data, usuario, db_path=DEFAULT_DB):
+    """Actualiza un pager y, si algun campo cambio, registra una entrada en
+    pager_cambios con el detalle (antes/despues) por campo. Devuelve
+    {ok, cambios, diff}. Solo lo llama la edicion desde 'Cambios de codigo'."""
+    import json as _json
+    campos = ["codigo","cap_code","nombre","apellido","area","baudios","funcion","descripcion","activo"]
+    with get_conn(db_path) as conn:
+        row = conn.execute("SELECT * FROM pagers WHERE id=?", (pid,)).fetchone()
+        antes = dict(row) if row else {}
+        act = data.get("activo")
+        if act is None: act = antes.get("activo", 1)
+        conn.execute(
+            "UPDATE pagers SET codigo=?,cap_code=?,nombre=?,apellido=?,area=?,baudios=?,"
+            "funcion=?,descripcion=?,activo=? WHERE id=?",
+            (data.get("codigo",""), data.get("cap_code",""), data.get("nombre"), data.get("apellido"),
+             data.get("area"), data.get("baudios", 512), data.get("funcion", "alphanumeric"),
+             data.get("descripcion"), int(act), pid))
+        diffs = []
+        for c in campos:
+            v_ant = antes.get(c)
+            v_new = data.get(c, v_ant)
+            if c == "activo" and v_new is None: v_new = act
+            if _norm_campo(c, v_ant) != _norm_campo(c, v_new):
+                diffs.append({"campo": c, "label": PAGER_CAMPO_LABELS.get(c, c),
+                              "antes": v_ant, "despues": v_new})
+        cantidad = len(diffs)
+        if cantidad:
+            conn.execute(
+                "INSERT INTO pager_cambios (fecha_hora,pager_id,codigo,usuario,campos_json,cantidad) "
+                "VALUES (?,?,?,?,?,?)",
+                (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), pid, antes.get("codigo",""),
+                 usuario or "sistema", _json.dumps(diffs, ensure_ascii=False), cantidad))
+        return {"ok": True, "cambios": cantidad, "diff": diffs}
+
+def listar_pager_cambios(desde=None, hasta=None, limit=100, offset=0, db_path=DEFAULT_DB):
+    where=[]; args=[]
+    if desde: where.append("fecha_hora >= ?"); args.append(desde)
+    if hasta: where.append("fecha_hora <= ?"); args.append(hasta)
+    wsql=(" WHERE "+" AND ".join(where)) if where else ""
+    with get_conn(db_path) as conn:
+        total=conn.execute("SELECT COUNT(*) AS c FROM pager_cambios"+wsql, args).fetchone()["c"]
+        rows=[dict(r) for r in conn.execute("SELECT * FROM pager_cambios"+wsql+" ORDER BY id DESC LIMIT ? OFFSET ?", args+[limit, offset])]
+    return {"rows":rows,"total":total,"limit":limit,"offset":offset}
 
 # ===================== DB ADMIN (phpmyadmin-like, solo lectura) =====================
 import re as _re

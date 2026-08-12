@@ -475,6 +475,14 @@ class Handler(BaseHTTPRequestHandler):
 
         if p == "/api/changelog":
             return jok(self, db.listar_changelog(q.get("fecha_desde",[""])[0], q.get("fecha_hasta",[""])[0], int(q.get("limit",["200"])[0]), int(q.get("offset",["0"])[0])))
+        if p == "/api/pager_cambios":
+            return jok(self, db.listar_pager_cambios(q.get("desde",[""])[0], q.get("hasta",[""])[0], int(q.get("limit",["100"])[0]), int(q.get("offset",["0"])[0])))
+        if p == "/api/pager_cambios/export":
+            res = db.listar_pager_cambios(q.get("desde",[""])[0], q.get("hasta",[""])[0], 100000, 0)
+            out = io.StringIO(); w = csv.writer(out)
+            w.writerow(["fecha_hora","pager_id","codigo","usuario","cantidad","campos"])
+            for r in res.get("rows",[]): w.writerow([r.get("fecha_hora"), r.get("pager_id"), r.get("codigo"), r.get("usuario"), r.get("cantidad"), r.get("campos_json","")])
+            return jtext(self, out.getvalue(), 200, "text/csv; charset=utf-8")
         if p == "/api/dbadmin/tables": return jok(self, db.db_admin_tables())
         if p == "/api/dbadmin/select":
             return jok(self, db.db_admin_select(q.get("table",[""])[0], int(q.get("limit",["100"])[0]), int(q.get("offset",["0"])[0])))
@@ -792,6 +800,10 @@ class Handler(BaseHTTPRequestHandler):
             return jok(self, {"ok": True})
         m = re.match(r'/api/pagers/(\d+)$', p)
         if m:
+            if d.get("origen") == "cambios":
+                res = db.actualizar_pager_con_cambio(int(m.group(1)), d, db.token_user(_tok(self)))
+                aud(self, "editar", "pager", m.group(1), "cambios=%d" % res.get("cambios", 0))
+                return jok(self, res)
             db.actualizar_pager(int(m.group(1)), d)
             aud(self, "actualizar", "pager", m.group(1), d.get("codigo", ""))
             return jok(self, {"ok": True})
