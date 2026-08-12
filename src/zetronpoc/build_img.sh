@@ -133,11 +133,11 @@ mkdir -p "$PIGEN/$STAGE"
 # script roto -> el stage corre sin hacer nada -> build termina sin .img.
 # Se verifica tamaño minimo y que no arranque con '<' (HTML de error).
 for f in 00-packages 01-mediguard-install.sh 02-mediguard-firstboot.sh; do
-  local dst="$PIGEN/$STAGE/$f"
+  dst="$PIGEN/$STAGE/$f"
   curl -fsSL "$REPO/pi-gen-stage/$f" -o "$dst" || { err "No se pudo bajar pi-gen-stage/$f (HTTP/red)."; exit 1; }
-  local sz=$(wc -c < "$dst" 2>/dev/null || echo 0)
-  local head=$(head -c 1 "$dst" 2>/dev/null || true)
-  if [[ $sz -lt 50 ]] || [[ "$head" == "<" ]]; then
+  sz=$(wc -c < "$dst" 2>/dev/null || echo 0)
+  first_byte=$(head -c 1 "$dst" 2>/dev/null || true)
+  if [[ $sz -lt 50 ]] || [[ "$first_byte" == "<" ]]; then
     err "pi-gen-stage/$f vino vacio o como HTML (size=$sz). Abortando antes de pi-gen."
     exit 1
   fi
