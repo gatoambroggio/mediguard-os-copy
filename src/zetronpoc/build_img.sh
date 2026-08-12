@@ -136,6 +136,22 @@ echo "==> 4/6 Inyectando stage $STAGE..."
 mkdir -p "$PIGEN/$STAGE"
 touch "$PIGEN/$STAGE/EXPORT_IMAGE"
 
+# pi-gen exige un prerun.sh en la RAIZ de cada stage (excepto stage0, que hace
+# debootstrap). Los stages estandar (stage1/stage2) traen uno que llama a
+# `copy_previous` para copiar el rootfs del stage anterior al actual. Sin este
+# archivo, el rootfs de stage2-mediguard queda vacio y el chroot revienta con
+# "realpath: .../proc: No such file or directory" / "Unable to chroot/chdir".
+# El guard revisa ademas si el dir esta vacio (re-run tras un build fallido que
+# dejo un rootfs vacio): copy_previous hace mkdir -p + rsync encima, asi que
+# llamarlo con dir existente-vacio es seguro.
+cat > "$PIGEN/$STAGE/prerun.sh" <<'PRERUN'
+#!/bin/bash -e
+if [ ! -d "${ROOTFS_DIR}" ] || [ -z "$(ls -A "${ROOTFS_DIR}" 2>/dev/null)" ]; then
+	copy_previous
+fi
+PRERUN
+chmod +x "$PIGEN/$STAGE/prerun.sh"
+
 # mapa: <archivo en repo> -> <subdirectorio numerado>/<slot pi-gen>
 declare -a STAGE_FILES=(
   "00-packages|00-install-packages/00-packages"
@@ -157,10 +173,14 @@ for entry in "${STAGE_FILES[@]}"; do
   mv -f "$tmp" "$PIGEN/$STAGE/$slot"
   [[ "$src" == *.sh ]] && chmod +x "$PIGEN/$STAGE/$slot"
 done
-log "Stage inyectado (3 subdirectorios numerados + EXPORT_IMAGE)."
+log "Stage inyectado (3 subdirectorios numerados + prerun.sh + EXPORT_IMAGE)."
 
 # -------------------- 5. BUILD --------------------
 echo "==> 5/6 Construyendo imagen (paciencia)..."
+# Normalizar locale para el chroot: el SSH desde Mac exporta LC_CTYPE=UTF-8,
+# que el rootfs arm64 aun no tiene generado -> perl/apt tiran warnings "Setting
+# locale failed" (cosmetico, pero ruidoso y a veces confunde a apt). Forzamos C.
+export LC_ALL=C LANG=C
 START=$(date +%s)
 if [[ $SKIP_BUILD -eq 1 ]]; then
   warn "--skip-build: config y stage listos, NO se construyo. Quita el flag y reejecuta."
