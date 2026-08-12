@@ -796,8 +796,13 @@ def procesar_siguiente_cola(db_path=DEFAULT_DB):
         if wok is False:
             ok = False
             obs = ("NAK/rechazado por MMDVM: " + wdet)[:200]
-    # Pausa fija entre mensajes para que no salgan pegados por RF.
-    time.sleep(2)
+    # Pausa entre mensajes para que no salgan pegados por RF (configurable).
+    try:
+        _delay = float(get_config("cola_delay_segundos", "2", db_path) or "2")
+    except (ValueError, TypeError):
+        _delay = 2.0
+    if _delay > 0:
+        time.sleep(_delay)
     with get_conn(db_path) as conn:
         if ok:
             conn.execute("UPDATE cola_envios SET estado='enviado', fecha_procesado=datetime('now','localtime'), "

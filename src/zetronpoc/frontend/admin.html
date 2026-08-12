@@ -150,6 +150,7 @@ tbody tr:hover{background:#f1f5f9!important}
       <button class="nav-btn" onclick="tab('logs',this)"><span class="ic">▤</span>Logs</button>
       <button class="nav-btn" onclick="tab('aud',this)"><span class="ic">◉</span>Auditoria</button>
       <button class="nav-btn" onclick="tab('cfg',this)"><span class="ic">⚙</span>Parametros</button>
+      <button class="nav-btn" onclick="tab('config',this)"><span class="ic">🛠</span>Configuración</button>
       <button class="nav-btn" onclick="tab('pbx',this)"><span class="ic">⇄</span>PBX</button>
       <button class="nav-btn" onclick="tab('cola',this)"><span class="ic">≡</span>Cola</button>
       <button class="nav-btn" onclick="tab('bd',this)"><span class="ic">⛁</span>Base datos</button>
@@ -216,7 +217,6 @@ tbody tr:hover{background:#f1f5f9!important}
         <button class="subtab" onclick="subtab('mmdvm',this)">MMDVM</button>
         <button class="subtab" onclick="subtab('ivr',this)">IVR / GPIO</button>
         <button class="subtab" onclick="subtab('smtp',this)">SMTP</button>
-        <button class="subtab" onclick="subtab('front',this)">Front</button>
         <button class="subtab" onclick="subtab('adv',this)">Avanzado</button>
       </div>
       <div class="subpane active" data-sub="pbx">
@@ -252,6 +252,7 @@ tbody tr:hover{background:#f1f5f9!important}
       <div class="subpane" data-sub="ivr">
       <div class="sec-title">⚙ IVR / GPIO / Admin</div>
       <div class="row"><div><label>Timeout mensaje (seg)</label><input id="c_mensaje_timeout" type="number"></div><div><label>PTT pre-activo (seg)</label><input id="c_ptt_preactivo" type="number" step="0.1"></div><div><label>Timeout digitos</label><input id="c_digit_timeout" type="number"></div><div><label>Timeout respuesta</label><input id="c_response_timeout" type="number"></div></div>
+      <div class="row"><div><label>Delay entre mensajes (seg)</label><input id="c_cola_delay_segundos" type="number" step="0.5" min="0"></div></div>
       <div class="row"><div><label>Modo prueba</label><select id="c_test_mode"><option value="0">No</option><option value="1">Si</option></select></div><div><label>GPIO chip</label><input id="c_gpio_chip"></div><div><label>GPIO pin (PTT)</label><input id="c_gpio_pin" type="number"></div></div>
       <div class="row"><div><label>Usuario admin</label><input id="c_admin_user"></div><div><label>Clave admin</label><input id="c_admin_pass" type="text"></div></div>
 
@@ -263,16 +264,7 @@ tbody tr:hover{background:#f1f5f9!important}
       <div class="row"><div><label>Email backups</label><input id="c_backup_email"></div></div>
 
       </div>
-      <div class="subpane" data-sub="front">
-      <div class="sec-title">🖥 Front (página pública)</div>
-      <div class="hint">Configura lo que ve el usuario en la página principal. Los cambios aplican al recargar el front.</div>
-      <div class="row"><div><label>Título</label><input id="c_front_titulo"></div><div><label>Subtítulo</label><input id="c_front_subtitulo"></div></div>
-      <div class="row"><div><label>Logo (texto/emoji)</label><input id="c_front_logo"></div></div>
-      <div class="row"><div><label>Color primario</label><input id="c_front_color_primario" type="color" style="height:38px;padding:2px"></div><div><label>Color acento</label><input id="c_front_color_acento" type="color" style="height:38px;padding:2px"></div></div>
-      <div class="row"><div><label>Color fondo</label><input id="c_front_color_fondo" type="color" style="height:38px;padding:2px"></div><div><label>Color texto</label><input id="c_front_color_texto" type="color" style="height:38px;padding:2px"></div></div>
-      <div class="row"><div><label>Sección Enviar</label><select id="c_front_seccion_enviar"><option value="1">Visible</option><option value="0">Oculto</option></select></div><div><label>Sección Historial</label><select id="c_front_seccion_historial"><option value="1">Visible</option><option value="0">Oculto</option></select></div></div>
 
-      </div>
       <div class="subpane" data-sub="adv">
       <div class="sec-title">⚙ Todos los parametros (avanzado · dinamico)</div>
       <div class="hint">Cada clave de la base de datos, editable. Incluye <b>todo</b> lo del sistema que no este en los campos de arriba; lo que sumes aca se guarda tal cual.</div>
@@ -283,6 +275,23 @@ tbody tr:hover{background:#f1f5f9!important}
       <button class="btn btn-sec" onclick="smtpTest()">Probar SMTP</button>
       <div id="cfg_res" class="toast"></div></div></div>
 
+    <div class="tab" id="t-config">
+      <div class="card"><h2>🖥 Front (página pública)</h2>
+        <div class="hint">Configura lo que ve el usuario en la página principal. Los cambios aplican al recargar el front.</div>
+        <div class="row"><div><label>Título</label><input id="cf_front_titulo"></div><div><label>Subtítulo</label><input id="cf_front_subtitulo"></div></div>
+        <div class="row"><div><label>Logo (texto/emoji)</label><input id="cf_front_logo"></div></div>
+        <div class="row"><div><label>Color primario</label><input id="cf_front_color_primario" type="color" style="height:38px;padding:2px"></div><div><label>Color acento</label><input id="cf_front_color_acento" type="color" style="height:38px;padding:2px"></div></div>
+        <div class="row"><div><label>Color fondo</label><input id="cf_front_color_fondo" type="color" style="height:38px;padding:2px"></div><div><label>Color texto</label><input id="cf_front_color_texto" type="color" style="height:38px;padding:2px"></div></div>
+        <div class="row"><div><label>Sección Enviar</label><select id="cf_front_seccion_enviar"><option value="1">Visible</option><option value="0">Oculto</option></select></div><div><label>Sección Historial</label><select id="cf_front_seccion_historial"><option value="1">Visible</option><option value="0">Oculto</option></select></div></div>
+      </div>
+      <div class="card"><h2><span>⚙ Todos los parámetros (absolutamente todo)</span><button class="btn btn-pri btn-sm" style="margin-left:auto" onclick="saveConfiguracion()">Guardar todo</button></h2>
+        <div class="hint">Cada clave del sistema, editable en un solo lugar. Incluye <b>todos</b> los módulos (PBX, MMDVM, IVR, SMTP, MQTT, front, etc.). Usá el buscador para encontrar rápido.</div>
+        <div class="search" style="margin-bottom:1rem"><input id="cfg_all_q" placeholder="Buscar parámetro..." oninput="filterConfigAll()"></div>
+        <div id="cfg_all" style="display:flex;flex-direction:column;gap:.6rem"></div>
+        <button class="btn btn-pri" style="margin-top:1rem" onclick="saveConfiguracion()">Guardar todo</button>
+        <div id="cfg_all_res" class="toast"></div>
+      </div>
+    </div>
     <div class="tab" id="t-pbx"><div class="card"><h2>⇄ Consola PBX (Asterisk)</h2>
       <div class="hint">Los registros SIP deben mostrar <b>Registered</b>. Si no, verifica IP/claves en Parametros y pulsa <b>Forzar registro</b>. Marca <b>*99</b> desde la central para probar el IVR (dos beeps).</div>
       <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.5rem">
@@ -501,15 +510,15 @@ tbody tr:hover{background:#f1f5f9!important}
 let TOKEN=localStorage.getItem('zetron_tok')||'';
 let editP=null,editG=null,editX=null,editPL=null,editPR=null; const HPG=50; let hoff=0,htot=0;
 let extTimer=null,histTimer=null,colaTimer=null,diagTimer=null; let curLogType='api';
-const CFG_KEYS=['admin_user','admin_pass','mensaje_timeout','ptt_preactivo','digit_timeout','response_timeout','test_mode','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','smtp_secure','backup_email','hospital_pbx_ip','hospital_pbx_port','pocsag_mode','transport_bind','transport_protocol','codecs','retry_interval','expiration','mmdvm_callsign','mmdvm_serial_port','mmdvm_baud','mmdvm_connection_type','mmdvm_uart_speed','mmdvm_frequency','mmdvm_duplex','mmdvm_pocsag_baud','mmdvm_tx_invert','mmdvm_tx_level','mmdvm_tx_offset','mmdvm_ptt_delay','mmdvm_display','mmdvm_remote_port','mmdvm_enable_pocsag','mmdvm_dapnet_enable','mmdvm_dapnet_address','mmdvm_dapnet_passcode','gpio_chip','gpio_pin','front_titulo','front_subtitulo','front_logo','front_color_primario','front_color_acento','front_color_fondo','front_color_texto','front_seccion_enviar','front_seccion_historial'];
+const CFG_KEYS=['admin_user','admin_pass','mensaje_timeout','ptt_preactivo','digit_timeout','response_timeout','cola_delay_segundos','test_mode','smtp_host','smtp_port','smtp_user','smtp_pass','smtp_from','smtp_secure','backup_email','hospital_pbx_ip','hospital_pbx_port','pocsag_mode','transport_bind','transport_protocol','codecs','retry_interval','expiration','mmdvm_callsign','mmdvm_serial_port','mmdvm_baud','mmdvm_connection_type','mmdvm_uart_speed','mmdvm_frequency','mmdvm_duplex','mmdvm_pocsag_baud','mmdvm_tx_invert','mmdvm_tx_level','mmdvm_tx_offset','mmdvm_ptt_delay','mmdvm_display','mmdvm_remote_port','mmdvm_enable_pocsag','mmdvm_dapnet_enable','mmdvm_dapnet_address','mmdvm_dapnet_passcode','gpio_chip','gpio_pin','front_titulo','front_subtitulo','front_logo','front_color_primario','front_color_acento','front_color_fondo','front_color_texto','front_seccion_enviar','front_seccion_historial'];
 
 function api(m,u,b,raw){const o={method:m,headers:{'Authorization':'Bearer '+TOKEN}};if(b!==undefined){if(raw){o.body=b;}else{o.headers['Content-Type']='application/json';o.body=JSON.stringify(b);}}return fetch(u,o).then(async r=>{if(r.status===401){logout(true);throw new Error('no autorizado');}const txt=await r.text();try{return JSON.parse(txt);}catch(e){return txt;}});}
 function showErr(r,ctx){const e=r&&(r.error||r.detalle);if(e){alert((ctx?ctx+': ':'')+'Error: '+e+(r.traceback?'\n\n--- traceback ---\n'+r.traceback:''));return true;}return false;}
-function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',central:'Config central',hist:'Historial',cfg:'Parametros',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria',diag:'Diagnostico',vpn:'VPN'};document.getElementById('tit').textContent=t[id]||'';
+function tab(id,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('t-'+id).classList.add('active');el.classList.add('active');const t={enviar:'Despacho',pagers:'Pagers',grupos:'Grupos',import:'Importar',ext:'Extensiones',central:'Config central',hist:'Historial',cfg:'Parametros',config:'Configuración',pbx:'PBX',cola:'Cola',bd:'Base datos',dash:'Dashboard',plantillas:'Plantillas',programados:'Programados',logs:'Logs',aud:'Auditoria',diag:'Diagnostico',vpn:'VPN'};document.getElementById('tit').textContent=t[id]||'';
 if(extTimer){clearInterval(extTimer);extTimer=null;}if(histTimer){clearInterval(histTimer);histTimer=null;}if(colaTimer){clearInterval(colaTimer);colaTimer=null;}if(diagTimer){clearInterval(diagTimer);diagTimer=null;}
 if(id==='ext'){loadExt();extTimer=setInterval(loadExt,5000);}
 if(id==='central')loadConfigCentral();
-if(id==='pagers')loadPagers();if(id==='grupos')loadGrupos();if(id==='cfg'){loadConfig();mmdvmStatus();}if(id==='hist'){loadHist(0);histTimer=setInterval(()=>loadHist(hoff),8000);}if(id==='pbx')pbx('status');if(id==='cola'){loadCola();colaTimer=setInterval(loadCola,4000);}if(id==='enviar')initSend();if(id==='dash')loadDash();if(id==='plantillas')loadPlantillas();if(id==='programados')loadProgramados();if(id==='logs')loadLogs('api');if(id==='aud')loadAud();if(id==='diag'){loadDiagAll();if(diagTimer)clearInterval(diagTimer);diagTimer=setInterval(refreshDiagAll,diagInterval*1000);}if(id==='vpn'){loadVpn();vpnServerStatus();vpnProtoHint();vpnClientHint();}}
+if(id==='pagers')loadPagers();if(id==='grupos')loadGrupos();if(id==='cfg'){loadConfig();mmdvmStatus();}if(id==='config')loadConfiguracion();if(id==='hist'){loadHist(0);histTimer=setInterval(()=>loadHist(hoff),8000);}if(id==='pbx')pbx('status');if(id==='cola'){loadCola();colaTimer=setInterval(loadCola,4000);}if(id==='enviar')initSend();if(id==='dash')loadDash();if(id==='plantillas')loadPlantillas();if(id==='programados')loadProgramados();if(id==='logs')loadLogs('api');if(id==='aud')loadAud();if(id==='diag'){loadDiagAll();if(diagTimer)clearInterval(diagTimer);diagTimer=setInterval(refreshDiagAll,diagInterval*1000);}if(id==='vpn'){loadVpn();vpnServerStatus();vpnProtoHint();vpnClientHint();}}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function toggleMenu(){document.querySelector('.side nav').classList.toggle('open');}
@@ -596,6 +605,13 @@ async function applyMmdvm(){const d={};CFG_KEYS.filter(k=>k.startsWith('mmdvm_')
 async function mmdvmStatus(){try{const r=await api('GET','/api/mmdvm/status');const el=document.getElementById('mmdvm_st');if(!el)return;const ok=r.installed;el.className='badge '+(ok?(r.service==='active'?'ok':'mut'):'err');el.textContent=ok?('Instalado · svc '+r.service):'No instalado';}catch(e){}}
 async function installMmdvm(){if(!confirm('Instalar MMDVMHost en este servidor? Compila y deja el servicio corriendo (1-3 min).'))return;const t=document.getElementById('mmdvm_inst');t.className='toast show ok';t.textContent='Instalando... (puede tardar 1-3 min)';const r=await api('POST','/api/mmdvm/install');if(r.ok){t.className='toast show ok';t.textContent='Instalacion OK. '+(r.salida||'').slice(-500);mmdvmStatus();}else{t.className='toast show err';t.textContent='Error: '+(r.error||'')+'\\n'+(r.salida||'').slice(-500);mmdvmStatus();}}
 async function smtpTest(){const email=prompt('Email destino:',document.getElementById('c_backup_email').value);if(!email)return;const r=await api('POST','/api/smtp/test',{email});const t=document.getElementById('cfg_res');t.className='toast show '+(r.ok?'ok':'err');t.textContent=r.ok?'Enviado a '+email:'Error: '+(r.error||'');setTimeout(()=>t.className='toast',4000);}
+
+// Configuración (módulo: absolutamente todo editable)
+const FRONT_KEYS=['front_titulo','front_subtitulo','front_logo','front_color_primario','front_color_acento','front_color_fondo','front_color_texto','front_seccion_enviar','front_seccion_historial'];
+async function loadConfiguracion(){const c=await api('GET','/api/config');FRONT_KEYS.forEach(k=>{const el=document.getElementById('cf_'+k);if(el&&c[k]!=null)el.value=c[k];});renderConfigAll(c);}
+function renderConfigAll(c){const box=document.getElementById('cfg_all');if(!box)return;const frontset=new Set(FRONT_KEYS);const keys=Object.keys(c||{}).filter(k=>!frontset.has(k)).sort();if(!keys.length){box.innerHTML='<div style="color:var(--mut)">Sin parámetros.</div>';return;}const groups={};keys.forEach(k=>{const g=cfgGroupOf(k);(groups[g]=groups[g]||[]).push(k);});let html='';for(const g of Object.keys(groups).sort()){html+='<div><div style="font-size:.66rem;color:var(--acc);letter-spacing:.1em;text-transform:uppercase;font-family:JetBrains Mono,monospace;margin:.3rem 0">'+g+'</div><div class="row">';groups[g].forEach(k=>{const v=c[k]!=null?String(c[k]):'';html+='<div class="cfg-all-row"><label>'+k+'</label><input class="cfg-all" data-k="'+k+'" value="'+v.replace(/"/g,'&quot;').replace(/</g,'&lt;')+'"></div>';});html+='</div></div>';}box.innerHTML=html;filterConfigAll();}
+function filterConfigAll(){const q=(document.getElementById('cfg_all_q').value||'').trim().toLowerCase();document.querySelectorAll('.cfg-all-row').forEach(div=>{const lbl=div.querySelector('label')?div.querySelector('label').textContent.toLowerCase():'';div.style.display=(!q||lbl.includes(q))?'':'none';});}
+async function saveConfiguracion(){const d={};FRONT_KEYS.forEach(k=>{const el=document.getElementById('cf_'+k);if(el)d[k]=el.value;});document.querySelectorAll('.cfg-all').forEach(el=>{d[el.dataset.k]=el.value;});const r=await api('PUT','/api/config',d);const t=document.getElementById('cfg_all_res');let msg='Configuración guardada.';if(r&&r.mmdvm_aplicado){msg+=' MMDVM.ini regenerado y mmdvmhost reiniciado.';}else if(r&&r.mmdvm_error){msg+=' Aviso MMDVM: '+r.mmdvm_error;}t.className='toast show '+(r&&r.mmdvm_error?'err':'ok');t.textContent=msg;setTimeout(()=>t.className='toast',5000);}
 
 // Config central (instalador .sh para la central del hospital)
 async function loadConfigCentral(){try{const r=await api('GET','/api/config/hospital_installer?view=1');const el=document.getElementById('central_out');const nb=document.getElementById('centralN');if(r&&r.error){el.textContent='Error: '+r.error;return;}el.textContent=r.script||'(vacío)';if(nb)nb.textContent=(r.internos||0)+' interno(s)';}catch(e){document.getElementById('central_out').textContent='Error: '+e.message;}}
