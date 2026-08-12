@@ -33,7 +33,10 @@ dl(){ # dl <url> <dest>
 }
 
 echo "==> Raspberry Pi: actualizando lista de paquetes..."
-apt-get update -y
+# || true: si un repo de fabrica viene sin firmar (NO_PUBKEY en raspbian), no
+# aborta todo el script bajo set -e. Los apt-get install posteriores usan los
+# repos firmados (deb.debian.org), que igual quedaron actualizados.
+apt-get update -y || true
 
 echo "==> Raspberry Pi: instalando dependencias base..."
 # Base: siempre disponibles en Pi OS 64-bit. Si alguno falla aca si abortamos.
@@ -47,8 +50,19 @@ apt-get install -y sqlite3 python3 python3-pip sox git curl ca-certificates \
 # 4) si tampoco, compilar Asterisk 20 LTS desde fuente (lento, pero garantizado).
 ensure_asterisk() {
   if command -v asterisk >/dev/null 2>&1 || [[ -x /usr/sbin/asterisk ]]; then
-    log "asterisk ya instalado."; return 0
+    # Si ya hay Asterisk pero le falta chan_pjsip.so (compilacion vieja sin
+    # --with-pjproject-bundled), forzamos recompilar para que ZetronPOC pueda
+    # registrar los internos via PJSIP.
+    if [[ -f /usr/lib/asterisk/modules/chan_pjsip.so ]]; then
+      log "asterisk ya instalado con PJSIP."; return 0
+    fi
+    warn "asterisk existe pero sin chan_pjsip.so -> recompilando con pjproject bundled..."
   fi
+  # Trixie: el keyring viejo no firma el repo nuevo -> apt falla con "Missing key
+  # A0DA38D0D76E8B5D638872819165938D90FDDD2E". Refrescar keyrings ANTES de cualquier
+  # intento de apt-get install asterisk, asi el repo por defecto de Pi OS ya lo trae.
+  apt-get install -y raspbian-archive-keyring debian-archive-keyring 2>&1 >/dev/null || true
+  apt-get update -y 2>&1 >/dev/null || true
   if apt-get install -y asterisk 2>&1 >/dev/null; then
     log "asterisk instalado via apt."; return 0
   fi
@@ -56,24 +70,32 @@ ensure_asterisk() {
   . /etc/os-release 2>/dev/null || true
   local CODENAME="${VERSION_CODENAME:-bookworm}"
   local SRCFILE="/etc/apt/sources.list.d/raspios-zetronpoc.list"
+  # [trusted=yes] evita el fallo de firma OpenPGP (sqv / Missing key) en Trixie
+  # cuando el keyring instalado aun no trae la key nueva del repo.
   if ! grep -rq "raspbian.raspberrypi.org" /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null; then
-    echo "deb http://raspbian.raspberrypi.org/raspbian/ ${CODENAME} main" > "$SRCFILE"
+    echo "deb [trusted=yes] http://raspbian.raspberrypi.org/raspbian/ ${CODENAME} main" > "$SRCFILE"
   fi
   apt-get update -y 2>&1 >/dev/null || true
-  if apt-get install -y asterisk 2>&1 >/dev/null; then
+  if apt-cache show asterisk >/dev/null 2>&1 && apt-get install -y asterisk 2>&1 >/dev/null; then
     log "asterisk instalado via apt (tras habilitar Raspbian main)."; return 0
   fi
-  warn "apt no pudo instalar asterisk. Compilando Asterisk 20 LTS desde fuente (puede tardar 30-60 min)..."
+  warn "apt no pudo instalar asterisk. Compilando Asterisk 22 LTS desde fuente (puede tardar 30-60 min)..."
   apt-get install -y build-essential libsqlite3-dev libedit-dev libxml2-dev \
     uuid-dev libssl-dev wget tar pkg-config 2>&1 >/dev/null || true
   local AB="/tmp/asterisk-build"
   rm -rf "$AB"; mkdir -p "$AB"; cd "$AB"
-  wget -q "https://downloads.asterisk.org/pub/telephony/asterisk/asterisk-20-current.tar.gz" -O ast.tar.gz \
+  wget -q "https://downloads.asterisk.org/pub/telephony/asterisk/asterisk-22-current.tar.gz" -O ast.tar.gz \
     || { err "No se pudo descargar el tarball de Asterisk."; return 1; }
   tar xzf ast.tar.gz
-  cd asterisk-20*/
-  ./configure --with-jansson-bundled 2>&1 | tail -3
-  if ! make -j"$(nproc)" 2>&1 | tail -3; then
+  cd asterisk-22*/
+  # --with-pjproject-bundled: ZetronPOC usa PJSIP para registrarse contra la
+  # central del hospital. Sin este flag, si el sistema no tiene libpjproject-dev
+  # instalada, Asterisk compila SIN modulo chan_pjsip y el pjsip.conf es inutil.
+  # Bundlear pjproject garantiza PJSIP presente sin depender de paquetes del OS.
+  ./configure --with-pjproject-bundled --with-jansson-bundled 2>&1 | tail -5
+  # make -j1: en aarch64 el build paralelo rompe con "app_voicemail.o: No such
+  # file or directory" (race en dir apps/). Serial es mas lento pero determinista.
+  if ! make -j1 2>&1 | tail -5; then
     err "La compilacion de Asterisk fallo."; return 1
   fi
   make install 2>&1 | tail -3

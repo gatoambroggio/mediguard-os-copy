@@ -1,0 +1,44 @@
+# stage2-mediguard - paquetes preinstalados en la imagen
+# Preinstala lo pesado aca para que instalador_rpi.sh (que corre despues en el
+# chroot) lo encuentre todo y solo tenga que configurar, no descargar/compilar.
+# Nombres validos para Debian arm64 (bookworm/trixie). Uno por linea.
+
+# Base del sistema que usa ZetronPOC
+sqlite3
+python3
+python3-pip
+sox
+git
+curl
+ca-certificates
+logrotate
+espeak
+alsa-utils
+jq
+
+# GPIO / PTT: gpiod provee gpioset y arrastra la libgpiod correcta (libgpiod2
+# en bookworm, libgpiod3 en trixie) como dependencia. No listamos la lib
+# explicitamente para no romper si el branch arm64 apunta a trixie.
+gpiod
+
+# Telefonia / IVR: NO listar 'asterisk' como paquete apt. En Pi OS Bookworm
+# arm64 el paquete 'asterisk' no existe en repos oficiales (Debian lo removio).
+# Bajo set -e, apt-get install asterisk aborta TODO el stage antes de que corra
+# 01-mediguard-install.sh, y el build termina sin .img en deploy/. Asterisk se
+# compila desde fuente dentro del chroot via instalador_rpi.sh -> ensure_asterisk
+# (--with-pjproject-bundled, make -j1), que garantiza chan_pjsip.so para ZetronPOC.
+
+# VPN (cliente + servidor: OpenVPN, WireGuard, PPTP, L2TP/IPsec)
+network-manager
+network-manager-openvpn
+network-manager-pptp
+openvpn
+wireguard
+wireguard-tools
+pptpd
+strongswan
+xl2tpd
+
+# Broker MQTT para dispatch POCSAG -> MMDVMHost
+mosquitto
+mosquitto-clients

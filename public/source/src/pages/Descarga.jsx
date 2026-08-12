@@ -20,6 +20,7 @@ import {
   Cpu,
   Database,
   FolderGit2,
+  HardDrive,
 } from "lucide-react";
 import JSZip from "jszip";
 import { Link } from "react-router-dom";
@@ -29,6 +30,7 @@ import GithubPublishCard from "@/components/GithubPublishCard";
 const REPO = "https://github.com/gatoambroggio/mediguard-os-copy.git";
 const RAW = "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador.sh";
 const RAW_RPI = "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador_rpi.sh";
+const RAW_BUILD = "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/build_img.sh";
 
 const BOOTSTRAP = `#!/usr/bin/env bash
 # Instala ZetronPOC (paginacion hospitalaria POCSAG, cliente FreePBX) desde GitHub.
@@ -443,6 +445,40 @@ export default function Descarga() {
             <code className="font-mono text-emerald-600 break-all">
               curl -fsSL {RAW_RPI} | sudo POCSAG_GPIO_PIN=18 bash
             </code>
+          </p>
+        </motion.div>
+
+        {/* imagen .img flasheable (pi-gen) */}
+        <motion.div
+          custom={5}
+          variants={fade}
+          initial="hidden"
+          animate="show"
+          className="md:col-span-3 rounded-[28px] bg-gradient-to-br from-sky-500/10 to-indigo-500/10 border border-sky-500/30 p-6 flex flex-col"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <HardDrive className="w-5 h-5 text-sky-600" />
+            <h2 className="font-display font-bold text-slate-900">Imagen .img lista para flashear (Pi 3B+/4/5, 64-bit)</h2>
+          </div>
+          <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+            Genera un <code className="font-mono text-sky-600">mediguardos-rpi.img</code> con Pi OS Lite 64-bit +
+            ZetronPOC + Asterisk + mosquitto + NetworkManager ya instalados y servicios habilitados. Lo construís
+            una vez en una PC Linux x86 con <code className="font-mono text-sky-600">pi-gen</code> (branch{" "}
+            <code className="font-mono text-sky-600">arm64</code>) y después solo escribís la microSD con
+            BalenaEtcher / Raspberry Pi Imager. Arranca headless con SSH activo (<code className="font-mono text-sky-600">admin/admin123</code>),
+            hostname <code className="font-mono text-sky-600">mediguard</code> y el panel en{" "}
+            <code className="font-mono text-sky-600">:8080</code>. MMDVMHost se instala después desde el panel cuando
+            conectes el Jumbospot (no compila durante el build porque no hay hardware MMDVM en la PC).
+          </p>
+          <CmdBlock
+            id="img"
+            text={`curl -fsSL ${RAW_BUILD} | sudo bash`}
+            label="construir .img (PC Linux x86, ~1.5-3 h)"
+          />
+          <p className="text-[11px] text-slate-400 mt-2">
+          Requiere Docker (recomendado) o debootstrap + qemu-user-binfmt, 4+ GB RAM y ~6 GB libres.{" "}
+          <code className="font-mono text-sky-600">--skip-build</code> para solo configurar sin construir.{" "}
+          <code className="font-mono text-sky-600">Asterisk</code> se compila desde fuente durante el build (lento pero queda listo en la imagen).
           </p>
         </motion.div>
       </section>

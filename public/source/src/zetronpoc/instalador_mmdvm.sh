@@ -29,7 +29,7 @@ err(){ echo -e "${R}[ERR]${NC}  $*" >&2; }
 echo "==> 1/6 Dependencias (build + mosquitto)..."
 apt-get update -y
 apt-get install -y git g++ make wget curl mosquitto mosquitto-clients \
-  libssl-dev systemd 2>&1 || { err "Fallo instalacion de paquetes."; exit 1; }
+  libssl-dev nlohmann-json3-dev libmosquitto-dev systemd 2>&1 || { err "Fallo instalacion de paquetes."; exit 1; }
 systemctl enable --now mosquitto 2>/dev/null || true
 
 echo "==> 2/6 Compilando MMDVMHost (G4KLX)..."
