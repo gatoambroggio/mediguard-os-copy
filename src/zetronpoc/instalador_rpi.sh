@@ -33,7 +33,10 @@ dl(){ # dl <url> <dest>
 }
 
 echo "==> Raspberry Pi: actualizando lista de paquetes..."
-apt-get update -y
+# || true: si un repo de fabrica viene sin firmar (NO_PUBKEY en raspbian), no
+# aborta todo el script bajo set -e. Los apt-get install posteriores usan los
+# repos firmados (deb.debian.org), que igual quedaron actualizados.
+apt-get update -y || true
 
 echo "==> Raspberry Pi: instalando dependencias base..."
 # Base: siempre disponibles en Pi OS 64-bit. Si alguno falla aca si abortamos.
