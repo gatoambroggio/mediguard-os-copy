@@ -286,7 +286,7 @@ echo "==> 9/10 Activando servicios..."
 cat > /etc/logrotate.d/zetronpoc <<EOF
 ${APP_DIR}/logs/*.log { daily rotate 14 compress missingok notifempty }
 EOF
-systemctl daemon-reload
+systemctl daemon-reload 2>/dev/null || true
 systemctl enable --now asterisk 2>/dev/null || warn "Asterisk no pudo activarse"
 asterisk -rx "dialplan reload" 2>/dev/null || warn "No se pudo recargar dialplan"
 asterisk -rx "pjsip reload" 2>/dev/null || true

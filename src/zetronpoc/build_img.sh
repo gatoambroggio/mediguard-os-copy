@@ -128,8 +128,8 @@ log "config: hostname=mediguard, admin/admin123, SSH on, sudo sin clave."
 # sin instalar nada). Cada archivo baja a un .tmp, se valida (tamaño + no-HTML)
 # y despues se mueve a su slot canonico dentro del subdirectorio numerado:
 #   00-install-packages/00-packages        -> apt preinstall (lista, uno por linea)
-#   01-mediguard-install/00-run.sh          -> corre instalador_rpi.sh --update en chroot
-#   02-mediguard-firstboot/00-run.sh        -> instala servicio oneshot primer boot
+#   01-mediguard-install/00-run-chroot.sh   -> corre instalador_rpi.sh --update DENTRO del chroot (arm64)
+#   02-mediguard-firstboot/00-run-chroot.sh -> instala servicio oneshot primer boot DENTRO del chroot
 # Ademas se deja un archivo EXPORT_IMAGE vacio en la raiz del stage: sin el,
 # pi-gen arma el rootfs pero NUNCA exporta el .img a deploy/.
 echo "==> 4/6 Inyectando stage $STAGE..."
@@ -155,8 +155,8 @@ chmod +x "$PIGEN/$STAGE/prerun.sh"
 # mapa: <archivo en repo> -> <subdirectorio numerado>/<slot pi-gen>
 declare -a STAGE_FILES=(
   "00-packages|00-install-packages/00-packages"
-  "01-mediguard-install.sh|01-mediguard-install/00-run.sh"
-  "02-mediguard-firstboot.sh|02-mediguard-firstboot/00-run.sh"
+  "01-mediguard-install.sh|01-mediguard-install/00-run-chroot.sh"
+  "02-mediguard-firstboot.sh|02-mediguard-firstboot/00-run-chroot.sh"
 )
 for entry in "${STAGE_FILES[@]}"; do
   src="${entry%%|*}"
