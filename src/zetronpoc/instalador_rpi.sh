@@ -42,7 +42,15 @@ apt-get install -y sqlite3 python3 python3-pip sox git curl ca-certificates \
 
 # asterisk y libgpiod2 por separado: si el mirror del Pi no los tiene, no abortan.
 apt-get install -y asterisk 2>&1 || warn "asterisk no esta en el repo activo. Habilite el repo main de Raspbian: deb http://raspbian.raspberrypi.org/raspbian/ bookworm main"
-apt-get install -y libgpiod2 2>&1 || warn "libgpiod2 no disponible (gpiod ya instalo gpioset; el PTT funciona igual)"
+# libgpiod2: la numeracion del paquete varia entre releases (libgpiod2 / libgpiod3
+# / libgpiod-dev). gpiod ya instalo gpioset para el PTT, asi que si ninguno de los
+# candidatos existe, se ignora en silencio (no es un WARN accionable).
+for _pkg in libgpiod2 libgpiod3 libgpiod-dev; do
+  if apt-cache show "$_pkg" >/dev/null 2>&1; then
+    apt-get install -y "$_pkg" 2>&1 >/dev/null || true
+    break
+  fi
+done
 
 # ============================ DETECTAR GPIOCHIP =============================
 # El gpiochip principal es el que mas lineas expone. Pi 5 -> gpiochip4 (rp1),
