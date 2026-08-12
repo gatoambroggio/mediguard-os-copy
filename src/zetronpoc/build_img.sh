@@ -133,6 +133,11 @@ log "config: hostname=mediguard, admin/admin123, SSH on, sudo sin clave."
 # Ademas se deja un archivo EXPORT_IMAGE vacio en la raiz del stage: sin el,
 # pi-gen arma el rootfs pero NUNCA exporta el .img a deploy/.
 echo "==> 4/6 Inyectando stage $STAGE..."
+# Borrar la definicion del stage de corridas anteriores: si reutilizamos pi-gen
+# (no lo re-clonamos), los 00-run.sh stale pre-fix quedarian junto a los
+# 00-run-chroot.sh nuevos y pi-gen los ejecutaria en el HOST (x86) en lugar del
+# chroot. rm -rf garantiza que solo queden los slots actuales (00-run-chroot.sh).
+rm -rf "$PIGEN/$STAGE"
 mkdir -p "$PIGEN/$STAGE"
 touch "$PIGEN/$STAGE/EXPORT_IMAGE"
 
