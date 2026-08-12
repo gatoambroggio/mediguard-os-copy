@@ -74,7 +74,11 @@ echo "==> 1/10 Dependencias base..."
 if [[ $UPDATE -eq 0 ]]; then
   apt-get update -y
   apt-get install -y sqlite3 python3 python3-pip alsa-utils sox git curl ca-certificates \
-    logrotate espeak gpiod libgpiod2 asterisk 2>&1 || { err "Fallo instalacion de paquetes."; exit 1; }
+    logrotate espeak gpiod 2>&1 || { err "Fallo instalacion de paquetes base."; exit 1; }
+  # asterisk y libgpiod2 por separado: en algunos repos (Raspberry Pi OS) pueden
+  # no estar en el mirror activo. Si fallan, no abortan todo el instalador.
+  apt-get install -y asterisk 2>&1 || warn "asterisk no encontrado en el repo. En Raspberry Pi habilite el repo main de Raspbian (deb http://raspbian.raspberrypi.org/raspbian/ bookworm main) y reejecute."
+  apt-get install -y libgpiod2 2>&1 || warn "libgpiod2 no encontrado (gpiod ya instala gpioset; el PTT igual funciona)"
 else
   # En --update solo asegurar lo critico que pudo ser purgado (ej: asterisk)
   command -v asterisk >/dev/null 2>&1 || apt-get install -y asterisk 2>&1 || warn "No se pudo reinstalar asterisk"

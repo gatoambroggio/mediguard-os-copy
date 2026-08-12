@@ -28,7 +28,7 @@ import GithubPublishCard from "@/components/GithubPublishCard";
 
 const REPO = "https://github.com/gatoambroggio/mediguard-os-copy.git";
 const RAW = "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador.sh";
-const RAW_RPI = "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador.sh";
+const RAW_RPI = "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador_rpi.sh";
 
 const BOOTSTRAP = `#!/usr/bin/env bash
 # Instala ZetronPOC (paginacion hospitalaria POCSAG, cliente FreePBX) desde GitHub.
@@ -427,8 +427,11 @@ export default function Descarga() {
             <h2 className="font-display font-bold text-slate-900">Instalar en Raspberry Pi</h2>
           </div>
           <p className="text-xs text-slate-500 mb-3 leading-relaxed">
-            Para Pi 3/4/5 con Raspberry Pi OS (64-bit). Detecta el gpiochip automaticamente
-            (Pi 5 usa gpiochip4, Pi 3/4 gpiochip0) y configura el PTT en el BCM 17 por defecto.
+            Para Pi 3/4/5 con Raspberry Pi OS (64-bit). Usa un instalador dedicado que instala las
+            dependencias en grupos: si <code className="font-mono text-emerald-600">asterisk</code> o{" "}
+            <code className="font-mono text-emerald-600">libgpiod2</code> no estan en tu mirror, no
+            aborta todo. Detecta el gpiochip automaticamente (Pi 5 usa gpiochip4, Pi 3/4 gpiochip0)
+            y configura el PTT en BCM 17 por defecto.
           </p>
           <CmdBlock
             id="rpi"
@@ -436,7 +439,10 @@ export default function Descarga() {
             label="raspberry pi"
           />
           <p className="text-[11px] text-slate-400 mt-2">
-            Para otro pin: <code className="font-mono text-emerald-600">sudo POCSAG_GPIO_PIN=18 bash instalador_rpi.sh</code>
+            Para otro pin BCM:{" "}
+            <code className="font-mono text-emerald-600 break-all">
+              curl -fsSL {RAW_RPI} | sudo POCSAG_GPIO_PIN=18 bash
+            </code>
           </p>
         </motion.div>
       </section>
