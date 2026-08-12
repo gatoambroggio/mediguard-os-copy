@@ -12,7 +12,7 @@
 #   sudo bash build_img.sh --skip-build   # solo configura pi-gen, no construye
 #
 # Requisitos: ~6 GB libres, Docker (recomendado) o debootstrap + qemu-user-binfmt.
-# Tiempo estimado: 20-35 min (Docker) / 35-60 min (nativo).
+# Tiempo estimado: 1.5-3 h (Asterisk se compila desde fuente bajo qemu en el chroot)
 # Salida: ./mediguardos-rpi.img (flashear con BalenaEtcher / Raspberry Pi Imager)
 #
 # Nota: MMDVMHost NO se compila dentro de la imagen (no hay hardware MMDVM al
@@ -122,28 +122,42 @@ ENABLE_CLOUD_INIT=0
 STAGE_LIST="stage0 stage1 $STAGE"
 EOF
 log "config: hostname=mediguard, admin/admin123, SSH on, sudo sin clave."
-# No queremos el empaquetado NOOBS
-touch "$PIGEN/stage0/SKIP_IMAGES" 2>/dev/null || true
-
 # -------------------- 4. INYECTAR stage2-mediguard --------------------
+# pi-gen SOLO ejecuta subdirectorios numerados dentro de un stage; los archivos
+# sueltos en la raiz del stage se ignoran (por eso el build "terminaba" en 1 min
+# sin instalar nada). Cada archivo baja a un .tmp, se valida (tamaño + no-HTML)
+# y despues se mueve a su slot canonico dentro del subdirectorio numerado:
+#   00-install-packages/00-packages        -> apt preinstall (lista, uno por linea)
+#   01-mediguard-install/00-run.sh          -> corre instalador_rpi.sh --update en chroot
+#   02-mediguard-firstboot/00-run.sh        -> instala servicio oneshot primer boot
+# Ademas se deja un archivo EXPORT_IMAGE vacio en la raiz del stage: sin el,
+# pi-gen arma el rootfs pero NUNCA exporta el .img a deploy/.
 echo "==> 4/6 Inyectando stage $STAGE..."
 mkdir -p "$PIGEN/$STAGE"
-# Bajar cada archivo del stage y VALIDARLO: curl -f aborta en 404, pero un error
-# 500/redirect puede devolver una pagina HTML vacia que pi-gen aceptaria como
-# script roto -> el stage corre sin hacer nada -> build termina sin .img.
-# Se verifica tamaño minimo y que no arranque con '<' (HTML de error).
-for f in 00-packages 01-mediguard-install.sh 02-mediguard-firstboot.sh; do
-  dst="$PIGEN/$STAGE/$f"
-  curl -fsSL "$REPO/pi-gen-stage/$f" -o "$dst" || { err "No se pudo bajar pi-gen-stage/$f (HTTP/red)."; exit 1; }
-  sz=$(wc -c < "$dst" 2>/dev/null || echo 0)
-  first_byte=$(head -c 1 "$dst" 2>/dev/null || true)
+touch "$PIGEN/$STAGE/EXPORT_IMAGE"
+
+# mapa: <archivo en repo> -> <subdirectorio numerado>/<slot pi-gen>
+declare -a STAGE_FILES=(
+  "00-packages|00-install-packages/00-packages"
+  "01-mediguard-install.sh|01-mediguard-install/00-run.sh"
+  "02-mediguard-firstboot.sh|02-mediguard-firstboot/00-run.sh"
+)
+for entry in "${STAGE_FILES[@]}"; do
+  src="${entry%%|*}"
+  slot="${entry##*|}"
+  tmp="$PIGEN/$STAGE/${src}.tmp"
+  curl -fsSL "$REPO/pi-gen-stage/$src" -o "$tmp" || { err "No se pudo bajar pi-gen-stage/$src (HTTP/red)."; exit 1; }
+  sz=$(wc -c < "$tmp" 2>/dev/null || echo 0)
+  first_byte=$(head -c 1 "$tmp" 2>/dev/null || true)
   if [[ $sz -lt 50 ]] || [[ "$first_byte" == "<" ]]; then
-    err "pi-gen-stage/$f vino vacio o como HTML (size=$sz). Abortando antes de pi-gen."
+    err "pi-gen-stage/$src vino vacio o como HTML (size=$sz). Abortando antes de pi-gen."
     exit 1
   fi
-  [[ "$f" == *.sh ]] && chmod +x "$dst"
+  mkdir -p "$PIGEN/$STAGE/$(dirname "$slot")"
+  mv -f "$tmp" "$PIGEN/$STAGE/$slot"
+  [[ "$src" == *.sh ]] && chmod +x "$PIGEN/$STAGE/$slot"
 done
-log "Stage inyectado (3 archivos validados)."
+log "Stage inyectado (3 subdirectorios numerados + EXPORT_IMAGE)."
 
 # -------------------- 5. BUILD --------------------
 echo "==> 5/6 Construyendo imagen (paciencia)..."
