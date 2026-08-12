@@ -40,8 +40,67 @@ echo "==> Raspberry Pi: instalando dependencias base..."
 apt-get install -y sqlite3 python3 python3-pip sox git curl ca-certificates \
   logrotate espeak gpiod 2>&1 || { err "Fallo la instalacion de paquetes base."; exit 1; }
 
-# asterisk y libgpiod2 por separado: si el mirror del Pi no los tiene, no abortan.
-apt-get install -y asterisk 2>&1 || warn "asterisk no esta en el repo activo. Habilite el repo main de Raspbian: deb http://raspbian.raspberrypi.org/raspbian/ bookworm main"
+# ============================ ASEGURAR ASTERISK =============================
+# 1) si ya esta instalado (paquete o binario), listo.
+# 2) apt-get install asterisk.
+# 3) si falla, asegurar el repo main de Raspbian + apt-get update + reintentar.
+# 4) si tampoco, compilar Asterisk 20 LTS desde fuente (lento, pero garantizado).
+ensure_asterisk() {
+  if command -v asterisk >/dev/null 2>&1 || [[ -x /usr/sbin/asterisk ]]; then
+    log "asterisk ya instalado."; return 0
+  fi
+  if apt-get install -y asterisk 2>&1 >/dev/null; then
+    log "asterisk instalado via apt."; return 0
+  fi
+  warn "asterisk no esta en el repo activo. Intentando habilitar el repo main de Raspbian..."
+  . /etc/os-release 2>/dev/null || true
+  local CODENAME="${VERSION_CODENAME:-bookworm}"
+  local SRCFILE="/etc/apt/sources.list.d/raspios-zetronpoc.list"
+  if ! grep -rq "raspbian.raspberrypi.org" /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null; then
+    echo "deb http://raspbian.raspberrypi.org/raspbian/ ${CODENAME} main" > "$SRCFILE"
+  fi
+  apt-get update -y 2>&1 >/dev/null || true
+  if apt-get install -y asterisk 2>&1 >/dev/null; then
+    log "asterisk instalado via apt (tras habilitar Raspbian main)."; return 0
+  fi
+  warn "apt no pudo instalar asterisk. Compilando Asterisk 20 LTS desde fuente (puede tardar 30-60 min)..."
+  apt-get install -y build-essential libsqlite3-dev libedit-dev libxml2-dev \
+    uuid-dev libssl-dev wget tar pkg-config 2>&1 >/dev/null || true
+  local AB="/tmp/asterisk-build"
+  rm -rf "$AB"; mkdir -p "$AB"; cd "$AB"
+  wget -q "https://downloads.asterisk.org/pub/telephony/asterisk/asterisk-20-current.tar.gz" -O ast.tar.gz \
+    || { err "No se pudo descargar el tarball de Asterisk."; return 1; }
+  tar xzf ast.tar.gz
+  cd asterisk-20*/
+  ./configure --with-jansson-bundled 2>&1 | tail -3
+  if ! make -j"$(nproc)" 2>&1 | tail -3; then
+    err "La compilacion de Asterisk fallo."; return 1
+  fi
+  make install 2>&1 | tail -3
+  make config 2>&1 >/dev/null || true
+  ldconfig
+  # systemd unit si make config no creo uno usable
+  if ! systemctl list-unit-files 2>/dev/null | grep -q "^asterisk.service"; then
+    cat > /etc/systemd/system/asterisk.service <<'UNIT'
+[Unit]
+Description=Asterisk PBX
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/sbin/asterisk -f
+ExecStop=/usr/sbin/asterisk -rx "core stop now"
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+    systemctl daemon-reload 2>/dev/null || true
+  fi
+  log "Asterisk compilado e instalado desde fuente."; return 0
+}
+ensure_asterisk || warn "No se pudo instalar asterisk por ningun metodo (apt, repo, ni fuente). El IVR/SIP no funcionara."
 # libgpiod2: la numeracion del paquete varia entre releases (libgpiod2 / libgpiod3
 # / libgpiod-dev). gpiod ya instalo gpioset para el PTT, asi que si ninguno de los
 # candidatos existe, se ignora en silencio (no es un WARN accionable).
