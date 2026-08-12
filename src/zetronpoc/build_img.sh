@@ -57,14 +57,19 @@ if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   log "Docker disponible -> build via Docker (mas limpio y rapido)."
 else
   warn "Docker no detectado -> build nativo (instalando deps del host)..."
-  apt-get update -y >/dev/null 2>&1 || true
-  apt-get install -y coreutils quilt parted qemu-user-binfmt debootstrap \
-    zerofree zip dosfstools e2fsprogs libarchive-tools libcap2-bin grep rsync \
-    xz-utils file git curl bc gpg pigz xxd arch-test bmap-tools kmod \
-    qemu-user-static binfmt-support >/dev/null 2>&1 || true
+  apt-get update -y || { err "apt-get update fallo. Revisa tus repositorios."; exit 1; }
+  # debootstrap + qemu son los criticos para el build nativo (chroot arm64).
+  # Se instalan PRIMERO y sin silenciar errores para que el mensaje de apt
+  # (paquete inexistente, repo caido, etc.) llegue al usuario.
+  apt-get install -y debootstrap qemu-user-static qemu-user-binfmt \
+    binfmt-support || { err "No se pudo instalar debootstrap/qemu. Instalalos manualmente: sudo apt-get install debootstrap qemu-user-static binfmt-support"; exit 1; }
+  # resto de deps del builder (algunas pueden faltar segun distro, no son fatales)
+  apt-get install -y coreutils quilt parted zerofree zip dosfstools e2fsprogs \
+    libarchive-tools libcap2-bin grep rsync xz-utils file git curl bc gpg pigz \
+    xxd arch-test bmap-tools kmod 2>&1 || warn "Algunas deps secundarias no instalaron (build puede igual funcionar)."
   # Registrar binfmt para que qemu ejecute binarios arm64 dentro del chroot
-  update-binfmts --enable qemu-aarch64 2>/dev/null || true
-  command -v debootstrap >/dev/null 2>&1 || { err "Falta debootstrap. Instala las deps arriba."; exit 1; }
+  update-binfmts --enable qemu-aarch64 2>/dev/null || warn "update-binfmts fallo (quizas necesites reiniciar o cargar el modulo binfmt_misc)."
+  command -v debootstrap >/dev/null 2>&1 || { err "debootstrap sigue ausente tras apt-get install. Instalalo manualmente y reejecuta."; exit 1; }
   log "Deps nativas listas."
 fi
 
