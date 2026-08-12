@@ -49,6 +49,11 @@ ensure_asterisk() {
   if command -v asterisk >/dev/null 2>&1 || [[ -x /usr/sbin/asterisk ]]; then
     log "asterisk ya instalado."; return 0
   fi
+  # Trixie: el keyring viejo no firma el repo nuevo -> apt falla con "Missing key
+  # A0DA38D0D76E8B5D638872819165938D90FDDD2E". Refrescar keyrings ANTES de cualquier
+  # intento de apt-get install asterisk, asi el repo por defecto de Pi OS ya lo trae.
+  apt-get install -y raspbian-archive-keyring debian-archive-keyring 2>&1 >/dev/null || true
+  apt-get update -y 2>&1 >/dev/null || true
   if apt-get install -y asterisk 2>&1 >/dev/null; then
     log "asterisk instalado via apt."; return 0
   fi
@@ -56,11 +61,13 @@ ensure_asterisk() {
   . /etc/os-release 2>/dev/null || true
   local CODENAME="${VERSION_CODENAME:-bookworm}"
   local SRCFILE="/etc/apt/sources.list.d/raspios-zetronpoc.list"
+  # [trusted=yes] evita el fallo de firma OpenPGP (sqv / Missing key) en Trixie
+  # cuando el keyring instalado aun no trae la key nueva del repo.
   if ! grep -rq "raspbian.raspberrypi.org" /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null; then
-    echo "deb http://raspbian.raspberrypi.org/raspbian/ ${CODENAME} main" > "$SRCFILE"
+    echo "deb [trusted=yes] http://raspbian.raspberrypi.org/raspbian/ ${CODENAME} main" > "$SRCFILE"
   fi
   apt-get update -y 2>&1 >/dev/null || true
-  if apt-get install -y asterisk 2>&1 >/dev/null; then
+  if apt-cache show asterisk >/dev/null 2>&1 && apt-get install -y asterisk 2>&1 >/dev/null; then
     log "asterisk instalado via apt (tras habilitar Raspbian main)."; return 0
   fi
   warn "apt no pudo instalar asterisk. Compilando Asterisk 20 LTS desde fuente (puede tardar 30-60 min)..."
@@ -73,7 +80,9 @@ ensure_asterisk() {
   tar xzf ast.tar.gz
   cd asterisk-20*/
   ./configure --with-jansson-bundled 2>&1 | tail -3
-  if ! make -j"$(nproc)" 2>&1 | tail -3; then
+  # make -j1: en aarch64 el build paralelo rompe con "app_voicemail.o: No such
+  # file or directory" (race en dir apps/). Serial es mas lento pero determinista.
+  if ! make -j1 2>&1 | tail -5; then
     err "La compilacion de Asterisk fallo."; return 1
   fi
   make install 2>&1 | tail -3
