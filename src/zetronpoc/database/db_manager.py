@@ -690,7 +690,7 @@ def _log_marker(path):
     except Exception:
         return 0
 
-def _wait_transmitted(path, marker, timeout=25, poll=0.2):
+def _wait_transmitted(path, marker, timeout=8, poll=0.2):
     """Espera a que MMDVMHost termine la portacion POCSAG real (PTT abajo) antes
     de soltar el siguiente item de la cola. Busca un 'Transmitted POCSAG' (exito:
     el batch salio completo por RF y bajo el PTT) o un 'NAK'/'Invalid remote
@@ -722,7 +722,13 @@ def _wait_transmitted(path, marker, timeout=25, poll=0.2):
                 nuevas = []
         for ln in nuevas:
             low = ln.lower()
-            if "transmitted pocsag" in low:
+            # Exito: el batch POCSAG salio completo por RF y bajo el PTT.
+            # La frase exacta varia por version: "Transmitted POCSAG",
+            # "POCSAG, transmitted", "POCSAG transmission complete", etc.
+            if "pocsag" in low and ("transmit" in low or "transmitted" in low):
+                return True, ln.strip()[:200]
+            # PTT bajo: MMDVMHost volvio a RX (señal alternativa de fin).
+            if "returning to receive" in low or "ptt off" in low:
                 return True, ln.strip()[:200]
             if "nak" in low or "invalid remote command" in low:
                 return False, ln.strip()[:200]
