@@ -83,50 +83,20 @@ ensure_asterisk() {
   if apt-cache show asterisk >/dev/null 2>&1 && apt-get install -y asterisk >/dev/null 2>&1; then
     log "asterisk instalado via apt (Raspbian main)."; return 0
   fi
-  warn "apt no pudo instalar asterisk. Compilando Asterisk 22 LTS desde fuente (puede tardar 30-60 min)..."
-  apt-get install -y build-essential libsqlite3-dev libedit-dev libxml2-dev \
-    uuid-dev libssl-dev wget tar pkg-config 2>&1 >/dev/null || true
-  local AB="/tmp/asterisk-build"
-  rm -rf "$AB"; mkdir -p "$AB"; cd "$AB"
-  wget -q "https://downloads.asterisk.org/pub/telephony/asterisk/asterisk-22-current.tar.gz" -O ast.tar.gz \
-    || { err "No se pudo descargar el tarball de Asterisk."; return 1; }
-  tar xzf ast.tar.gz
-  cd asterisk-22*/
-  # --with-pjproject-bundled: ZetronPOC usa PJSIP para registrarse contra la
-  # central del hospital. Sin este flag, si el sistema no tiene libpjproject-dev
-  # instalada, Asterisk compila SIN modulo chan_pjsip y el pjsip.conf es inutil.
-  # Bundlear pjproject garantiza PJSIP presente sin depender de paquetes del OS.
-  ./configure --with-pjproject-bundled --with-jansson-bundled 2>&1 | tail -5
-  # make -j1: en aarch64 el build paralelo rompe con "app_voicemail.o: No such
-  # file or directory" (race en dir apps/). Serial es mas lento pero determinista.
-  if ! make -j1 2>&1 | tail -5; then
-    err "La compilacion de Asterisk fallo."; return 1
+  warn "apt no pudo instalar asterisk. Compilando Asterisk 22 LTS desde fuente (instalador robusto)..."
+  # Delega en instalar_asterisk.sh: instala TODAS las deps de build, compila con
+  # pjproject-bundled (garantiza chan_pjsip), fallback -j1 si -jN OOM/racea, y
+  # verifica chan_pjsip.so. Mas robusto que embeberlo aca.
+  local IA="$(mktemp -d)/instalar_asterisk.sh"
+  if ! curl -fsSL "${SRC}/instalar_asterisk.sh" -o "$IA"; then
+    err "No se pudo descargar instalar_asterisk.sh (sin red?)."; return 1
   fi
-  make install 2>&1 | tail -3
-  make config 2>&1 >/dev/null || true
-  ldconfig
-  # systemd unit si make config no creo uno usable
-  if ! systemctl list-unit-files 2>/dev/null | grep -q "^asterisk.service"; then
-    cat > /etc/systemd/system/asterisk.service <<'UNIT'
-[Unit]
-Description=Asterisk PBX
-After=network.target
-
-[Service]
-Type=simple
-User=root
-ExecStart=/usr/sbin/asterisk -f
-ExecStop=/usr/sbin/asterisk -rx "core stop now"
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-    systemctl daemon-reload 2>/dev/null || true
+  if bash "$IA"; then
+    log "Asterisk compilado e instalado desde fuente."; return 0
   fi
-  log "Asterisk compilado e instalado desde fuente."; return 0
+  return 1
 }
-ensure_asterisk || warn "No se pudo instalar asterisk por ningun metodo (apt, repo, ni fuente). El IVR/SIP no funcionara."
+ensure_asterisk || warn "No se pudo instalar asterisk por ningun metodo. El IVR/SIP no funcionara hasta resolverlo."
 # libgpiod2: la numeracion del paquete varia entre releases (libgpiod2 / libgpiod3
 # / libgpiod-dev). gpiod ya instalo gpioset para el PTT, asi que si ninguno de los
 # candidatos existe, se ignora en silencio (no es un WARN accionable).

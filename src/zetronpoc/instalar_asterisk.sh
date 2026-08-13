@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+# ============================================================================
+# instalar_asterisk.sh - Compila e instala Asterisk 22 LTS desde fuente.
+# ----------------------------------------------------------------------------
+# Asterisk fue ELIMINADO de los repos Debian bookworm/trixie y de Raspbian.
+# La unica ruta es compilar desde fuente. Este script es autocontenido y
+# robusto: instala TODAS las deps de build, compila con pjproject+bundled
+# (garantiza chan_pjsip), hace fallback a -j1 si -jN OOM/racea, y verifica
+# que chan_pjsip.so quede instalado.
+#
+# Uso:
+#   curl -fsSL https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalar_asterisk.sh | sudo bash
+#
+# Tiempo: Pi 4/5 ~20-30 min, Pi 3 ~45-60 min. Lento pero deterministico.
+# ============================================================================
+set -euo pipefail
+
+G="\033[1;32m"; Y="\033[1;33m"; R="\033[1;31m"; NC="\033[0m"
+log(){ echo -e "${G}[OK]${NC}   $*"; }
+warn(){ echo -e "${Y}[WARN]${NC} $*"; }
+err(){ echo -e "${R}[ERR]${NC}  $*" >&2; }
+
+[[ $EUID -ne 0 ]] && { err "Ejecuta como root o con sudo."; exit 1; }
+
+# Salir si ya esta instalado Y tiene chan_pjsip
+if [[ -x /usr/sbin/asterisk ]] && [[ -f /usr/lib/asterisk/modules/chan_pjsip.so ]]; then
+  log "Asterisk ya instalado con chan_pjsip.so. Nada que hacer."
+  asterisk -V 2>/dev/null || true
+  exit 0
+fi
+
+echo "==> 1/7 Actualizando indices e instalando dependencias de build..."
+apt-get update -y || true
+# Todas las deps necesarias para compilar Asterisk 22 con PJSIP en Debian arm64.
+# Si una falta, el configure o el make revienta despues de 20 min -> las ponemos
+# todas de una y no abortamos el script si una menor no existe.
+apt-get install -y \
+  build-essential wget tar pkg-config \
+  libsqlite3-dev libedit-dev libxml2-dev libcurl4-openssl-dev \
+  uuid-dev libssl-dev libjansson-dev \
+  libsrtp2-dev libspandsp-dev libgmime-3.0-dev \
+  libncurses-dev libbluetooth-dev libical-dev libneon27-dev \
+  libogg-dev libvorbis-dev libasound2-dev 2>/dev/null || true
+# libtonezone-dev / DAHDI no existen en Pi OS -> no son fatales (POCSAG no usa DAHDI)
+
+echo "==> 2/7 Descargando Asterisk 22 LTS..."
+AB="/tmp/asterisk-build"
+rm -rf "$AB"; mkdir -p "$AB"; cd "$AB"
+wget -q "https://downloads.asterisk.org/pub/telephony/asterisk/asterisk-22-current.tar.gz" -O ast.tar.gz \
+  || { err "No se pudo descargar el tarball de Asterisk (sin red?)."; exit 1; }
+tar xzf ast.tar.gz
+cd asterisk-22*/
+log "Fuente: $(pwd | sed 's:.*/::')"
+
+echo "==> 3/7 Configurando (pjproject + jansson bundled -> garantiza chan_pjsip)..."
+# --disable-xmldoc: evita fracasos de build por XML faltante en ARM y acelera.
+# --with-pjproject-bundled: compila pjproject dentro del tree -> chan_pjsip SIEMPRE presente.
+./configure --with-pjproject-bundled --with-jansson-bundled --disable-xmldoc \
+  || { err "configure fallo. Faltan deps. Ver /tmp/asterisk-build/asterisk-22*/config.log"; exit 1; }
+log "configure OK."
+
+echo "==> 4/7 Compilando (esto tarda, paciencia)..."
+JOBS="$(nproc 2>/dev/null || echo 2)"
+# make paralelo es mas rapido pero en Pi 3 puede OOM o racear en apps/.
+# Si falla con -jN, reintentar serial (-j1) que es determinista.
+if ! make -j"$JOBS" 2>&1 | tail -15; then
+  warn "make -j$JOBS fallo (OOM o race). Reintentando serial (-j1)..."
+  if ! make -j1 2>&1 | tail -15; then
+    err "make fallo incluso con -j1. Ver el log de errores arriba."; exit 1
+  fi
+fi
+log "Compilacion OK."
+
+echo "==> 5/7 Instalando binarios + config base..."
+make install 2>&1 | tail -3
+make config 2>&1 >/dev/null || true
+make samples 2>&1 >/dev/null || true   # genera /etc/asterisk/*.conf base
+ldconfig
+log "Instalado en /usr/sbin/asterisk."
+
+echo "==> 6/7 Verificando chan_pjsip.so..."
+if [[ -f /usr/lib/asterisk/modules/chan_pjsip.so ]]; then
+  log "chan_pjsip.so presente -> ZetronPOC puede registrar internos via PJSIP."
+else
+  err "chan_pjsip.so NO esta. El pjproject-bundled fallo silenciosamente."
+  err "Re-ejecuta este script; si persiste, verifica que make no tiro errores arriba."
+  exit 1
+fi
+
+echo "==> 7/7 Servicio systemd..."
+if ! systemctl list-unit-files 2>/dev/null | grep -q "^asterisk.service"; then
+  cat > /etc/systemd/system/asterisk.service <<'UNIT'
+[Unit]
+Description=Asterisk PBX
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/sbin/asterisk -f
+ExecStop=/usr/sbin/asterisk -rx "core stop now"
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+  systemctl daemon-reload 2>/dev/null || true
+  log "asterisk.service creado."
+fi
+systemctl enable asterisk 2>/dev/null || true
+
+echo ""
+log "============================================="
+log "Asterisk instalado desde fuente:"
+asterisk -V 2>/dev/null || true
+log "Modulos: $(ls /usr/lib/asterisk/modules/ | wc -l) archivos"
+log "chan_pjsip: $([ -f /usr/lib/asterisk/modules/chan_pjsip.so ] && echo OK || echo FALTA)"
+log "============================================="
+echo "  Ahora corre el instalador de ZetronPOC:"
+echo "    curl -fsSL https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador.sh | sudo bash -s -- --update"
