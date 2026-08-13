@@ -39,7 +39,7 @@ else
   TMP="$(mktemp -d)"
   git clone --depth 1 https://github.com/g4klx/MMDVMHost.git "$TMP/MMDVMHost" 2>&1 || { err "No se pudo clonar MMDVMHost"; exit 1; }
   ( cd "$TMP/MMDVMHost" && make -j2 2>&1 ) || { err "Fallo la compilacion."; exit 1; }
-  install -m 0755 "$TMP/MMDVMHost/MMDVMHost" "$BIN"
+  install -m 0755 "$TMP/MMDVMHost/MMDVM-Host" "$BIN"
   rm -rf "$TMP"
   log "MMDVMHost compilado e instalado en $BIN."
 fi
