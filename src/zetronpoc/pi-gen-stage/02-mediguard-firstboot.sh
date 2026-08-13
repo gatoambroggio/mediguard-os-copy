@@ -49,6 +49,35 @@ if [[ ! -x /usr/sbin/asterisk ]] || [[ ! -f /usr/lib/asterisk/modules/chan_pjsip
   fi
 fi
 
+# ---- Liberar el puerto serie de la Pi + instalar MMDVMHost (auto) ----
+# Deshabilita la consola serie sobre el UART (getty + console= en cmdline) y
+# habilita el hardware UART en config.txt, asi el modulo MMDVM tiene el puerto
+# libre tanto si lo conectas por USB-TTL (/dev/ttyUSB0, default del .ini) como
+# por GPIO (/dev/ttyAMA0). Esto aplica en el siguiente arranque; con USB-TTL
+# no hace falta ni reboot. Despues compila/instala MMDVMHost + mosquitto y deja
+# el servicio habilitado. Si no hay red o falla, no aborta el resto del first-boot.
+echo "[mediguard-firstboot] Preparando UART + instalando MMDVMHost..."
+if [[ -f /boot/cmdline.txt ]]; then
+  sed -i -E 's/ ?console=(serial0|ttyAMA0|ttyS0),[0-9]+//g' /boot/cmdline.txt
+fi
+if [[ -f /boot/config.txt ]]; then
+  grep -q '^enable_uart=1'  /boot/config.txt || echo 'enable_uart=1'  >> /boot/config.txt
+  grep -q '^dtoverlay=disable-bt' /boot/config.txt || echo 'dtoverlay=disable-bt' >> /boot/config.txt
+fi
+systemctl disable serial-getty@ttyAMA0.service serial-getty@ttyS0.service 2>/dev/null || true
+systemctl disable bthelper@hciuart.service hciuart.service 2>/dev/null || true
+if ! command -v MMDVM-Host >/dev/null 2>&1 && [[ ! -x /usr/local/bin/MMDVM-Host ]]; then
+  if curl -fsSL https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador_mmdvm.sh -o /tmp/instalador_mmdvm.sh; then
+    bash /tmp/instalador_mmdvm.sh || echo "[mediguard-firstboot] WARN: instalar_mmdvm.sh fallo (ver journalctl -u mmdvmhost)"
+    rm -f /tmp/instalador_mmdvm.sh
+  else
+    echo "[mediguard-firstboot] WARN: no se pudo descargar instalar_mmdvm.sh (sin red?). MMDVM no instalado."
+  fi
+else
+  echo "[mediguard-firstboot] MMDVMHost ya instalado."
+  systemctl enable --now mmdvmhost 2>/dev/null || true
+fi
+
 # ---- Generar locuciones IVR (espeak) si faltan ----
 # El build corrio instalador.sh en --update, que saltea las locuciones (paso 7).
 # Se generan aca, nativo, en el primer arranque.
