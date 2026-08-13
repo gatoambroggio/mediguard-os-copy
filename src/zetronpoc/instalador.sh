@@ -20,7 +20,17 @@ APP_DIR="/opt/zetronpoc"
 DB="${APP_DIR}/database/zetronpoc.db"
 VERSION="2.0"
 UPDATE=0
-[[ "${1:-}" == "--update" ]] && UPDATE=1
+NO_ASTERISK=0
+for arg in "$@"; do
+  [[ "$arg" == "--update" ]] && UPDATE=1
+  [[ "$arg" == "--no-asterisk" ]] && NO_ASTERISK=1
+done
+# --no-asterisk: saltea TODO lo de telefono/IVR (Asterisk fue eliminado de Debian
+# y compilarlo tarda 30-60 min). Instala SOLO el nucleo de paging: panel + API +
+# cola + dispatch MQTT -> MMDVM. El hospital puede mandar pages desde el panel
+# web AHORA. Asterisk (IVR por telefono) se agrega despues con instalar_asterisk.sh
+# + reinstalar sin --no-asterisk. Pensado para emergencias donde no se puede esperar.
+[[ $NO_ASTERISK -eq 1 ]] && echo "[MODO EMERGENCIA] --no-asterisk: nucleo de paging solo, sin telefono/IVR."
 
 G="\033[1;32m"; Y="\033[1;33m"; R="\033[1;31m"; NC="\033[0m"
 log(){ echo -e "${G}[OK]${NC}   $*"; }
@@ -77,11 +87,18 @@ if [[ $UPDATE -eq 0 ]]; then
     logrotate espeak gpiod 2>&1 || { err "Fallo instalacion de paquetes base."; exit 1; }
   # asterisk y libgpiod2 por separado: en algunos repos (Raspberry Pi OS) pueden
   # no estar en el mirror activo. Si fallan, no abortan todo el instalador.
-  apt-get install -y asterisk 2>&1 || warn "asterisk no encontrado en el repo. En Raspberry Pi habilite el repo main de Raspbian (deb http://raspbian.raspberrypi.org/raspbian/ bookworm main) y reejecute."
-  apt-get install -y libgpiod2 2>&1 || warn "libgpiod2 no encontrado (gpiod ya instala gpioset; el PTT igual funciona)"
+  # --no-asterisk: saltear (Asterisk fue eliminado de Debian, compilar tarda mucho).
+  if [[ $NO_ASTERISK -eq 0 ]]; then
+    apt-get install -y asterisk 2>&1 || warn "asterisk no encontrado en el repo. Compilarlo con instalar_asterisk.sh despues."
+    apt-get install -y libgpiod2 2>&1 || warn "libgpiod2 no encontrado (gpiod ya instala gpioset; el PTT igual funciona)"
+  else
+    log "--no-asterisk: salteando apt-get install asterisk (modo emergencia)."
+  fi
 else
   # En --update solo asegurar lo critico que pudo ser purgado (ej: asterisk)
-  command -v asterisk >/dev/null 2>&1 || apt-get install -y asterisk 2>&1 || warn "No se pudo reinstalar asterisk"
+  if [[ $NO_ASTERISK -eq 0 ]]; then
+    command -v asterisk >/dev/null 2>&1 || apt-get install -y asterisk 2>&1 || warn "No se pudo reinstalar asterisk"
+  fi
 fi
 command -v espeak >/dev/null 2>&1 || apt-get install -y espeak sox 2>&1 || true
 pip3 install --break-system-packages openpyxl xlrd 2>&1 || warn "openpyxl/xlrd no instalados (import Excel limitado a CSV)"
@@ -171,10 +188,13 @@ dl "${SRC}/services/zetronpoc-api.service" "/etc/systemd/system/zetronpoc-api.se
 dl "${SRC}/services/zetronpoc-cola.service" "/etc/systemd/system/zetronpoc-cola.service"
 
 # ============================ 4. ASTERISK CONFIG ===========================
-echo "==> 4/10 Configurando Asterisk..."
-mkdir -p "${AST_ETC}"
-# pjsip.conf: self-contained (se regenera desde la BD en el paso 6 / panel admin)
-cat > "${AST_ETC}/pjsip.conf" <<'EOF'
+if [[ $NO_ASTERISK -eq 1 ]]; then
+  echo "==> 4/10 Asterisk: OMITIDO (--no-asterisk). Paging por panel web + MMDVM."
+else
+  echo "==> 4/10 Configurando Asterisk..."
+  mkdir -p "${AST_ETC}"
+  # pjsip.conf: self-contained (se regenera desde la BD en el paso 6 / panel admin)
+  cat > "${AST_ETC}/pjsip.conf" <<'EOF'
 ; ZetronPOC: pjsip.conf es self-contained (transport + endpoints + registros)
 ; Se regenera desde el panel admin -> Extensiones -> Aplicar a Asterisk
 [transport-udp]
@@ -183,11 +203,12 @@ protocol=udp
 bind=0.0.0.0:5060
 EOF
 
-# extensions.conf: dialplan con IVR en un unico contexto (from-hospital)
-dl "${SRC}/asterisk/extensions.conf" "${AST_ETC}/extensions.conf"
-dl "${SRC}/asterisk/modules.conf" "${AST_ETC}/modules.conf" 2>/dev/null || true
+  # extensions.conf: dialplan con IVR en un unico contexto (from-hospital)
+  dl "${SRC}/asterisk/extensions.conf" "${AST_ETC}/extensions.conf"
+  dl "${SRC}/asterisk/modules.conf" "${AST_ETC}/modules.conf" 2>/dev/null || true
 
-chown -R "${AST_USER}:${AST_USER}" "${AST_ETC}" 2>/dev/null || true
+  chown -R "${AST_USER}:${AST_USER}" "${AST_ETC}" 2>/dev/null || true
+fi
 
 # ============================ 5. BASE DE DATOS ==============================
 echo "==> 5/10 Inicializando base de datos..."
@@ -257,7 +278,9 @@ PYEOF
 chown "${AST_USER}:${AST_USER}" "${AST_ETC}/pjsip.conf" 2>/dev/null || true
 
 # ============================ 7. LOCUCIONES IVR ============================
-if [[ $UPDATE -eq 0 ]]; then
+if [[ $NO_ASTERISK -eq 1 ]]; then
+  echo "==> 7/10 Locuciones IVR: OMITIDAS (--no-asterisk)."
+elif [[ $UPDATE -eq 0 ]]; then
   echo "==> 7/10 Generando locuciones del IVR..."
   gen(){ local out="${APP_DIR}/audio/$1.gsm"; [[ -f "$out" ]] && return
     espeak -v es -s 160 "$2" -w "${out%.gsm}.wav" 2>/dev/null && sox "${out%.gsm}.wav" -r 8000 -c 1 "$out" 2>/dev/null || warn "No se pudo generar $1"
@@ -287,18 +310,22 @@ cat > /etc/logrotate.d/zetronpoc <<EOF
 ${APP_DIR}/logs/*.log { daily rotate 14 compress missingok notifempty }
 EOF
 systemctl daemon-reload 2>/dev/null || true
-systemctl enable --now asterisk 2>/dev/null || warn "Asterisk no pudo activarse"
-asterisk -rx "dialplan reload" 2>/dev/null || warn "No se pudo recargar dialplan"
-asterisk -rx "pjsip reload" 2>/dev/null || true
-sleep 1
-# Verificar que res_pjsip cargo el transporte; si no, forzar recarga del modulo
-if ! asterisk -rx "pjsip show transports" 2>/dev/null | grep -q "transport-udp"; then
-  warn "pjsip no cargo el transporte. Reintentando..."
-  asterisk -rx "module reload res_pjsip.so" 2>/dev/null || true
+if [[ $NO_ASTERISK -eq 1 ]]; then
+  log "--no-asterisk: salteando enable/reload de Asterisk."
+else
+  systemctl enable --now asterisk 2>/dev/null || warn "Asterisk no pudo activarse"
+  asterisk -rx "dialplan reload" 2>/dev/null || warn "No se pudo recargar dialplan"
   asterisk -rx "pjsip reload" 2>/dev/null || true
   sleep 1
+  # Verificar que res_pjsip cargo el transporte; si no, forzar recarga del modulo
+  if ! asterisk -rx "pjsip show transports" 2>/dev/null | grep -q "transport-udp"; then
+    warn "pjsip no cargo el transporte. Reintentando..."
+    asterisk -rx "module reload res_pjsip.so" 2>/dev/null || true
+    asterisk -rx "pjsip reload" 2>/dev/null || true
+    sleep 1
+  fi
+  asterisk -rx "pjsip show transports" 2>/dev/null | head -6 || true
 fi
-asterisk -rx "pjsip show transports" 2>/dev/null | head -6 || true
 systemctl enable zetronpoc-api 2>/dev/null || true
 systemctl enable zetronpoc-cola 2>/dev/null || true
 # Forzar reinicio SIEMPRE para cargar codigo nuevo (enable --now no reinicia un servicio ya activo)
