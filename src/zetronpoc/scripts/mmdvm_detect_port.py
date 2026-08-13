@@ -21,12 +21,30 @@ FRAME_START = 0xE0
 CMD_GET_VERSION = 0x00
 
 
+def _parse_version(frame):
+    """Extrae la descripcion del firmware de la respuesta GET_VERSION.
+    Frame MMDVM: 0xE0 <len> <cmd> <ver> <desc...> <crc> <crc>.
+    desc = payload[2:-2] (salta cmd 0x00 y ver, descarta 2 bytes de CRC)."""
+    try:
+        plen = frame[1]
+        payload = frame[2:2 + plen]
+        if len(payload) < 4:
+            return None
+        desc = payload[2:-2]
+        s = desc.decode("ascii", "ignore").strip()
+        return s or None
+    except Exception:
+        return None
+
+
 def probe(port, baud=115200, timeout=1.6):
-    """True si `port` responde a GET_VERSION con un frame MMDVM valido."""
+    """(ok, version_str) — ok True si `port` responde a GET_VERSION con un
+    frame MMDVM valido; version_str es la descripcion de firmware del modulo
+    (o None)."""
     try:
         fd = os.open(port, os.O_RDWR | os.O_NOCTTY | os.O_NDELAY)
     except OSError:
-        return False
+        return (False, None)
     try:
         fcntl.fcntl(fd, fcntl.F_SETFL, 0)
         a = termios.tcgetattr(fd)
@@ -57,9 +75,11 @@ def probe(port, baud=115200, timeout=1.6):
             time.sleep(0.05)
         termios.tcflush(fd, termios.TCIOFLUSH)
         # un MMDVM valido responde con un frame que arranca en 0xE0
-        return bool(first and first[0] == FRAME_START and len(first) >= 3)
+        if first and first[0] == FRAME_START and len(first) >= 3:
+            return (True, _parse_version(first))
+        return (False, None)
     except Exception:
-        return False
+        return (False, None)
     finally:
         try:
             os.close(fd)
@@ -83,21 +103,44 @@ def candidates():
     return res
 
 
+def _emit(port, ver, want_version):
+    if want_version and ver:
+        print("%s\t%s" % (port, ver))
+    else:
+        print(port)
+
+
 def main():
     baud = 115200
-    if len(sys.argv) > 2:
+    want_version = False
+    single = False
+    pos = []
+    for a in sys.argv[1:]:
+        if a == "--version":
+            want_version = True
+        elif a == "--single":
+            single = True
+        elif not a.startswith("--"):
+            pos.append(a)
+    if len(pos) >= 2:
         try:
-            baud = int(sys.argv[2])
+            baud = int(pos[1])
         except ValueError:
             pass
+    suggested = pos[0] if pos else ""
     # 1) si pasan un puerto sugerido, probarlo primero
-    if len(sys.argv) > 1 and sys.argv[1]:
-        if probe(sys.argv[1], baud):
-            print(sys.argv[1]); return 0
+    if suggested:
+        ok, ver = probe(suggested, baud)
+        if ok:
+            _emit(suggested, ver, want_version); return 0
+        if single:
+            # --single: NO barrer otros candidatos (acota el tiempo del polling)
+            return 1
     # 2) barrer candidatos por prioridad
     for p in candidates():
-        if probe(p, baud):
-            print(p); return 0
+        ok, ver = probe(p, baud)
+        if ok:
+            _emit(p, ver, want_version); return 0
     return 1
 
 
