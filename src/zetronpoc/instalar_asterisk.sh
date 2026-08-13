@@ -29,6 +29,56 @@ if [[ -x /usr/sbin/asterisk ]] && [[ -f /usr/lib/asterisk/modules/chan_pjsip.so 
   exit 0
 fi
 
+# ====================== RUTA RAPIDA: .deb PRECOMPILADO (SEGUNDOS) ======================
+# Si alguien corrio empaquetar_asterisk.sh una vez, existe un .deb arm64 en el
+# release publico del repo. Lo bajamos y lo instalamos con dpkg en SEGUNDOS,
+# sin compilar. Solo si falla (no hay .deb, red, o lib mismatch) caemos a la
+# compilacion desde fuente (lento). Esto hace que la 2da instalacion en adelante
+# sea instantanea, incluyendo imagenes nuevas y Pis nuevas.
+DEB_URL="https://github.com/gatoambroggio/mediguard-os-copy/releases/download/asterisk-prebuilt/asterisk-22-arm64.deb"
+DEB_TMP="/tmp/asterisk-22-arm64.deb"
+if curl -fsSL "$DEB_URL" -o "$DEB_TMP" 2>/dev/null && [[ -s "$DEB_TMP" ]]; then
+  log "Bajando .deb precompilado (instalacion en segundos, sin compilar)..."
+  # apt install ./deb resuelve e instala las deps de runtime automaticamente.
+  if apt-get install -y "$DEB_TMP" 2>&1 | tail -8; then
+    ldconfig
+    if [[ -x /usr/sbin/asterisk ]] && [[ -f /usr/lib/asterisk/modules/chan_pjsip.so ]]; then
+      log "Asterisk instalado desde .deb precompilado en segundos."
+      asterisk -V 2>/dev/null || true
+      # Asegurar el servicio systemd (el .deb no lo crea)
+      if ! systemctl list-unit-files 2>/dev/null | grep -q "^asterisk.service"; then
+        cat > /etc/systemd/system/asterisk.service <<'UNIT'
+[Unit]
+Description=Asterisk PBX
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/sbin/asterisk -f
+ExecStop=/usr/sbin/asterisk -rx "core stop now"
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+        systemctl daemon-reload 2>/dev/null || true
+      fi
+      systemctl enable asterisk 2>/dev/null || true
+      rm -f "$DEB_TMP"
+      exit 0
+    else
+      warn ".deb instalado pero falta chan_pjsip.so o binario. Cayendo a compilacion..."
+    fi
+  else
+    warn "apt-get install ./deb fallo (libs incompatibles?). Cayendo a compilacion..."
+  fi
+  rm -f "$DEB_TMP"
+else
+  warn "No hay .deb precompilado en el release (todavia). Se compilara desde fuente."
+  warn "Para que la proxima vez sea instantanea, corregui empaquetar_asterisk.sh una vez."
+fi
+
 echo "==> 1/7 Actualizando indices e instalando dependencias de build..."
 apt-get update -y || true
 # Todas las deps necesarias para compilar Asterisk 22 con PJSIP en Debian arm64.
