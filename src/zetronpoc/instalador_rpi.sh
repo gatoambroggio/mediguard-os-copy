@@ -201,8 +201,45 @@ else
   systemctl enable --now mmdvmhost 2>/dev/null || true
 fi
 
+# ============================ VERIFICAR Y LEVANTAR CADENA TX ==================
+# Sin esta cadena arriba, el panel y el IVR encolan pero el pager nunca suena:
+#   panel/IVR -> cola_envios -> worker -> dispatch_mqtt -> mosquitto -> MMDVMHost -> RF
+# Si falta cualquier eslabon (mosquitto, MMDVMHost, worker, API), nada llega al aire.
+# Forzamos los 4 servicios activos y regeneramos el .ini desde la BD del panel.
+echo "==> Verificando cadena de transmision (mosquitto + MMDVMHost + cola + API)..."
+systemctl enable --now mosquitto 2>/dev/null || true
+python3 - <<'PYEOF' 2>/dev/null || warn "No se pudo regenerar MMDVM.ini desde la BD"
+import sys, os
+sys.path.insert(0, "/opt/zetronpoc"); sys.path.insert(0, "/opt/zetronpoc/database")
+os.environ["ZETRONPOC_DIR"] = "/opt/zetronpoc"
+try:
+    from db_manager import generar_mmdvm_ini
+    ok, msg = generar_mmdvm_ini()
+    print("[OK] MMDVM.ini" if ok else "[WARN] %s" % msg)
+except Exception as e:
+    print("[WARN] %s" % e)
+PYEOF
+if command -v MMDVM-Host >/dev/null 2>&1 || [[ -x /usr/local/bin/MMDVM-Host ]]; then
+  systemctl enable mmdvmhost 2>/dev/null || true
+  systemctl restart mmdvmhost 2>/dev/null || true
+else
+  warn "MMDVMHost NO instalado -> los pages no salen al aire. Conecte el modulo y vuelva a ejecutar este instalador."
+fi
+systemctl enable --now zetronpoc-cola zetronpoc-api 2>/dev/null || true
+systemctl restart zetronpoc-cola zetronpoc-api 2>/dev/null || true
+sleep 2
+echo "  Estado de la cadena:"
+for s in mosquitto mmdvmhost zetronpoc-cola zetronpoc-api; do
+  st="$(systemctl is-active "$s" 2>/dev/null || echo no)"
+  printf "    %-16s %s\n" "$s" "$st"
+done
+
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 echo ""
 log "ZetronPOC instalado en Raspberry Pi (${GPIO_CHIP} BCM ${GPIO_PIN})."
 echo "  Panel publico: http://${IP:-localhost}:8080/"
 echo "  Panel admin  : http://${IP:-localhost}:8080/admin  (admin / admin123)"
+echo ""
+echo "  Para que un codigo llegue al pager los 4 servicios deben decir 'active'."
+echo "  Si mmdvmhost dice 'activating' o 'inactive': el modulo MMDVM no esta conectado"
+echo "  (conectelo por USB-TTL y espere; el wrapper lo levanta solo al detectarlo)."
