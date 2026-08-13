@@ -202,6 +202,12 @@ dl "${SRC}/scripts/mmdvmhost-run.sh" "${APP_DIR}/scripts/mmdvmhost-run.sh"
 # sin esto el instalador forzaba /dev/ttyS0 y MMDVMHost nunca hacia handshake.
 dl "${SRC}/scripts/mmdvm_detect_port.py" "${APP_DIR}/scripts/mmdvm_detect_port.py"
 chmod +x "${APP_DIR}/scripts/"*.sh
+# CRITICO: el detector .py tambien necesita +x. El wrapper mmdvmhost-run.sh
+# hace `[[ -x "$PROBE" ]]` antes de ejecutarlo; sin +x lo saltea con
+# "no encontrado" y nunca auto-detecta el puerto (quedaba esperando en
+# ttyUSB0 para siempre hasta el chmod +x manual). Las reinstalaciones no
+# heredan el bit de ejecucion del archivo anterior.
+chmod +x "${APP_DIR}/scripts/"*.py 2>/dev/null || true
 
 dl "${SRC}/services/zetronpoc-api.service" "/etc/systemd/system/zetronpoc-api.service"
 dl "${SRC}/services/zetronpoc-cola.service" "/etc/systemd/system/zetronpoc-cola.service"

@@ -486,7 +486,12 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
     if conn_type == "usb":
         managed["Modem"].update({"Port": port, "BaudeRate": baud})
     else:
-        managed["Modem"].update({"Protocol": "uart", "UARTPort": port, "UARTSpeed": uart_speed})
+        # uart: mantener Port= coherente con UARTPort=. Sin esto, un Port= viejo
+        # dejado por instalador_mmdvm.sh (ej: /dev/ttyUSB0) sobrevive el merge
+        # (no es key manejada) y el wrapper (mmdvmhost-run.sh port_from_ini) lo
+        # lee primero -> espera en ttyUSB0 mientras UARTPort= ya apunta a ttyAMA0.
+        # MMDVMHost en uart usa UARTPort; Port= se mantiene solo para el wrapper.
+        managed["Modem"].update({"Protocol": "uart", "Port": port, "UARTPort": port, "UARTSpeed": uart_speed})
     managed["Modem"].update({
         "RXFrequency": freq_hz,
         "TXFrequency": freq_hz,
