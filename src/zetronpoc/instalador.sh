@@ -80,9 +80,17 @@ log "Sistema anterior limpio."
 
 # ============================ 1. DEPENDENCIAS ================================
 echo "==> 1/10 Dependencias base..."
-# Reparar estado apt roto de runs anteriores (ej: paquetes -gnome que piden
-# libgtk-3-0t64) antes de cualquier install: si no, apt aborta todo con
-# "Unmet dependencies" aunque los paquetes que pedimos no tengan nada que ver.
+# Reparar estado apt roto de runs anteriores. Un run viejo pudo instalar las
+# variantes -gnome de NetworkManager (network-manager-*-gnome -> libnma0 ->
+# libgtk-3-0t64). En Pi OS con bookworm+rpi mezclado con trixie, libgtk-3-0t64
+# choca por archivos con libgtk-3-0 (rpi) y dpkg no lo instala -> apt queda
+# roto y aborta TODO. apt-get -f install NO lo resuelve (intenta instalar
+# libgtk-3-0t64 y pega con el conflicto). Hay que SACAR a la fuerza los -gnome
+# + libnma0 (applets de escritorio, inutiles en headless); la VPN cliente
+# sigue con network-manager-openvpn/pptp (sin -gnome). Despues -f install limpia.
+dpkg --remove --force-all \
+  network-manager-openvpn-gnome network-manager-pptp-gnome \
+  network-manager-l2tp-gnome libnma0 2>/dev/null || true
 apt-get -f install -y 2>&1 || warn "apt-get -f install no pudo resolver todo (continuando)."
 if [[ $UPDATE -eq 0 ]]; then
   apt-get update -y

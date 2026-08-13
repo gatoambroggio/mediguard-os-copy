@@ -39,11 +39,18 @@ echo "==> Raspberry Pi: actualizando lista de paquetes..."
 apt-get update -y || true
 
 echo "==> Raspberry Pi: reparando dependencias rotas (si las hay)..."
-# Si un run anterior (de instalador.sh o de una VPN) dejo paquetes en estado
-# roto (ej: network-manager-*-gnome / libnma0 que piden libgtk-3-0t64), apt-get
-# install se niega a avanzar con "Unmet dependencies" y aborta TODO. apt-get -f
-# install resuelve ese estado antes de instalar la base. Si no puede, no es
-# fatal: abajo instalamos los paquetes base igual (los base no dependen de gtk).
+# Un run viejo pudo instalar las variantes -gnome de NetworkManager
+# (network-manager-*-gnome -> libnma0 -> libgtk-3-0t64). En un Pi OS con
+# bookworm+rpi mezclado con trixie, libgtk-3-0t64 choca por archivos con
+# libgtk-3-0 (rpi) y dpkg no lo instala -> apt queda roto y aborta TODO
+# ("Unmet dependencies"). apt-get -f install no lo resuelve (intenta instalar
+# libgtk-3-0t64 y pega de frente con el conflicto). La salida es SACAR a la
+# fuerza los -gnome + libnma0 (applets de escritorio, inutiles en headless);
+# la VPN cliente sigue andando con network-manager-openvpn/pptp (sin -gnome).
+# Despues apt-get -f install limpia el resto del estado.
+dpkg --remove --force-all \
+  network-manager-openvpn-gnome network-manager-pptp-gnome \
+  network-manager-l2tp-gnome libnma0 2>/dev/null || true
 apt-get -f install -y 2>&1 || warn "apt-get -f install no pudo resolver todo (continuando)."
 
 echo "==> Raspberry Pi: instalando dependencias base..."
