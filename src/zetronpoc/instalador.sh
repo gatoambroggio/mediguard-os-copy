@@ -323,6 +323,53 @@ echo "==> 8/10 Ajustando permisos..."
 chown -R "${AST_USER}:${AST_USER}" "${APP_DIR}" 2>/dev/null || true
 chown -R "${AST_USER}:${AST_USER}" "${AST_ETC}" 2>/dev/null || true
 
+# ============================ 8b. MMDVM AUTOMATICO + LIBERAR /dev/ttyS0 ======
+# One-click: instala MMDVMHost, libera /dev/ttyS0 de getty/consola, fija ese
+# puerto en la BD (lo usa el MMDVM.ini + la luz del panel) y arranca el servicio.
+# Corre en instalacion nueva Y en --update -> el pager siempre funciona solo.
+echo "==> 8b/10 MMDVMHost + liberando /dev/ttyS0..."
+# 1) Liberar /dev/ttyS0 del getty serial (Ubuntu Server y Pi)
+systemctl disable --now serial-getty@ttyS0.service 2>/dev/null || true
+systemctl mask serial-getty@ttyS0.service 2>/dev/null || true
+# 2) Ubuntu/Debian: sacar console=ttyS0 del grub para que el kernel no lo reclame
+if [[ -f /etc/default/grub ]] && grep -q 'console=ttyS0' /etc/default/grub; then
+  sed -i -E 's/ ?console=ttyS0[^ "]*//g' /etc/default/grub
+  update-grub 2>/dev/null || grub-mkconfig -o /boot/grub/grub.cfg 2>/dev/null || true
+fi
+# 3) Raspberry Pi: sacar console=ttyS0 del cmdline.txt
+if [[ -f /boot/cmdline.txt ]]; then
+  sed -i -E 's/ ?console=ttyS0,[0-9]+//g' /boot/cmdline.txt
+fi
+# 4) Fijar el puerto en la BD -> generar_mmdvm_ini y la luz del panel usan /dev/ttyS0
+python3 - <<'PYEOF'
+import sqlite3
+DB='/opt/zetronpoc/database/zetronpoc.db'
+try:
+    c=sqlite3.connect(DB)
+    c.execute("INSERT OR REPLACE INTO config(clave,valor) VALUES('mmdvm_serial_port','/dev/ttyS0')")
+    c.commit(); c.close()
+    print("[OK] mmdvm_serial_port=/dev/ttyS0")
+except Exception as e:
+    print("[WARN] %s" % e)
+PYEOF
+# 5) Instalar MMDVMHost si no esta (compila + deja el servicio mmdvmhost + mosquitto)
+if [[ "${SKIP_MMDVM_INSTALL:-0}" == "1" ]]; then
+  warn "SKIP_MMDVM_INSTALL=1: MMDVMHost se instala en el primer arranque."
+elif ! command -v MMDVM-Host >/dev/null 2>&1 && [[ ! -x /usr/local/bin/MMDVM-Host ]]; then
+  MMDVM_TMP="$(mktemp -d)/instalador_mmdvm.sh"
+  if curl -fsSL "${SRC}/instalador_mmdvm.sh" -o "$MMDVM_TMP"; then
+    log "Instalando MMDVMHost (1-3 min, compila en el equipo)..."
+    bash "$MMDVM_TMP" || warn "instalador_mmdvm.sh fallo (ver journalctl -u mmdvmhost)"
+    rm -f "$MMDVM_TMP"
+  else
+    warn "No se pudo descargar instalador_mmdvm.sh (sin red?). MMDVM no instalado."
+  fi
+else
+  log "MMDVMHost ya instalado."
+fi
+systemctl enable --now mosquitto 2>/dev/null || true
+systemctl enable --now mmdvmhost 2>/dev/null || true
+
 # ============================ 9. SERVICIOS + CRON ==========================
 echo "==> 9/10 Activando servicios..."
 cat > /etc/logrotate.d/zetronpoc <<EOF
@@ -384,6 +431,15 @@ else
 fi
 echo "  Dialplan cargado:"
 asterisk -rx "dialplan show from-hospital" 2>/dev/null | head -8 || warn "No se pudo mostrar el dialplan"
+
+echo "  Cadena de transmision (para que suene el pager los 4 deben decir active):"
+systemctl restart mosquitto mmdvmhost zetronpoc-cola zetronpoc-api 2>/dev/null || true
+sleep 2
+for s in mosquitto mmdvmhost zetronpoc-cola zetronpoc-api; do
+  st="$(systemctl is-active "$s" 2>/dev/null || echo no)"
+  printf "    %-16s %s\n" "$s" "$st"
+done
+if [[ -e /dev/ttyS0 ]]; then log "/dev/ttyS0 presente."; else warn "/dev/ttyS0 NO existe (¿modulo no conectado?)."; fi
 
 echo "--------------------------------------------"
 log "ZetronPOC v${VERSION} instalado."
