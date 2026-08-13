@@ -12,8 +12,6 @@ from db_manager import (resolver_destino, registrar_bitacora, encolar_mensaje, g
                         actualizar_bitacora_envio, marcar_bitacora_error)
 
 ENCODER = os.path.join(APP_DIR, "encoder/pocsag_gen.py")
-PTT_ON = os.path.join(APP_DIR, "scripts/ptt_on.sh")
-PTT_OFF = os.path.join(APP_DIR, "scripts/ptt_off.sh")
 AUDIO_DIR = os.path.join(APP_DIR, "audio")
 LOG = os.path.join(APP_DIR, "logs/cola.log")
 
@@ -31,8 +29,6 @@ def set_result(ok):
 def fail():
     if os.environ.get("POCSAG_WORKER") == "1":
         sys.stderr.write("POCSAG_FAIL\n"); sys.exit(1)
-    try: subprocess.run([PTT_OFF], capture_output=True, timeout=5)
-    except Exception: pass
     set_result(False); sys.exit(1)
 
 def main():

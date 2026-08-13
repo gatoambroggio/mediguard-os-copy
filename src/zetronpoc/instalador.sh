@@ -73,6 +73,8 @@ for f in pogsag_handler.py pogsag_check.py cola_worker.py; do
 done
 # Quitar cron y logrotate viejos
 rm -f /etc/cron.d/pogsag-cleanup /etc/logrotate.d/pogsag 2>/dev/null || true
+# Borrar scripts PTT viejos (el MMDVM maneja el PTT solo, estos ya no se usan)
+rm -f "${APP_DIR}/scripts/ptt_on.sh" "${APP_DIR}/scripts/ptt_off.sh" 2>/dev/null || true
 # Recargar Asterisk para que solte endpoints/registros viejos
 asterisk -rx "pjsip reload" 2>/dev/null || true
 asterisk -rx "dialplan reload" 2>/dev/null || true
@@ -193,8 +195,6 @@ chown -R "${AST_USER}:${AST_USER}" /var/lib/asterisk/agi-bin 2>/dev/null || true
 dl "${SRC}/encoder/pocsag_gen.py" "${APP_DIR}/encoder/pocsag_gen.py"
 chmod +x "${APP_DIR}/encoder/pocsag_gen.py"
 
-dl "${SRC}/scripts/ptt_on.sh" "${APP_DIR}/scripts/ptt_on.sh"
-dl "${SRC}/scripts/ptt_off.sh" "${APP_DIR}/scripts/ptt_off.sh"
 # wrapper que arranca MMDVMHost solo cuando el puerto del modulo existe
 # (evita el loop "svc activating" si el MMDVM no esta conectado al arrancar).
 dl "${SRC}/scripts/mmdvmhost-run.sh" "${APP_DIR}/scripts/mmdvmhost-run.sh"
