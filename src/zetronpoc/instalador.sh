@@ -25,12 +25,11 @@ for arg in "$@"; do
   [[ "$arg" == "--update" ]] && UPDATE=1
   [[ "$arg" == "--no-asterisk" ]] && NO_ASTERISK=1
 done
-# --no-asterisk: saltea TODO lo de telefono/IVR (Asterisk fue eliminado de Debian
-# y compilarlo tarda 30-60 min). Instala SOLO el nucleo de paging: panel + API +
-# cola + dispatch MQTT -> MMDVM. El hospital puede mandar pages desde el panel
-# web AHORA. Asterisk (IVR por telefono) se agrega despues con instalar_asterisk.sh
-# + reinstalar sin --no-asterisk. Pensado para emergencias donde no se puede esperar.
-[[ $NO_ASTERISK -eq 1 ]] && echo "[MODO EMERGENCIA] --no-asterisk: nucleo de paging solo, sin telefono/IVR."
+# --no-asterisk (opt-in, por defecto OFF): saltea apt-get install asterisk y las
+# recargas de Asterisk. SIRVE SOLO si vas a compilar Asterisk aparte con
+# instalar_asterisk.sh y despues reejecutar el instalador sin el flag para que
+# genere la config de telefonia. La telefonia (IVR/internos SIP) es la parte
+# principal de ZetronPOC: NO lo uses salteando telefonia a menos que sepas por que.
 
 G="\033[1;32m"; Y="\033[1;33m"; R="\033[1;31m"; NC="\033[0m"
 log(){ echo -e "${G}[OK]${NC}   $*"; }
