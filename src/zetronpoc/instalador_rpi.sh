@@ -160,6 +160,30 @@ except Exception as e:
     print("[WARN] no se pudo guardar gpio en la base: %s" % e)
 PYEOF
 
+# ============================ MMDVM + UART (auto, sin tocar a mano) =========
+echo "==> Liberando UART + instalando MMDVMHost..."
+if [[ -f /boot/cmdline.txt ]]; then
+  sed -i -E 's/ ?console=(serial0|ttyAMA0|ttyS0),[0-9]+//g' /boot/cmdline.txt
+fi
+if [[ -f /boot/config.txt ]]; then
+  grep -q '^enable_uart=1'  /boot/config.txt || echo 'enable_uart=1'  >> /boot/config.txt
+  grep -q '^dtoverlay=disable-bt' /boot/config.txt || echo 'dtoverlay=disable-bt' >> /boot/config.txt
+fi
+systemctl disable serial-getty@ttyAMA0.service serial-getty@ttyS0.service 2>/dev/null || true
+systemctl disable bthelper@hciuart.service hciuart.service 2>/dev/null || true
+if ! command -v MMDVM-Host >/dev/null 2>&1 && [[ ! -x /usr/local/bin/MMDVM-Host ]]; then
+  MMDVM_TMP="$(mktemp -d)/instalador_mmdvm.sh"
+  if curl -fsSL "${SRC}/instalador_mmdvm.sh" -o "$MMDVM_TMP"; then
+    bash "$MMDVM_TMP" || warn "instalador_mmdvm.sh fallo (ver journalctl -u mmdvmhost)"
+    rm -f "$MMDVM_TMP"
+  else
+    warn "No se pudo descargar instalador_mmdvm.sh (sin red?). MMDVM no instalado."
+  fi
+else
+  log "MMDVMHost ya instalado."
+  systemctl enable --now mmdvmhost 2>/dev/null || true
+fi
+
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 echo ""
 log "ZetronPOC instalado en Raspberry Pi (${GPIO_CHIP} BCM ${GPIO_PIN})."
