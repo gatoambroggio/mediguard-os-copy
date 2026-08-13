@@ -116,3 +116,15 @@ CREATE TABLE IF NOT EXISTS logs (
 CREATE INDEX IF NOT EXISTS idx_bitacora_fecha ON bitacora(fecha_hora);
 CREATE INDEX IF NOT EXISTS idx_bitacora_cola ON bitacora(cola_id);
 CREATE INDEX IF NOT EXISTS idx_cola_estado ON cola_envios(estado);
+
+-- Multiusuario del panel admin. role='admin' = superuser (ve todos los
+-- modulos); role='user' = ve solo los modulos de la lista modulos (JSON array).
+CREATE TABLE IF NOT EXISTS usuarios (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  username     TEXT UNIQUE NOT NULL,
+  password     TEXT NOT NULL,
+  role         TEXT DEFAULT 'user',
+  modulos      TEXT DEFAULT '[]',
+  activo       INTEGER DEFAULT 1,
+  created_date TEXT
+);
