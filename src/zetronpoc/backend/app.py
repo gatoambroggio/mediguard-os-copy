@@ -561,7 +561,7 @@ class Handler(BaseHTTPRequestHandler):
             port_present = os.path.exists(port)
             if not port_present:
                 import glob as _g
-                _cands = sorted(_g.glob("/dev/ttyUSB*") + _g.glob("/dev/ttyACM*") + _g.glob("/dev/ttyAMA*"))
+                _cands = sorted(_g.glob("/dev/ttyUSB*") + _g.glob("/dev/ttyACM*") + _g.glob("/dev/ttyAMA*") + _g.glob("/dev/ttyS*"))
                 port_present = bool(_cands)
                 if _cands:
                     port = _cands[0]
