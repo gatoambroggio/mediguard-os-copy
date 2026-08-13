@@ -49,12 +49,19 @@ apt-get install -y sqlite3 python3 python3-pip sox git curl ca-certificates \
 # 3) si falla, asegurar el repo main de Raspbian + apt-get update + reintentar.
 # 4) si tampoco, compilar Asterisk 20 LTS desde fuente (lento, pero garantizado).
 ensure_asterisk() {
+  # Borrar los .list temporales al salir (exito o fallo). Sin esto, si el build
+  # aborta o apt falla, los sources [trusted=yes] quedan en el rootfs y el
+  # siguiente apt-get del build revienta con
+  # "Conflicting values set for option Trusted ... trixie" (trusted si vs no).
+  # local ZT_LISTS se limpia en el return de esta funcion.
+  local ZT_LISTS="/etc/apt/sources.list.d/debian-zetronpoc.list /etc/apt/sources.list.d/raspios-zetronpoc.list"
+  zt_clean_lists(){ rm -f $ZT_LISTS 2>/dev/null || true; }
   if command -v asterisk >/dev/null 2>&1 || [[ -x /usr/sbin/asterisk ]]; then
     # Si ya hay Asterisk pero le falta chan_pjsip.so (compilacion vieja sin
     # --with-pjproject-bundled), forzamos recompilar para que ZetronPOC pueda
     # registrar los internos via PJSIP.
     if [[ -f /usr/lib/asterisk/modules/chan_pjsip.so ]]; then
-      log "asterisk ya instalado con PJSIP."; return 0
+      log "asterisk ya instalado con PJSIP."; zt_clean_lists; return 0
     fi
     warn "asterisk existe pero sin chan_pjsip.so -> recompilando con pjproject bundled..."
   fi
@@ -64,7 +71,7 @@ ensure_asterisk() {
   apt-get install -y raspbian-archive-keyring debian-archive-keyring >/dev/null 2>&1 || true
   apt-get update -y >/dev/null 2>&1 || true
   if apt-get install -y asterisk >/dev/null 2>&1; then
-    log "asterisk instalado via apt."; return 0
+    log "asterisk instalado via apt."; zt_clean_lists; return 0
   fi
   # Plan A: repo Debian main (tiene asterisk precompilado para arm64 y NO
   # necesita la key de Rasprian, que es la que falla con NO_PUBKEY ...90FDDD2E).
@@ -75,15 +82,16 @@ ensure_asterisk() {
   echo "deb [trusted=yes] http://deb.debian.org/debian ${CODENAME} main contrib" > /etc/apt/sources.list.d/debian-zetronpoc.list
   apt-get update -y >/dev/null 2>&1 || true
   if apt-cache show asterisk >/dev/null 2>&1 && apt-get install -y asterisk >/dev/null 2>&1; then
-    log "asterisk instalado via apt (Debian main)."; return 0
+    log "asterisk instalado via apt (Debian main)."; zt_clean_lists; return 0
   fi
   # Plan B: Raspbian main con trusted=yes (salta la firma que rompe en Trixie).
   echo "deb [trusted=yes] http://raspbian.raspberrypi.org/raspbian/ ${CODENAME} main" > /etc/apt/sources.list.d/raspios-zetronpoc.list
   apt-get update -y >/dev/null 2>&1 || true
   if apt-cache show asterisk >/dev/null 2>&1 && apt-get install -y asterisk >/dev/null 2>&1; then
-    log "asterisk instalado via apt (Raspbian main)."; return 0
+    log "asterisk instalado via apt (Raspbian main)."; zt_clean_lists; return 0
   fi
   warn "apt no pudo instalar asterisk."
+  zt_clean_lists
   # SKIP_ASTERISK_COMPILE=1: NO compilar Asterisk desde fuente aca. Lo usa el
   # build de la imagen (pi-gen bajo qemu) donde compilar tarda 3-4 h. En su lugar
   # la compilacion nativa (~30 min) se difiere al primer arranque de la Pi

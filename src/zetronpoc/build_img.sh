@@ -106,6 +106,15 @@ else
   log "pi-gen clonado (branch $PIGEN_BRANCH)."
 fi
 
+# Limpiar el rootfs stale de runs anteriores. pi-gen guarda el rootfs armado en
+# work/<IMG>/stage*/rootfs y lo REUTILIZA al re-correr (no lo borra solo). Si un
+# build fallo a mitad (ej: instalador_rpi aborto y dejo .list temporales en el
+# rootfs), el proximo run arranca con esa basura y apt revienta con
+# "Conflicting values set for option Trusted". Borrar solo work/ deja el clone
+# intacto (rapido) y fuerza un rootfs limpio desde stage0.
+rm -rf "$PIGEN/work"
+log "work/ stale limpiado (rootfs fresco desde stage0)."
+
 # -------------------- 3. CONFIG pi-gen --------------------
 echo "==> 3/6 Escribiendo config pi-gen..."
 cat > "$PIGEN/config" <<EOF
