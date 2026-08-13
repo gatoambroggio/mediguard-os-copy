@@ -61,23 +61,27 @@ ensure_asterisk() {
   # Trixie: el keyring viejo no firma el repo nuevo -> apt falla con "Missing key
   # A0DA38D0D76E8B5D638872819165938D90FDDD2E". Refrescar keyrings ANTES de cualquier
   # intento de apt-get install asterisk, asi el repo por defecto de Pi OS ya lo trae.
-  apt-get install -y raspbian-archive-keyring debian-archive-keyring 2>&1 >/dev/null || true
-  apt-get update -y 2>&1 >/dev/null || true
-  if apt-get install -y asterisk 2>&1 >/dev/null; then
+  apt-get install -y raspbian-archive-keyring debian-archive-keyring >/dev/null 2>&1 || true
+  apt-get update -y >/dev/null 2>&1 || true
+  if apt-get install -y asterisk >/dev/null 2>&1; then
     log "asterisk instalado via apt."; return 0
   fi
-  warn "asterisk no esta en el repo activo. Intentando habilitar el repo main de Raspbian..."
+  # Plan A: repo Debian main (tiene asterisk precompilado para arm64 y NO
+  # necesita la key de Rasprian, que es la que falla con NO_PUBKEY ...90FDDD2E).
+  # [trusted=yes] salta la verificacion de firma -> apt-get update no aborta.
+  warn "asterisk no esta en el repo activo. Probando repo Debian main (trusted=yes)..."
   . /etc/os-release 2>/dev/null || true
   local CODENAME="${VERSION_CODENAME:-bookworm}"
-  local SRCFILE="/etc/apt/sources.list.d/raspios-zetronpoc.list"
-  # [trusted=yes] evita el fallo de firma OpenPGP (sqv / Missing key) en Trixie
-  # cuando el keyring instalado aun no trae la key nueva del repo.
-  if ! grep -rq "raspbian.raspberrypi.org" /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null; then
-    echo "deb [trusted=yes] http://raspbian.raspberrypi.org/raspbian/ ${CODENAME} main" > "$SRCFILE"
+  echo "deb [trusted=yes] http://deb.debian.org/debian ${CODENAME} main contrib" > /etc/apt/sources.list.d/debian-zetronpoc.list
+  apt-get update -y >/dev/null 2>&1 || true
+  if apt-cache show asterisk >/dev/null 2>&1 && apt-get install -y asterisk >/dev/null 2>&1; then
+    log "asterisk instalado via apt (Debian main)."; return 0
   fi
-  apt-get update -y 2>&1 >/dev/null || true
-  if apt-cache show asterisk >/dev/null 2>&1 && apt-get install -y asterisk 2>&1 >/dev/null; then
-    log "asterisk instalado via apt (tras habilitar Raspbian main)."; return 0
+  # Plan B: Raspbian main con trusted=yes (salta la firma que rompe en Trixie).
+  echo "deb [trusted=yes] http://raspbian.raspberrypi.org/raspbian/ ${CODENAME} main" > /etc/apt/sources.list.d/raspios-zetronpoc.list
+  apt-get update -y >/dev/null 2>&1 || true
+  if apt-cache show asterisk >/dev/null 2>&1 && apt-get install -y asterisk >/dev/null 2>&1; then
+    log "asterisk instalado via apt (Raspbian main)."; return 0
   fi
   warn "apt no pudo instalar asterisk. Compilando Asterisk 22 LTS desde fuente (puede tardar 30-60 min)..."
   apt-get install -y build-essential libsqlite3-dev libedit-dev libxml2-dev \
