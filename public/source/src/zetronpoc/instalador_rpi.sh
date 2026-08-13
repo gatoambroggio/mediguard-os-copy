@@ -38,6 +38,21 @@ echo "==> Raspberry Pi: actualizando lista de paquetes..."
 # repos firmados (deb.debian.org), que igual quedaron actualizados.
 apt-get update -y || true
 
+echo "==> Raspberry Pi: reparando dependencias rotas (si las hay)..."
+# Un run viejo pudo instalar las variantes -gnome de NetworkManager
+# (network-manager-*-gnome -> libnma0 -> libgtk-3-0t64). En un Pi OS con
+# bookworm+rpi mezclado con trixie, libgtk-3-0t64 choca por archivos con
+# libgtk-3-0 (rpi) y dpkg no lo instala -> apt queda roto y aborta TODO
+# ("Unmet dependencies"). apt-get -f install no lo resuelve (intenta instalar
+# libgtk-3-0t64 y pega de frente con el conflicto). La salida es SACAR a la
+# fuerza los -gnome + libnma0 (applets de escritorio, inutiles en headless);
+# la VPN cliente sigue andando con network-manager-openvpn/pptp (sin -gnome).
+# Despues apt-get -f install limpia el resto del estado.
+dpkg --remove --force-all \
+  network-manager-openvpn-gnome network-manager-pptp-gnome \
+  network-manager-l2tp-gnome libnma0 2>/dev/null || true
+apt-get -f install -y 2>&1 || warn "apt-get -f install no pudo resolver todo (continuando)."
+
 echo "==> Raspberry Pi: instalando dependencias base..."
 # Base: siempre disponibles en Pi OS 64-bit. Si alguno falla aca si abortamos.
 apt-get install -y sqlite3 python3 python3-pip sox git curl ca-certificates \
@@ -49,80 +64,72 @@ apt-get install -y sqlite3 python3 python3-pip sox git curl ca-certificates \
 # 3) si falla, asegurar el repo main de Raspbian + apt-get update + reintentar.
 # 4) si tampoco, compilar Asterisk 20 LTS desde fuente (lento, pero garantizado).
 ensure_asterisk() {
+  # Borrar los .list temporales al salir (exito o fallo). Sin esto, si el build
+  # aborta o apt falla, los sources [trusted=yes] quedan en el rootfs y el
+  # siguiente apt-get del build revienta con
+  # "Conflicting values set for option Trusted ... trixie" (trusted si vs no).
+  # local ZT_LISTS se limpia en el return de esta funcion.
+  local ZT_LISTS="/etc/apt/sources.list.d/debian-zetronpoc.list /etc/apt/sources.list.d/raspios-zetronpoc.list"
+  zt_clean_lists(){ rm -f $ZT_LISTS 2>/dev/null || true; }
   if command -v asterisk >/dev/null 2>&1 || [[ -x /usr/sbin/asterisk ]]; then
     # Si ya hay Asterisk pero le falta chan_pjsip.so (compilacion vieja sin
     # --with-pjproject-bundled), forzamos recompilar para que ZetronPOC pueda
     # registrar los internos via PJSIP.
     if [[ -f /usr/lib/asterisk/modules/chan_pjsip.so ]]; then
-      log "asterisk ya instalado con PJSIP."; return 0
+      log "asterisk ya instalado con PJSIP."; zt_clean_lists; return 0
     fi
     warn "asterisk existe pero sin chan_pjsip.so -> recompilando con pjproject bundled..."
   fi
   # Trixie: el keyring viejo no firma el repo nuevo -> apt falla con "Missing key
   # A0DA38D0D76E8B5D638872819165938D90FDDD2E". Refrescar keyrings ANTES de cualquier
   # intento de apt-get install asterisk, asi el repo por defecto de Pi OS ya lo trae.
-  apt-get install -y raspbian-archive-keyring debian-archive-keyring 2>&1 >/dev/null || true
-  apt-get update -y 2>&1 >/dev/null || true
-  if apt-get install -y asterisk 2>&1 >/dev/null; then
-    log "asterisk instalado via apt."; return 0
+  apt-get install -y raspbian-archive-keyring debian-archive-keyring >/dev/null 2>&1 || true
+  apt-get update -y >/dev/null 2>&1 || true
+  if apt-get install -y asterisk >/dev/null 2>&1; then
+    log "asterisk instalado via apt."; zt_clean_lists; return 0
   fi
-  warn "asterisk no esta en el repo activo. Intentando habilitar el repo main de Raspbian..."
+  # Plan A: repo Debian main (tiene asterisk precompilado para arm64 y NO
+  # necesita la key de Rasprian, que es la que falla con NO_PUBKEY ...90FDDD2E).
+  # [trusted=yes] salta la verificacion de firma -> apt-get update no aborta.
+  warn "asterisk no esta en el repo activo. Probando repo Debian main (trusted=yes)..."
   . /etc/os-release 2>/dev/null || true
   local CODENAME="${VERSION_CODENAME:-bookworm}"
-  local SRCFILE="/etc/apt/sources.list.d/raspios-zetronpoc.list"
-  # [trusted=yes] evita el fallo de firma OpenPGP (sqv / Missing key) en Trixie
-  # cuando el keyring instalado aun no trae la key nueva del repo.
-  if ! grep -rq "raspbian.raspberrypi.org" /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null; then
-    echo "deb [trusted=yes] http://raspbian.raspberrypi.org/raspbian/ ${CODENAME} main" > "$SRCFILE"
+  echo "deb [trusted=yes] http://deb.debian.org/debian ${CODENAME} main contrib" > /etc/apt/sources.list.d/debian-zetronpoc.list
+  apt-get update -y >/dev/null 2>&1 || true
+  if apt-cache show asterisk >/dev/null 2>&1 && apt-get install -y asterisk >/dev/null 2>&1; then
+    log "asterisk instalado via apt (Debian main)."; zt_clean_lists; return 0
   fi
-  apt-get update -y 2>&1 >/dev/null || true
-  if apt-cache show asterisk >/dev/null 2>&1 && apt-get install -y asterisk 2>&1 >/dev/null; then
-    log "asterisk instalado via apt (tras habilitar Raspbian main)."; return 0
+  # Plan B: Raspbian main con trusted=yes (salta la firma que rompe en Trixie).
+  echo "deb [trusted=yes] http://raspbian.raspberrypi.org/raspbian/ ${CODENAME} main" > /etc/apt/sources.list.d/raspios-zetronpoc.list
+  apt-get update -y >/dev/null 2>&1 || true
+  if apt-cache show asterisk >/dev/null 2>&1 && apt-get install -y asterisk >/dev/null 2>&1; then
+    log "asterisk instalado via apt (Raspbian main)."; zt_clean_lists; return 0
   fi
-  warn "apt no pudo instalar asterisk. Compilando Asterisk 22 LTS desde fuente (puede tardar 30-60 min)..."
-  apt-get install -y build-essential libsqlite3-dev libedit-dev libxml2-dev \
-    uuid-dev libssl-dev wget tar pkg-config 2>&1 >/dev/null || true
-  local AB="/tmp/asterisk-build"
-  rm -rf "$AB"; mkdir -p "$AB"; cd "$AB"
-  wget -q "https://downloads.asterisk.org/pub/telephony/asterisk/asterisk-22-current.tar.gz" -O ast.tar.gz \
-    || { err "No se pudo descargar el tarball de Asterisk."; return 1; }
-  tar xzf ast.tar.gz
-  cd asterisk-22*/
-  # --with-pjproject-bundled: ZetronPOC usa PJSIP para registrarse contra la
-  # central del hospital. Sin este flag, si el sistema no tiene libpjproject-dev
-  # instalada, Asterisk compila SIN modulo chan_pjsip y el pjsip.conf es inutil.
-  # Bundlear pjproject garantiza PJSIP presente sin depender de paquetes del OS.
-  ./configure --with-pjproject-bundled --with-jansson-bundled 2>&1 | tail -5
-  # make -j1: en aarch64 el build paralelo rompe con "app_voicemail.o: No such
-  # file or directory" (race en dir apps/). Serial es mas lento pero determinista.
-  if ! make -j1 2>&1 | tail -5; then
-    err "La compilacion de Asterisk fallo."; return 1
+  warn "apt no pudo instalar asterisk."
+  zt_clean_lists
+  # SKIP_ASTERISK_COMPILE=1: NO compilar Asterisk desde fuente aca. Lo usa el
+  # build de la imagen (pi-gen bajo qemu) donde compilar tarda 3-4 h. En su lugar
+  # la compilacion nativa (~30 min) se difiere al primer arranque de la Pi
+  # (02-mediguard-firstboot.sh -> instalar_asterisk.sh). Fuera del build (Pi
+  # real) SKIP_ASTERISK_COMPILE no esta seteado y compila aca normalmente.
+  if [[ "${SKIP_ASTERISK_COMPILE:-0}" == "1" ]]; then
+    warn "SKIP_ASTERISK_COMPILE=1: Asterisk se compilara en el primer arranque de la Pi (nativo, ~30 min, no bajo qemu)."
+    return 0
   fi
-  make install 2>&1 | tail -3
-  make config 2>&1 >/dev/null || true
-  ldconfig
-  # systemd unit si make config no creo uno usable
-  if ! systemctl list-unit-files 2>/dev/null | grep -q "^asterisk.service"; then
-    cat > /etc/systemd/system/asterisk.service <<'UNIT'
-[Unit]
-Description=Asterisk PBX
-After=network.target
-
-[Service]
-Type=simple
-User=root
-ExecStart=/usr/sbin/asterisk -f
-ExecStop=/usr/sbin/asterisk -rx "core stop now"
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-    systemctl daemon-reload 2>/dev/null || true
+  warn "Compilando Asterisk 22 LTS desde fuente (instalador robusto)..."
+  # Delega en instalar_asterisk.sh: instala TODAS las deps de build, compila con
+  # pjproject-bundled (garantiza chan_pjsip), fallback -j1 si -jN OOM/racea, y
+  # verifica chan_pjsip.so. Mas robusto que embeberlo aca.
+  local IA="$(mktemp -d)/instalar_asterisk.sh"
+  if ! curl -fsSL "${SRC}/instalar_asterisk.sh" -o "$IA"; then
+    err "No se pudo descargar instalar_asterisk.sh (sin red?)."; return 1
   fi
-  log "Asterisk compilado e instalado desde fuente."; return 0
+  if bash "$IA"; then
+    log "Asterisk compilado e instalado desde fuente."; return 0
+  fi
+  return 1
 }
-ensure_asterisk || warn "No se pudo instalar asterisk por ningun metodo (apt, repo, ni fuente). El IVR/SIP no funcionara."
+ensure_asterisk || warn "No se pudo instalar asterisk por ningun metodo. El IVR/SIP no funcionara hasta resolverlo."
 # libgpiod2: la numeracion del paquete varia entre releases (libgpiod2 / libgpiod3
 # / libgpiod-dev). gpiod ya instalo gpioset para el PTT, asi que si ninguno de los
 # candidatos existe, se ignora en silencio (no es un WARN accionable).
@@ -168,8 +175,71 @@ except Exception as e:
     print("[WARN] no se pudo guardar gpio en la base: %s" % e)
 PYEOF
 
+# ============================ MMDVM + UART (auto, sin tocar a mano) =========
+echo "==> Liberando UART + instalando MMDVMHost..."
+if [[ -f /boot/cmdline.txt ]]; then
+  sed -i -E 's/ ?console=(serial0|ttyAMA0|ttyS0),[0-9]+//g' /boot/cmdline.txt
+fi
+if [[ -f /boot/config.txt ]]; then
+  grep -q '^enable_uart=1'  /boot/config.txt || echo 'enable_uart=1'  >> /boot/config.txt
+  grep -q '^dtoverlay=disable-bt' /boot/config.txt || echo 'dtoverlay=disable-bt' >> /boot/config.txt
+fi
+systemctl disable serial-getty@ttyAMA0.service serial-getty@ttyS0.service 2>/dev/null || true
+systemctl disable bthelper@hciuart.service hciuart.service 2>/dev/null || true
+if [[ "${SKIP_MMDVM_INSTALL:-0}" == "1" ]]; then
+  warn "SKIP_MMDVM_INSTALL=1: MMDVMHost se instala en el primer arranque de la Pi (nativo, ~5-10 min, no bajo qemu)."
+elif ! command -v MMDVM-Host >/dev/null 2>&1 && [[ ! -x /usr/local/bin/MMDVM-Host ]]; then
+  MMDVM_TMP="$(mktemp -d)/instalador_mmdvm.sh"
+  if curl -fsSL "${SRC}/instalador_mmdvm.sh" -o "$MMDVM_TMP"; then
+    bash "$MMDVM_TMP" || warn "instalador_mmdvm.sh fallo (ver journalctl -u mmdvmhost)"
+    rm -f "$MMDVM_TMP"
+  else
+    warn "No se pudo descargar instalador_mmdvm.sh (sin red?). MMDVM no instalado."
+  fi
+else
+  log "MMDVMHost ya instalado."
+  systemctl enable --now mmdvmhost 2>/dev/null || true
+fi
+
+# ============================ VERIFICAR Y LEVANTAR CADENA TX ==================
+# Sin esta cadena arriba, el panel y el IVR encolan pero el pager nunca suena:
+#   panel/IVR -> cola_envios -> worker -> dispatch_mqtt -> mosquitto -> MMDVMHost -> RF
+# Si falta cualquier eslabon (mosquitto, MMDVMHost, worker, API), nada llega al aire.
+# Forzamos los 4 servicios activos y regeneramos el .ini desde la BD del panel.
+echo "==> Verificando cadena de transmision (mosquitto + MMDVMHost + cola + API)..."
+systemctl enable --now mosquitto 2>/dev/null || true
+python3 - <<'PYEOF' 2>/dev/null || warn "No se pudo regenerar MMDVM.ini desde la BD"
+import sys, os
+sys.path.insert(0, "/opt/zetronpoc"); sys.path.insert(0, "/opt/zetronpoc/database")
+os.environ["ZETRONPOC_DIR"] = "/opt/zetronpoc"
+try:
+    from db_manager import generar_mmdvm_ini
+    ok, msg = generar_mmdvm_ini()
+    print("[OK] MMDVM.ini" if ok else "[WARN] %s" % msg)
+except Exception as e:
+    print("[WARN] %s" % e)
+PYEOF
+if command -v MMDVM-Host >/dev/null 2>&1 || [[ -x /usr/local/bin/MMDVM-Host ]]; then
+  systemctl enable mmdvmhost 2>/dev/null || true
+  systemctl restart mmdvmhost 2>/dev/null || true
+else
+  warn "MMDVMHost NO instalado -> los pages no salen al aire. Conecte el modulo y vuelva a ejecutar este instalador."
+fi
+systemctl enable --now zetronpoc-cola zetronpoc-api 2>/dev/null || true
+systemctl restart zetronpoc-cola zetronpoc-api 2>/dev/null || true
+sleep 2
+echo "  Estado de la cadena:"
+for s in mosquitto mmdvmhost zetronpoc-cola zetronpoc-api; do
+  st="$(systemctl is-active "$s" 2>/dev/null || echo no)"
+  printf "    %-16s %s\n" "$s" "$st"
+done
+
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 echo ""
 log "ZetronPOC instalado en Raspberry Pi (${GPIO_CHIP} BCM ${GPIO_PIN})."
 echo "  Panel publico: http://${IP:-localhost}:8080/"
 echo "  Panel admin  : http://${IP:-localhost}:8080/admin  (admin / admin123)"
+echo ""
+echo "  Para que un codigo llegue al pager los 4 servicios deben decir 'active'."
+echo "  Si mmdvmhost dice 'activating' o 'inactive': el modulo MMDVM no esta conectado"
+echo "  (conectelo por USB-TTL y espere; el wrapper lo levanta solo al detectarlo)."

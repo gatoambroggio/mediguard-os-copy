@@ -12,14 +12,16 @@
 #   sudo bash build_img.sh --skip-build   # solo configura pi-gen, no construye
 #
 # Requisitos: ~6 GB libres, Docker (recomendado) o debootstrap + qemu-user-binfmt.
-# Tiempo estimado: 1.5-3 h (Asterisk se compila desde fuente bajo qemu en el chroot)
+# Tiempo estimado: ~30-45 min (Asterisk NO se compila aca; se difiere al primer
+# arranque de la Pi, nativo ~30 min). Antes compilar bajo qemu tardaba 3-4 h.
 # Salida: ./mediguardos-rpi.img (flashear con BalenaEtcher / Raspberry Pi Imager)
 #
-# Nota: MMDVMHost NO se compila dentro de la imagen (no hay hardware MMDVM al
-#       construir). Una vez flasheada la Pi, instalá MMDVMHost desde el panel
-#       admin -> Diagnóstico/MMDVM o con instalador_mmdvm.sh cuando conectes el
-#       Jumbospot. Los servicios zetronpoc-api / zetronpoc-cola / asterisk sí
-#       quedan habilitados y arrancan solos en el primer boot.
+# Nota: ni MMDVMHost ni Asterisk se compilan durante el build (compilar bajo
+#       qemu tardaba 3-4 h). Ambos se instalan nativamente en el PRIMER arranque
+#       de la Pi: Asterisk desde .deb (instantáneo) y MMDVMHost compilado desde
+#       fuente (~5-10 min). El UART de la Pi se libera (consola serie + BT fuera)
+#       en ese mismo primer boot, asi el modulo MMDVM anda sin tocar nada a mano.
+#       zetronpoc-api / zetronpoc-cola / mosquitto sí quedan habilitados y arrancan solos.
 # ============================================================================
 set -euo pipefail
 
@@ -45,8 +47,8 @@ echo "==================================================="
 echo " build_img.sh - MediGuard OS para Raspberry Pi (64b)"
 echo "==================================================="
 echo " Salida esperada : $HERE/$IMG_NAME.img"
-echo " Tiempo estimado : 1.5-3 h (Asterisk se compila desde fuente bajo qemu)"
-echo " RAM host        : 4+ GB libres (compilacion ARM emulada)"
+echo " Tiempo estimado : ~30-45 min (Asterisk se compila en el 1er boot, no aca)"
+echo " RAM host        : 2+ GB libres (sin compilacion ARM emulada)"
 echo " Disco necesario : ~6 GB libres en $HERE"
 echo ""
 
@@ -102,6 +104,15 @@ else
   git clone --depth 1 -b "$PIGEN_BRANCH" "$PIGEN_URL" "$PIGEN"
   log "pi-gen clonado (branch $PIGEN_BRANCH)."
 fi
+
+# Limpiar el rootfs stale de runs anteriores. pi-gen guarda el rootfs armado en
+# work/<IMG>/stage*/rootfs y lo REUTILIZA al re-correr (no lo borra solo). Si un
+# build fallo a mitad (ej: instalador_rpi aborto y dejo .list temporales en el
+# rootfs), el proximo run arranca con esa basura y apt revienta con
+# "Conflicting values set for option Trusted". Borrar solo work/ deja el clone
+# intacto (rapido) y fuerza un rootfs limpio desde stage0.
+rm -rf "$PIGEN/work"
+log "work/ stale limpiado (rootfs fresco desde stage0)."
 
 # -------------------- 3. CONFIG pi-gen --------------------
 echo "==> 3/6 Escribiendo config pi-gen..."
@@ -199,7 +210,7 @@ else
   cd "$HERE"
 fi
 END=$(date +%s)
-log "Build tardo ~$(( (END-START)/60 )) min."
+log "Build tardo ~$(( (END-START)/60 )) min. (Asterisk queda para el 1er boot de la Pi)"
 
 # -------------------- 6. COPIAR .img --------------------
 echo "==> 6/6 Copiando .img final..."
@@ -217,10 +228,15 @@ if [[ -f "$SRC" ]]; then
   echo "    ssh admin@<IP-DE-LA-PI>   (clave: admin123)"
   echo "  Panel publico: http://<IP-DE-LA-PI>:8080/"
   echo "  Panel admin  : http://<IP-DE-LA-PI>:8080/admin  (admin/admin123)"
+  echo "  Primer arranque (auto, sin tocar nada):"
+  echo "    - Asterisk se instala solo desde .deb (instantaneo)."
+  echo "    - MMDVMHost se compila e instala solo (~5-10 min) y el servicio arranca."
+  echo "    - El UART de la Pi se libera (consola serie + BT fuera) -> modulo MMDVM listo."
+  echo "  Sigue el avance con: ssh admin@<IP> 'journalctl -u mediguard-firstboot -f'"
   echo "  Siguiente paso desde el panel admin:"
   echo "    1) Parametros -> IP central hospital -> Guardar"
   echo "    2) Extensiones -> claves SIP -> Aplicar a Asterisk"
-  echo "    3) (Opcional) MMDVM -> Instalar MMDVMHost (cuando conectes el Jumbospot)"
+  echo "    3) Parametros -> MMDVM -> cargar Callsign/Puerto/Frecuencia reales -> Aplicar"
   echo ""
 else
   err "No se encontro $SRC. Revisa el log de pi-gen arriba (etapa 5)."

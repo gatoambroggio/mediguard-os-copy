@@ -20,7 +20,16 @@ APP_DIR="/opt/zetronpoc"
 DB="${APP_DIR}/database/zetronpoc.db"
 VERSION="2.0"
 UPDATE=0
-[[ "${1:-}" == "--update" ]] && UPDATE=1
+NO_ASTERISK=0
+for arg in "$@"; do
+  [[ "$arg" == "--update" ]] && UPDATE=1
+  [[ "$arg" == "--no-asterisk" ]] && NO_ASTERISK=1
+done
+# --no-asterisk (opt-in, por defecto OFF): saltea apt-get install asterisk y las
+# recargas de Asterisk. SIRVE SOLO si vas a compilar Asterisk aparte con
+# instalar_asterisk.sh y despues reejecutar el instalador sin el flag para que
+# genere la config de telefonia. La telefonia (IVR/internos SIP) es la parte
+# principal de ZetronPOC: NO lo uses salteando telefonia a menos que sepas por que.
 
 G="\033[1;32m"; Y="\033[1;33m"; R="\033[1;31m"; NC="\033[0m"
 log(){ echo -e "${G}[OK]${NC}   $*"; }
@@ -64,6 +73,8 @@ for f in pogsag_handler.py pogsag_check.py cola_worker.py; do
 done
 # Quitar cron y logrotate viejos
 rm -f /etc/cron.d/pogsag-cleanup /etc/logrotate.d/pogsag 2>/dev/null || true
+# Borrar scripts PTT viejos (el MMDVM maneja el PTT solo, estos ya no se usan)
+rm -f "${APP_DIR}/scripts/ptt_on.sh" "${APP_DIR}/scripts/ptt_off.sh" 2>/dev/null || true
 # Recargar Asterisk para que solte endpoints/registros viejos
 asterisk -rx "pjsip reload" 2>/dev/null || true
 asterisk -rx "dialplan reload" 2>/dev/null || true
@@ -71,28 +82,49 @@ log "Sistema anterior limpio."
 
 # ============================ 1. DEPENDENCIAS ================================
 echo "==> 1/10 Dependencias base..."
+# Reparar estado apt roto de runs anteriores. Un run viejo pudo instalar las
+# variantes -gnome de NetworkManager (network-manager-*-gnome -> libnma0 ->
+# libgtk-3-0t64). En Pi OS con bookworm+rpi mezclado con trixie, libgtk-3-0t64
+# choca por archivos con libgtk-3-0 (rpi) y dpkg no lo instala -> apt queda
+# roto y aborta TODO. apt-get -f install NO lo resuelve (intenta instalar
+# libgtk-3-0t64 y pega con el conflicto). Hay que SACAR a la fuerza los -gnome
+# + libnma0 (applets de escritorio, inutiles en headless); la VPN cliente
+# sigue con network-manager-openvpn/pptp (sin -gnome). Despues -f install limpia.
+dpkg --remove --force-all \
+  network-manager-openvpn-gnome network-manager-pptp-gnome \
+  network-manager-l2tp-gnome libnma0 2>/dev/null || true
+apt-get -f install -y 2>&1 || warn "apt-get -f install no pudo resolver todo (continuando)."
 if [[ $UPDATE -eq 0 ]]; then
   apt-get update -y
   apt-get install -y sqlite3 python3 python3-pip alsa-utils sox git curl ca-certificates \
     logrotate espeak gpiod 2>&1 || { err "Fallo instalacion de paquetes base."; exit 1; }
   # asterisk y libgpiod2 por separado: en algunos repos (Raspberry Pi OS) pueden
   # no estar en el mirror activo. Si fallan, no abortan todo el instalador.
-  apt-get install -y asterisk 2>&1 || warn "asterisk no encontrado en el repo. En Raspberry Pi habilite el repo main de Raspbian (deb http://raspbian.raspberrypi.org/raspbian/ bookworm main) y reejecute."
-  apt-get install -y libgpiod2 2>&1 || warn "libgpiod2 no encontrado (gpiod ya instala gpioset; el PTT igual funciona)"
+  # --no-asterisk: saltear (Asterisk fue eliminado de Debian, compilar tarda mucho).
+  if [[ $NO_ASTERISK -eq 0 ]]; then
+    apt-get install -y asterisk 2>&1 || warn "asterisk no encontrado en el repo. Compilarlo con instalar_asterisk.sh despues."
+    apt-get install -y libgpiod2 2>&1 || warn "libgpiod2 no encontrado (gpiod ya instala gpioset; el PTT igual funciona)"
+  else
+    log "--no-asterisk: salteando apt-get install asterisk (modo emergencia)."
+  fi
 else
   # En --update solo asegurar lo critico que pudo ser purgado (ej: asterisk)
-  command -v asterisk >/dev/null 2>&1 || apt-get install -y asterisk 2>&1 || warn "No se pudo reinstalar asterisk"
+  if [[ $NO_ASTERISK -eq 0 ]]; then
+    command -v asterisk >/dev/null 2>&1 || apt-get install -y asterisk 2>&1 || warn "No se pudo reinstalar asterisk"
+  fi
 fi
 command -v espeak >/dev/null 2>&1 || apt-get install -y espeak sox 2>&1 || true
 pip3 install --break-system-packages openpyxl xlrd 2>&1 || warn "openpyxl/xlrd no instalados (import Excel limitado a CSV)"
 
 # VPN: NetworkManager (cliente OpenVPN/L2TP/PPTP) + servidores OpenVPN/PPTP/L2TP
 echo "==> 1b/10 Dependencias VPN (NetworkManager + openvpn/pptpd/strongswan/xl2tpd)..."
-apt-get install -y network-manager network-manager-openvpn network-manager-openvpn-gnome \
-  network-manager-pptp network-manager-pptp-gnome \
+# Sin las variantes -gnome: solo agregan applets GTK (libnma0 -> libgtk-3-0t64)
+# y en un server headless no se usan; ademas libgtk-3-0t64 rompe apt en Pi OS Trixie.
+apt-get install -y network-manager network-manager-openvpn \
+  network-manager-pptp \
   openvpn pptpd strongswan xl2tpd wireguard wireguard-tools 2>&1 || warn "Algunos paquetes VPN no pudieron instalarse (verifique repos universe habilitado)"
 # network-manager-l2tp suele estar en PPA, no en repos base de Ubuntu; intentar igual
-apt-get install -y network-manager-l2tp network-manager-l2tp-gnome 2>&1 || warn "network-manager-l2tp no esta en el repo base (si usa L2TP cliente, instalelo via PPA: add-apt-repository ppa:nm-l2tp/network-manager-l2tp)"
+apt-get install -y network-manager-l2tp 2>&1 || warn "network-manager-l2tp no esta en el repo base (si usa L2TP cliente, instalelo via PPA: add-apt-repository ppa:nm-l2tp/network-manager-l2tp)"
 systemctl enable --now NetworkManager 2>/dev/null || true
 echo "  Estado NetworkManager:"; systemctl is-active NetworkManager 2>/dev/null || true
 # strongswan y xl2tpd auto-arrancan al instalarse (apt los habilita por defecto).
@@ -163,18 +195,31 @@ chown -R "${AST_USER}:${AST_USER}" /var/lib/asterisk/agi-bin 2>/dev/null || true
 dl "${SRC}/encoder/pocsag_gen.py" "${APP_DIR}/encoder/pocsag_gen.py"
 chmod +x "${APP_DIR}/encoder/pocsag_gen.py"
 
-dl "${SRC}/scripts/ptt_on.sh" "${APP_DIR}/scripts/ptt_on.sh"
-dl "${SRC}/scripts/ptt_off.sh" "${APP_DIR}/scripts/ptt_off.sh"
+# wrapper que arranca MMDVMHost solo cuando el puerto del modulo existe
+# (evita el loop "svc activating" si el MMDVM no esta conectado al arrancar).
+dl "${SRC}/scripts/mmdvmhost-run.sh" "${APP_DIR}/scripts/mmdvmhost-run.sh"
+# detector del puerto real del modulo (GET_VERSION a ttyUSB0/ttyAMA0/ttyS0);
+# sin esto el instalador forzaba /dev/ttyS0 y MMDVMHost nunca hacia handshake.
+dl "${SRC}/scripts/mmdvm_detect_port.py" "${APP_DIR}/scripts/mmdvm_detect_port.py"
 chmod +x "${APP_DIR}/scripts/"*.sh
+# CRITICO: el detector .py tambien necesita +x. El wrapper mmdvmhost-run.sh
+# hace `[[ -x "$PROBE" ]]` antes de ejecutarlo; sin +x lo saltea con
+# "no encontrado" y nunca auto-detecta el puerto (quedaba esperando en
+# ttyUSB0 para siempre hasta el chmod +x manual). Las reinstalaciones no
+# heredan el bit de ejecucion del archivo anterior.
+chmod +x "${APP_DIR}/scripts/"*.py 2>/dev/null || true
 
 dl "${SRC}/services/zetronpoc-api.service" "/etc/systemd/system/zetronpoc-api.service"
 dl "${SRC}/services/zetronpoc-cola.service" "/etc/systemd/system/zetronpoc-cola.service"
 
 # ============================ 4. ASTERISK CONFIG ===========================
-echo "==> 4/10 Configurando Asterisk..."
-mkdir -p "${AST_ETC}"
-# pjsip.conf: self-contained (se regenera desde la BD en el paso 6 / panel admin)
-cat > "${AST_ETC}/pjsip.conf" <<'EOF'
+if [[ $NO_ASTERISK -eq 1 ]]; then
+  echo "==> 4/10 Asterisk: OMITIDO (--no-asterisk). Paging por panel web + MMDVM."
+else
+  echo "==> 4/10 Configurando Asterisk..."
+  mkdir -p "${AST_ETC}"
+  # pjsip.conf: self-contained (se regenera desde la BD en el paso 6 / panel admin)
+  cat > "${AST_ETC}/pjsip.conf" <<'EOF'
 ; ZetronPOC: pjsip.conf es self-contained (transport + endpoints + registros)
 ; Se regenera desde el panel admin -> Extensiones -> Aplicar a Asterisk
 [transport-udp]
@@ -183,22 +228,26 @@ protocol=udp
 bind=0.0.0.0:5060
 EOF
 
-# extensions.conf: dialplan con IVR en un unico contexto (from-hospital)
-dl "${SRC}/asterisk/extensions.conf" "${AST_ETC}/extensions.conf"
-dl "${SRC}/asterisk/modules.conf" "${AST_ETC}/modules.conf" 2>/dev/null || true
+  # extensions.conf: dialplan con IVR en un unico contexto (from-hospital)
+  dl "${SRC}/asterisk/extensions.conf" "${AST_ETC}/extensions.conf"
+  dl "${SRC}/asterisk/modules.conf" "${AST_ETC}/modules.conf" 2>/dev/null || true
 
-chown -R "${AST_USER}:${AST_USER}" "${AST_ETC}" 2>/dev/null || true
+  chown -R "${AST_USER}:${AST_USER}" "${AST_ETC}" 2>/dev/null || true
+fi
 
 # ============================ 5. BASE DE DATOS ==============================
 echo "==> 5/10 Inicializando base de datos..."
 if [[ $UPDATE -eq 0 ]] || [[ ! -f "${DB}" ]]; then
-  python3 "${APP_DIR}/database/db_manager.py" init
+  python3 "${APP_DIR}/database/db_manager.py" init || warn "db init fallo (se reintentara en firstboot si hace falta)"
 fi
 python3 - <<PYEOF
 import sqlite3
-c = sqlite3.connect('${DB}')
-c.execute("INSERT OR REPLACE INTO config(clave,valor) VALUES('version','${VERSION}')")
-c.commit(); c.close()
+try:
+    c = sqlite3.connect('${DB}')
+    c.execute("INSERT OR REPLACE INTO config(clave,valor) VALUES('version','${VERSION}')")
+    c.commit(); c.close()
+except Exception as e:
+    print("[WARN] no se pudo setear version: %s" % e)
 PYEOF
 chmod 640 "${DB}" 2>/dev/null || true
 chown "${AST_USER}:${AST_USER}" "${DB}" 2>/dev/null || true
@@ -257,7 +306,9 @@ PYEOF
 chown "${AST_USER}:${AST_USER}" "${AST_ETC}/pjsip.conf" 2>/dev/null || true
 
 # ============================ 7. LOCUCIONES IVR ============================
-if [[ $UPDATE -eq 0 ]]; then
+if [[ $NO_ASTERISK -eq 1 ]]; then
+  echo "==> 7/10 Locuciones IVR: OMITIDAS (--no-asterisk)."
+elif [[ $UPDATE -eq 0 ]]; then
   echo "==> 7/10 Generando locuciones del IVR..."
   gen(){ local out="${APP_DIR}/audio/$1.gsm"; [[ -f "$out" ]] && return
     espeak -v es -s 160 "$2" -w "${out%.gsm}.wav" 2>/dev/null && sox "${out%.gsm}.wav" -r 8000 -c 1 "$out" 2>/dev/null || warn "No se pudo generar $1"
@@ -281,24 +332,111 @@ echo "==> 8/10 Ajustando permisos..."
 chown -R "${AST_USER}:${AST_USER}" "${APP_DIR}" 2>/dev/null || true
 chown -R "${AST_USER}:${AST_USER}" "${AST_ETC}" 2>/dev/null || true
 
+# ============================ 8b. MMDVM AUTOMATICO + LIBERAR /dev/ttyS0 ======
+# One-click: instala MMDVMHost, libera /dev/ttyS0 de getty/consola, fija ese
+# puerto en la BD (lo usa el MMDVM.ini + la luz del panel) y arranca el servicio.
+# Corre en instalacion nueva Y en --update -> el pager siempre funciona solo.
+echo "==> 8b/10 MMDVMHost + liberando /dev/ttyS0..."
+# 1) Liberar /dev/ttyS0 del getty serial (Ubuntu Server y Pi)
+systemctl disable --now serial-getty@ttyS0.service 2>/dev/null || true
+systemctl mask serial-getty@ttyS0.service 2>/dev/null || true
+# 2) Ubuntu/Debian: sacar console=ttyS0 del grub para que el kernel no lo reclame
+if [[ -f /etc/default/grub ]] && grep -q 'console=ttyS0' /etc/default/grub; then
+  sed -i -E 's/ ?console=ttyS0[^ "]*//g' /etc/default/grub
+  update-grub 2>/dev/null || grub-mkconfig -o /boot/grub/grub.cfg 2>/dev/null || true
+fi
+# 3) Raspberry Pi (Pi OS): sacar console=ttyS0 del cmdline.txt
+if [[ -f /boot/cmdline.txt ]]; then
+  sed -i -E 's/ ?console=ttyS0,[0-9]+//g' /boot/cmdline.txt
+fi
+# 3b) Raspberry Pi con Ubuntu Server: el firmware vive en /boot/firmware/ (NO
+#     en /boot/). Sin enable_uart=1 + dtoverlay=disable-bt, el PL011
+#     (/dev/ttyAMA0, donde va el HAT MMDVM) nunca se crea -> MMDVMHost aborta
+#     con "Cannot open device - /dev/ttyAMA0". Esto no aplica en Pi OS (usa
+#     /boot/config.txt, lo maneja instalador_rpi.sh).
+FIRM_CFG=""
+for f in /boot/firmware/config.txt /boot/firmware/usercfg.txt; do
+  [[ -f "$f" ]] && FIRM_CFG="$f" && break
+done
+if [[ -n "$FIRM_CFG" ]]; then
+  grep -q '^enable_uart=1' "$FIRM_CFG" || echo 'enable_uart=1' >> "$FIRM_CFG"
+  grep -q '^dtoverlay=disable-bt' "$FIRM_CFG" || echo 'dtoverlay=disable-bt' >> "$FIRM_CFG"
+  if [[ -f /boot/firmware/cmdline.txt ]]; then
+    sed -i -E 's/ ?console=(serial0|ttyAMA0|ttyS0),[0-9]+//g' /boot/firmware/cmdline.txt
+  fi
+  # liberar el PL011 del getty serial de Ubuntu (suele traer console en ttyAMA0)
+  systemctl disable --now serial-getty@ttyAMA0.service 2>/dev/null || true
+  systemctl mask serial-getty@ttyAMA0.service 2>/dev/null || true
+  warn "UART del Pi habilitado en ${FIRM_CFG} (enable_uart=1 + disable-bt). HAY QUE REINICIAR para crear /dev/ttyAMA0."
+fi
+# 4) Detectar el puerto REAL del modulo MMDVM (sondea ttyUSB0/ttyAMA0/ttyS0 con
+#    GET_VERSION) y fijarlo en la BD. Forzar /dev/ttyS0 (mini-UART) dejaba a
+#    MMDVMHost hablando al vacio -> la LED roja del modulo titilaba sin parar.
+MMDVM_PORT=""
+if [[ -x "${APP_DIR}/scripts/mmdvm_detect_port.py" ]]; then
+  MMDVM_PORT="$(python3 "${APP_DIR}/scripts/mmdvm_detect_port.py" 2>/dev/null || true)"
+fi
+if [[ -z "$MMDVM_PORT" ]]; then
+  if [[ -e /dev/ttyAMA0 ]]; then MMDVM_PORT="/dev/ttyAMA0"
+  elif [[ -f /boot/firmware/config.txt || -f /boot/config.txt ]]; then MMDVM_PORT="/dev/ttyAMA0"
+  elif [[ -e /dev/ttyUSB0 ]]; then MMDVM_PORT="/dev/ttyUSB0"
+  else MMDVM_PORT="/dev/ttyS0"; fi
+  warn "no se detecto modulo por handshake; usando ${MMDVM_PORT} como placeholder (el wrapper re-sondea al arrancar)."
+else
+  log "puerto MMDVM detectado: ${MMDVM_PORT}"
+fi
+python3 - "$MMDVM_PORT" <<'PYEOF'
+import sqlite3, sys
+DB='/opt/zetronpoc/database/zetronpoc.db'
+port=sys.argv[1]
+try:
+    c=sqlite3.connect(DB)
+    c.execute("INSERT OR REPLACE INTO config(clave,valor) VALUES('mmdvm_serial_port',?)",(port,))
+    c.commit(); c.close()
+    print("[OK] mmdvm_serial_port=%s" % port)
+except Exception as e:
+    print("[WARN] %s" % e)
+PYEOF
+# 5) Instalar MMDVMHost si no esta (compila + deja el servicio mmdvmhost + mosquitto)
+if [[ "${SKIP_MMDVM_INSTALL:-0}" == "1" ]]; then
+  warn "SKIP_MMDVM_INSTALL=1: MMDVMHost se instala en el primer arranque."
+elif ! command -v MMDVM-Host >/dev/null 2>&1 && [[ ! -x /usr/local/bin/MMDVM-Host ]]; then
+  MMDVM_TMP="$(mktemp -d)/instalador_mmdvm.sh"
+  if curl -fsSL "${SRC}/instalador_mmdvm.sh" -o "$MMDVM_TMP"; then
+    log "Instalando MMDVMHost (1-3 min, compila en el equipo)..."
+    bash "$MMDVM_TMP" || warn "instalador_mmdvm.sh fallo (ver journalctl -u mmdvmhost)"
+    rm -f "$MMDVM_TMP"
+  else
+    warn "No se pudo descargar instalador_mmdvm.sh (sin red?). MMDVM no instalado."
+  fi
+else
+  log "MMDVMHost ya instalado."
+fi
+systemctl enable --now mosquitto 2>/dev/null || true
+systemctl enable --now mmdvmhost 2>/dev/null || true
+
 # ============================ 9. SERVICIOS + CRON ==========================
 echo "==> 9/10 Activando servicios..."
 cat > /etc/logrotate.d/zetronpoc <<EOF
 ${APP_DIR}/logs/*.log { daily rotate 14 compress missingok notifempty }
 EOF
 systemctl daemon-reload 2>/dev/null || true
-systemctl enable --now asterisk 2>/dev/null || warn "Asterisk no pudo activarse"
-asterisk -rx "dialplan reload" 2>/dev/null || warn "No se pudo recargar dialplan"
-asterisk -rx "pjsip reload" 2>/dev/null || true
-sleep 1
-# Verificar que res_pjsip cargo el transporte; si no, forzar recarga del modulo
-if ! asterisk -rx "pjsip show transports" 2>/dev/null | grep -q "transport-udp"; then
-  warn "pjsip no cargo el transporte. Reintentando..."
-  asterisk -rx "module reload res_pjsip.so" 2>/dev/null || true
+if [[ $NO_ASTERISK -eq 1 ]]; then
+  log "--no-asterisk: salteando enable/reload de Asterisk."
+else
+  systemctl enable --now asterisk 2>/dev/null || warn "Asterisk no pudo activarse"
+  asterisk -rx "dialplan reload" 2>/dev/null || warn "No se pudo recargar dialplan"
   asterisk -rx "pjsip reload" 2>/dev/null || true
   sleep 1
+  # Verificar que res_pjsip cargo el transporte; si no, forzar recarga del modulo
+  if ! asterisk -rx "pjsip show transports" 2>/dev/null | grep -q "transport-udp"; then
+    warn "pjsip no cargo el transporte. Reintentando..."
+    asterisk -rx "module reload res_pjsip.so" 2>/dev/null || true
+    asterisk -rx "pjsip reload" 2>/dev/null || true
+    sleep 1
+  fi
+  asterisk -rx "pjsip show transports" 2>/dev/null | head -6 || true
 fi
-asterisk -rx "pjsip show transports" 2>/dev/null | head -6 || true
 systemctl enable zetronpoc-api 2>/dev/null || true
 systemctl enable zetronpoc-cola 2>/dev/null || true
 # Forzar reinicio SIEMPRE para cargar codigo nuevo (enable --now no reinicia un servicio ya activo)
@@ -338,6 +476,15 @@ else
 fi
 echo "  Dialplan cargado:"
 asterisk -rx "dialplan show from-hospital" 2>/dev/null | head -8 || warn "No se pudo mostrar el dialplan"
+
+echo "  Cadena de transmision (para que suene el pager los 4 deben decir active):"
+systemctl restart mosquitto mmdvmhost zetronpoc-cola zetronpoc-api 2>/dev/null || true
+sleep 2
+for s in mosquitto mmdvmhost zetronpoc-cola zetronpoc-api; do
+  st="$(systemctl is-active "$s" 2>/dev/null || echo no)"
+  printf "    %-16s %s\n" "$s" "$st"
+done
+if [[ -e /dev/ttyS0 ]]; then log "/dev/ttyS0 presente."; else warn "/dev/ttyS0 NO existe (¿modulo no conectado?)."; fi
 
 echo "--------------------------------------------"
 log "ZetronPOC v${VERSION} instalado."

@@ -34,6 +34,102 @@ try:
 except Exception as e:
     print("[mediguard-firstboot] WARN: %s" % e)
 PYEOF
+# ---- Si el build no dejo los archivos de ZetronPOC (instalador fallo en el
+# chroot), correrlo aca en el primer arranque real. Solo archivos + config
+# (Asterisk y MMDVM los instalan los bloques de abajo con la ruta rapida .deb
+# + compilacion nativa, no este). Esto garantiza que la Pi quede completa aun
+# si el build de la imagen fallo a mitad.
+if [[ -f /etc/mediguard/need-full-install ]]; then
+  echo "[mediguard-firstboot] Build incompleto -> instalando archivos ZetronPOC..."
+  if curl -fsSL https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador_rpi.sh -o /tmp/instalador_rpi.sh; then
+    SKIP_ASTERISK_COMPILE=1 SKIP_MMDVM_INSTALL=1 bash /tmp/instalador_rpi.sh --update \
+      || echo "[mediguard-firstboot] WARN: instalador_rpi.sh fallo en firstboot (ver arriba)"
+    rm -f /tmp/instalador_rpi.sh
+  else
+    echo "[mediguard-firstboot] WARN: no se pudo descargar instalador_rpi.sh (sin red?)"
+  fi
+  rm -f /etc/mediguard/need-full-install
+fi
+# ---- Instalar Asterisk (ruta .deb instantanea; compila solo si falla) ----
+# instalar_asterisk.sh prueba primero el .deb del release propio, despues los
+# .deb precompilados de Ubuntu Noble arm64 (segundos, con chan_pjsip), y solo si
+# ambos fallan cae a compilacion desde fuente (~30-60 min). En el primer arranque
+# de la Pi normalmente resuelve en segundos via .deb.
+if [[ ! -x /usr/sbin/asterisk ]] || [[ ! -f /usr/lib/asterisk/modules/chan_pjsip.so ]]; then
+  echo "[mediguard-firstboot] Instalando Asterisk (ruta .deb instantanea; cae a compilacion solo si falla)..."
+  if curl -fsSL https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalar_asterisk.sh -o /tmp/instalar_asterisk.sh; then
+    bash /tmp/instalar_asterisk.sh || echo "[mediguard-firstboot] WARN: instalar_asterisk.sh fallo (ver /tmp/asterisk-build)"
+    rm -f /tmp/instalar_asterisk.sh
+  else
+    echo "[mediguard-firstboot] WARN: no se pudo descargar instalar_asterisk.sh (sin red?). Telefonia no disponible."
+  fi
+fi
+
+# ---- Liberar el puerto serie de la Pi + instalar MMDVMHost (auto) ----
+# Deshabilita la consola serie sobre el UART (getty + console= en cmdline) y
+# habilita el hardware UART en config.txt, asi el modulo MMDVM tiene el puerto
+# libre tanto si lo conectas por USB-TTL (/dev/ttyUSB0, default del .ini) como
+# por GPIO (/dev/ttyAMA0). Esto aplica en el siguiente arranque; con USB-TTL
+# no hace falta ni reboot. Despues compila/instala MMDVMHost + mosquitto y deja
+# el servicio habilitado. Si no hay red o falla, no aborta el resto del first-boot.
+echo "[mediguard-firstboot] Preparando UART + instalando MMDVMHost..."
+if [[ -f /boot/cmdline.txt ]]; then
+  sed -i -E 's/ ?console=(serial0|ttyAMA0|ttyS0),[0-9]+//g' /boot/cmdline.txt
+fi
+if [[ -f /boot/config.txt ]]; then
+  grep -q '^enable_uart=1'  /boot/config.txt || echo 'enable_uart=1'  >> /boot/config.txt
+  grep -q '^dtoverlay=disable-bt' /boot/config.txt || echo 'dtoverlay=disable-bt' >> /boot/config.txt
+fi
+systemctl disable serial-getty@ttyAMA0.service serial-getty@ttyS0.service 2>/dev/null || true
+systemctl disable bthelper@hciuart.service hciuart.service 2>/dev/null || true
+if ! command -v MMDVM-Host >/dev/null 2>&1 && [[ ! -x /usr/local/bin/MMDVM-Host ]]; then
+  if curl -fsSL https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador_mmdvm.sh -o /tmp/instalador_mmdvm.sh; then
+    bash /tmp/instalador_mmdvm.sh || echo "[mediguard-firstboot] WARN: instalar_mmdvm.sh fallo (ver journalctl -u mmdvmhost)"
+    rm -f /tmp/instalador_mmdvm.sh
+  else
+    echo "[mediguard-firstboot] WARN: no se pudo descargar instalar_mmdvm.sh (sin red?). MMDVM no instalado."
+  fi
+else
+  echo "[mediguard-firstboot] MMDVMHost ya instalado."
+  systemctl enable --now mmdvmhost 2>/dev/null || true
+fi
+
+# ---- Generar locuciones IVR (espeak) si faltan ----
+# El build corrio instalador.sh en --update, que saltea las locuciones (paso 7).
+# Se generan aca, nativo, en el primer arranque.
+if [[ -x /usr/sbin/asterisk ]] && ! ls /var/lib/asterisk/sounds/despues-del-tono-marque-codigo.gsm >/dev/null 2>&1; then
+  echo "[mediguard-firstboot] Generando locuciones IVR..."
+  AD=/opt/zetronpoc/audio
+  gen(){ local out="$AD/$1.gsm"; [[ -f "$out" ]] && return
+    espeak -v es -s 160 "$2" -w "${out%.gsm}.wav" 2>/dev/null && sox "${out%.gsm}.wav" -r 8000 -c 1 "$out" 2>/dev/null
+    rm -f "${out%.gsm}.wav"; }
+  gen despues-del-tono-marque-codigo "Despues del tono marque el numero de codigo"
+  gen despues-de-la-senal-su-mensaje "Despues de la senal marque su mensaje"
+  gen codigo-inexistente "Codigo inexistente"
+  gen marque-otro-codigo "Por favor marque otro codigo"
+  gen mensaje-vacio "Mensaje vacio"
+  gen confirmado "Mensaje enviado"
+  gen error-envio "Error de envio"
+  sox -n -r 8000 -c 1 "$AD/beep.gsm" synth 0.2 sine 1000 2>/dev/null || true
+  cp "$AD"/*.gsm /var/lib/asterisk/sounds/ 2>/dev/null || true
+  chown -R asterisk:asterisk /var/lib/asterisk/sounds 2>/dev/null || true
+fi
+
+# ---- Activar Asterisk + cablear telefonia (pjsip/dialplan ya generados en el build) ----
+if [[ -x /usr/sbin/asterisk ]]; then
+  echo "[mediguard-firstboot] Activando Asterisk + recargando dialplan/pjsip..."
+  systemctl enable --now asterisk 2>/dev/null || true
+  sleep 2
+  asterisk -rx "dialplan reload" 2>/dev/null || true
+  asterisk -rx "pjsip reload" 2>/dev/null || true
+  # Reiniciar API/cola para que reconecten con Asterisk ya arriba
+  systemctl restart zetronpoc-api 2>/dev/null || true
+  systemctl restart zetronpoc-cola 2>/dev/null || true
+  echo "[mediguard-firstboot] Telefonia lista: internos SIP + IVR activos."
+else
+  echo "[mediguard-firstboot] WARN: Asterisk no compilo. IVR/SIP no disponible (paging por panel web SI funciona)."
+fi
+
 # Expandir rootfs al tamanho real de la microSD (idempotente)
 command -v raspi-config >/dev/null 2>&1 && raspi-config --expand-rootfs 2>/dev/null || true
 # Marcar done para que el servicio no vuelva a correr

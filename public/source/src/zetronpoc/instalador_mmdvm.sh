@@ -124,6 +124,34 @@ EOF
 [[ -f "$MMDVM_DIR/RSSI.dat" ]] || touch "$MMDVM_DIR/RSSI.dat"
 log "MMDVM.ini escrito con [MQTT] y [RemoteControl] habilitados."
 
+# Detectar el puerto REAL del modulo (sondea ttyUSB0/ttyAMA0/ttyS0 con
+# GET_VERSION) y reescribir el .ini con ese. Sin esto, PORT por defecto
+# (/dev/ttyUSB0) puede no ser donde esta la placa y MMDVMHost nunca hace
+# handshake (LED roja del modulo titilando para siempre).
+PROBE="${APP_DIR}/scripts/mmdvm_detect_port.py"
+if curl -fsSL "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/scripts/mmdvm_detect_port.py" -o "$PROBE" 2>/dev/null; then
+  chmod +x "$PROBE"
+  DET="$(python3 "$PROBE" "$PORT" "$BAUD" 2>/dev/null || true)"
+  if [[ -n "$DET" ]]; then
+    PORT="$DET"; log "puerto MMDVM detectado: ${PORT}"
+    sed -i -E "s#^(Port=).*#\1${PORT}#; s#^(UARTPort=).*#\1${PORT}#" "$INI"
+  else
+    warn "no se detecto modulo por handshake; .ini queda en ${PORT} (el wrapper re-sondea al arrancar)."
+  fi
+else
+  warn "no se pudo descargar mmdvm_detect_port.py; .ini queda en ${PORT}."
+fi
+
+# Wrapper: fuente unica en el repo. Auto-detecta el puerto real del modulo
+# (GET_VERSION a ttyUSB0/ttyAMA0/ttyS0) y reescribe el .ini si hace falta.
+mkdir -p "${APP_DIR}/scripts"
+if curl -fsSL "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/scripts/mmdvmhost-run.sh" -o "${APP_DIR}/scripts/mmdvmhost-run.sh"; then
+  chmod +x "${APP_DIR}/scripts/mmdvmhost-run.sh"
+  log "wrapper mmdvmhost-run.sh descargado del repo (auto-detecta puerto MMDVM)."
+else
+  warn "no se pudo descargar mmdvmhost-run.sh; MMDVMHost puede no auto-detectar el puerto."
+fi
+
 echo "==> 4/6 Servicio systemd mmdvmhost..."
 # Fuente unica del service file: src/zetronpoc/services/mmdvmhost.service (repo).
 # Asi el panel y el instalador principal (--update) siempre usan el mismo.
