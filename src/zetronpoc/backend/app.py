@@ -555,7 +555,20 @@ class Handler(BaseHTTPRequestHandler):
                 svc = (r.stdout or "").strip() or "unknown"
             except Exception:
                 pass
-            return jok(self, {"installed": bin_ok, "service": svc, "binary": "/usr/local/bin/MMDVM-Host" if bin_ok else None})
+            # Deteccion del modulo fisico: el nodo del puerto serie existe cuando
+            # el MMDVM esta conectado (USB-TTL -> /dev/ttyUSBx, o UART -> /dev/ttyAMA0).
+            port = (db.get_config("mmdvm_serial_port", "/dev/ttyUSB0") or "/dev/ttyUSB0").strip() or "/dev/ttyUSB0"
+            port_present = os.path.exists(port)
+            if not port_present:
+                import glob as _g
+                _cands = sorted(_g.glob("/dev/ttyUSB*") + _g.glob("/dev/ttyACM*") + _g.glob("/dev/ttyAMA*"))
+                port_present = bool(_cands)
+                if _cands:
+                    port = _cands[0]
+            return jok(self, {"installed": bin_ok, "service": svc,
+                             "binary": "/usr/local/bin/MMDVM-Host" if bin_ok else None,
+                             "port": port, "port_present": port_present,
+                             "connected": bin_ok and svc == "active" and port_present})
         return jtext(self, "no encontrado", 404)
 
     def do_POST(self):
