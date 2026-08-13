@@ -124,6 +124,40 @@ EOF
 [[ -f "$MMDVM_DIR/RSSI.dat" ]] || touch "$MMDVM_DIR/RSSI.dat"
 log "MMDVM.ini escrito con [MQTT] y [RemoteControl] habilitados."
 
+# Wrapper que arranca MMDVMHost solo cuando el puerto del modulo existe.
+# Sin esto, si el MMDVM no esta conectado al arrancar, MMDVMHost sale de inmediato
+# y con Restart=always queda en loop "activating" para siempre (el panel muestra
+# "svc activating"). Con el wrapper el servicio queda "active" esperando al modulo.
+mkdir -p "${APP_DIR}/scripts"
+cat > "${APP_DIR}/scripts/mmdvmhost-run.sh" <<'WRAP'
+#!/usr/bin/env bash
+set -u
+INI="${1:-/opt/zetronpoc/mmdvm/MMDVM.ini}"
+BIN="/usr/local/bin/MMDVM-Host"
+if [[ ! -x "$BIN" ]]; then
+  echo "[mmdvm-run] falta el binario $BIN (compilando?). Reintentando en 10s..." >&2
+  sleep 10; exit 1
+fi
+port_from_ini() {
+  awk -F= '/^\[Modem\]/{f=1;next} /^\[/{f=0} f&&tolower($1)~/^[[:space:]]*port[[:space:]]*$/{gsub(/[[:space:]]/,"",$2);print $2;exit}' "$INI" 2>/dev/null
+}
+PORT="$(port_from_ini)"
+if [[ -z "$PORT" ]]; then
+  PORT="$(awk -F= '/^\[Modem\]/{f=1;next} /^\[/{f=0} f&&tolower($1)~/^[[:space:]]*uartport[[:space:]]*$/{gsub(/[[:space:]]/,"",$2);print $2;exit}' "$INI" 2>/dev/null)"
+fi
+[[ -z "$PORT" ]] && PORT="/dev/ttyUSB0"
+echo "[mmdvm-run] esperando modulo MMDVM en ${PORT} ..."
+while true; do
+  while [[ ! -e "$PORT" ]]; do sleep 2; done
+  echo "[mmdvm-run] ${PORT} disponible -> lanzando MMDVMHost (${INI})"
+  "$BIN" "$INI" 2>&1 | sed 's/^/[mmdvm] /' || true
+  echo "[mmdvm-run] MMDVMHost salio (modulo desconectado o error). Reintentando en 3s..."
+  sleep 3
+done
+WRAP
+chmod +x "${APP_DIR}/scripts/mmdvmhost-run.sh"
+log "wrapper mmdvmhost-run.sh instalado (arranca solo al conectar el modulo)."
+
 echo "==> 4/6 Servicio systemd mmdvmhost..."
 # Fuente unica del service file: src/zetronpoc/services/mmdvmhost.service (repo).
 # Asi el panel y el instalador principal (--update) siempre usan el mismo.

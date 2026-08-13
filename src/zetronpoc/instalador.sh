@@ -195,6 +195,9 @@ chmod +x "${APP_DIR}/encoder/pocsag_gen.py"
 
 dl "${SRC}/scripts/ptt_on.sh" "${APP_DIR}/scripts/ptt_on.sh"
 dl "${SRC}/scripts/ptt_off.sh" "${APP_DIR}/scripts/ptt_off.sh"
+# wrapper que arranca MMDVMHost solo cuando el puerto del modulo existe
+# (evita el loop "svc activating" si el MMDVM no esta conectado al arrancar).
+dl "${SRC}/scripts/mmdvmhost-run.sh" "${APP_DIR}/scripts/mmdvmhost-run.sh"
 chmod +x "${APP_DIR}/scripts/"*.sh
 
 dl "${SRC}/services/zetronpoc-api.service" "/etc/systemd/system/zetronpoc-api.service"

@@ -5,7 +5,10 @@ Wants=mosquitto.service
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/MMDVM-Host /opt/zetronpoc/mmdvm/MMDVM.ini
+# El wrapper espera a que el puerto del modulo MMDVM exista antes de lanzar
+# MMDVM-Host. Asi el servicio queda "active" (no en loop "activating") aunque
+# el modulo no este conectado al arrancar, y arranca solo al conectarlo.
+ExecStart=/opt/zetronpoc/scripts/mmdvmhost-run.sh /opt/zetronpoc/mmdvm/MMDVM.ini
 Restart=always
 RestartSec=5
 StandardOutput=append:/var/log/mmdvm/mmdvmhost.out.log
