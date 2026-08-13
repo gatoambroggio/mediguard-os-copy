@@ -34,13 +34,13 @@ try:
 except Exception as e:
     print("[mediguard-firstboot] WARN: %s" % e)
 PYEOF
-# ---- Compilar Asterisk nativamente (se difirio del build para no hacerlo bajo qemu) ----
-# Solo si no esta instalado o le falta chan_pjsip.so. Tarda ~20-30 min en Pi 4/5,
-# ~45-60 min en Pi 3. Es nativo (no qemu) -> mucho mas rapido que durante el build.
-# La telefonia (IVR/internos SIP) es la parte principal de ZetronPOC: sin esto
-# los internos no registran ni suena el IVR.
+# ---- Instalar Asterisk (ruta .deb instantanea; compila solo si falla) ----
+# instalar_asterisk.sh prueba primero el .deb del release propio, despues los
+# .deb precompilados de Ubuntu Noble arm64 (segundos, con chan_pjsip), y solo si
+# ambos fallan cae a compilacion desde fuente (~30-60 min). En el primer arranque
+# de la Pi normalmente resuelve en segundos via .deb.
 if [[ ! -x /usr/sbin/asterisk ]] || [[ ! -f /usr/lib/asterisk/modules/chan_pjsip.so ]]; then
-  echo "[mediguard-firstboot] Compilando Asterisk 22 LTS desde fuente (nativo, ~30 min)..."
+  echo "[mediguard-firstboot] Instalando Asterisk (ruta .deb instantanea; cae a compilacion solo si falla)..."
   if curl -fsSL https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalar_asterisk.sh -o /tmp/instalar_asterisk.sh; then
     bash /tmp/instalar_asterisk.sh || echo "[mediguard-firstboot] WARN: instalar_asterisk.sh fallo (ver /tmp/asterisk-build)"
     rm -f /tmp/instalar_asterisk.sh

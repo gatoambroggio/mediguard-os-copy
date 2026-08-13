@@ -79,6 +79,84 @@ else
   warn "Para que la proxima vez sea instantanea, corregui empaquetar_asterisk.sh una vez."
 fi
 
+# ====================== RUTA RAPIDA 2: .deb DE UBUNTU NOBLE arm64 (SEGUNDOS) ======================
+# Debian Trixie elimino Asterisk de sus repos, pero Ubuntu Noble (24.04) sigue
+# publicando un Asterisk 20.6 LTS arm64 precompilado con chan_pjsip en
+# ports.ubuntu.com (universe). El unico conflicto es que esos .deb dependen de
+# libssl3t64 (el rename "t64" de Ubuntu), que en Debian Trixie se llama libssl3:
+# el .so.3 real es el mismo (OpenSSL 3.x), asi que el binario linkea y corre, solo
+# la METADATA del paquete no coincide. --force-depends saltea el chequeo de dpkg
+# y apt-mark hold inmuniza a Asterisk contra futuros apt-get. El resto de las
+# deps de runtime (libjansson4, libsqlite3-0, libxml2, liburiparser1, libpopt0,
+# libxslt1.1, libedit2, libcap2, libuuid1, libsrtp2-1) tienen nombres identicos
+# en Trixie y se instalan antes del dpkg -i. Resultado: Asterisk con PJSIP en
+# SEGUNDOS, sin compilar, en cualquier Pi arm64. Si la red o un ABI mismatch
+# rompen esta ruta, la verificacion final falla y cae a la compilacion lenta.
+discover_deb_url() { # <pkgname> -> imprime ruta relativa (pool/...) o return 1
+  local pkg="$1" pgz="/tmp/noble-arm64-Packages.gz"
+  [[ -f "$pgz" ]] || curl -fsSL "http://ports.ubuntu.com/ubuntu-ports/dists/noble/universe/binary-arm64/Packages.gz" -o "$pgz" 2>/dev/null || return 1
+  zcat "$pgz" 2>/dev/null | grep -A20 "^Package: ${pkg}\$" | grep '^Filename:' | head -1 | awk '{print $2}'
+}
+install_ubuntu_debs() {
+  local TMPD="/tmp/ast-ubuntu-debs" BASE="http://ports.ubuntu.com/ubuntu-ports"
+  local cfg deb mod
+  cfg="$(discover_deb_url asterisk-config)"  || { warn "No encontre asterisk-config en Noble arm64."; return 1; }
+  deb="$(discover_deb_url asterisk)"          || { warn "No encontre asterisk en Noble arm64.";        return 1; }
+  mod="$(discover_deb_url asterisk-modules)"  || { warn "No encontre asterisk-modules en Noble arm64."; return 1; }
+  # 1) Pre-instalar libs de runtime con nombres identicos en Trixie (antes del
+  #    dpkg -i, para que apt no vea a Asterisk como paquete roto). Una por una
+  #    con || true: si un nombre cambio de version en Trixie (ej. libspandsp3 ->
+  #    libspandsp4), no aborta las demas.
+  log "Instalando libs de runtime (nombres identicos en Trixie)..."
+  for lib in libjansson4 liburiparser1 libpopt0 libxslt1.1 libedit2 libcap2 \
+             libuuid1 libsqlite3-0 libxml2 libsrtp2-1 libspandsp3 libbluetooth3 \
+             libical3a libneon27 libogg0 libvorbis0a libasound2 libgmime-3.0-0; do
+    apt-get install -y "$lib" 2>/dev/null || true
+  done
+  # 2) Bajar los 3 .deb de Ubuntu Noble arm64.
+  rm -rf "$TMPD"; mkdir -p "$TMPD"
+  log "Bajando 3 .deb de Ubuntu Noble arm64 (Asterisk 20.6 LTS, con chan_pjsip)..."
+  curl -fsSL "${BASE}/${cfg}" -o "$TMPD/asterisk-config.deb"  || return 1
+  curl -fsSL "${BASE}/${deb}" -o "$TMPD/asterisk.deb"          || return 1
+  curl -fsSL "${BASE}/${mod}" -o "$TMPD/asterisk-modules.deb"  || return 1
+  # 3) Instalar con --force-depends (saltea el rename libssl3t64) y --force-confnew.
+  log "Instalando con dpkg --force-depends (saltea rename libssl3t64 -> libssl3)..."
+  dpkg --force-depends --force-confnew -i "$TMPD/asterisk-config.deb" "$TMPD/asterisk.deb" "$TMPD/asterisk-modules.deb" 2>&1 | tail -6
+  ldconfig
+  # 4) Inmunizar a Asterisk contra futuros apt-get que lo vean "roto" por libssl3t64.
+  apt-mark hold asterisk asterisk-config asterisk-modules 2>/dev/null || true
+  rm -rf "$TMPD"
+  # 5) Verificacion final: binario + chan_pjsip.so presentes.
+  [[ -x /usr/sbin/asterisk ]] && [[ -f /usr/lib/asterisk/modules/chan_pjsip.so ]]
+}
+if install_ubuntu_debs; then
+  log "Asterisk instalado desde .deb de Ubuntu Noble arm64 (instantaneo, sin compilar)."
+  asterisk -V 2>/dev/null || true
+  # Asegurar el servicio systemd (los .deb de Ubuntu pueden traer el suyo o no).
+  if ! systemctl list-unit-files 2>/dev/null | grep -q "^asterisk.service"; then
+    cat > /etc/systemd/system/asterisk.service <<'UNIT'
+[Unit]
+Description=Asterisk PBX
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/sbin/asterisk -f
+ExecStop=/usr/sbin/asterisk -rx "core stop now"
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+    systemctl daemon-reload 2>/dev/null || true
+  fi
+  systemctl enable asterisk 2>/dev/null || true
+  exit 0
+else
+  warn "Ruta .deb de Ubuntu fallo (red o ABI incompatible). Cayendo a compilacion desde fuente..."
+fi
+
 echo "==> 1/7 Actualizando indices e instalando dependencias de build..."
 apt-get update -y || true
 # Todas las deps necesarias para compilar Asterisk 22 con PJSIP en Debian arm64.
