@@ -339,9 +339,29 @@ if [[ -f /etc/default/grub ]] && grep -q 'console=ttyS0' /etc/default/grub; then
   sed -i -E 's/ ?console=ttyS0[^ "]*//g' /etc/default/grub
   update-grub 2>/dev/null || grub-mkconfig -o /boot/grub/grub.cfg 2>/dev/null || true
 fi
-# 3) Raspberry Pi: sacar console=ttyS0 del cmdline.txt
+# 3) Raspberry Pi (Pi OS): sacar console=ttyS0 del cmdline.txt
 if [[ -f /boot/cmdline.txt ]]; then
   sed -i -E 's/ ?console=ttyS0,[0-9]+//g' /boot/cmdline.txt
+fi
+# 3b) Raspberry Pi con Ubuntu Server: el firmware vive en /boot/firmware/ (NO
+#     en /boot/). Sin enable_uart=1 + dtoverlay=disable-bt, el PL011
+#     (/dev/ttyAMA0, donde va el HAT MMDVM) nunca se crea -> MMDVMHost aborta
+#     con "Cannot open device - /dev/ttyAMA0". Esto no aplica en Pi OS (usa
+#     /boot/config.txt, lo maneja instalador_rpi.sh).
+FIRM_CFG=""
+for f in /boot/firmware/config.txt /boot/firmware/usercfg.txt; do
+  [[ -f "$f" ]] && FIRM_CFG="$f" && break
+done
+if [[ -n "$FIRM_CFG" ]]; then
+  grep -q '^enable_uart=1' "$FIRM_CFG" || echo 'enable_uart=1' >> "$FIRM_CFG"
+  grep -q '^dtoverlay=disable-bt' "$FIRM_CFG" || echo 'dtoverlay=disable-bt' >> "$FIRM_CFG"
+  if [[ -f /boot/firmware/cmdline.txt ]]; then
+    sed -i -E 's/ ?console=(serial0|ttyAMA0|ttyS0),[0-9]+//g' /boot/firmware/cmdline.txt
+  fi
+  # liberar el PL011 del getty serial de Ubuntu (suele traer console en ttyAMA0)
+  systemctl disable --now serial-getty@ttyAMA0.service 2>/dev/null || true
+  systemctl mask serial-getty@ttyAMA0.service 2>/dev/null || true
+  warn "UART del Pi habilitado en ${FIRM_CFG} (enable_uart=1 + disable-bt). HAY QUE REINICIAR para crear /dev/ttyAMA0."
 fi
 # 4) Detectar el puerto REAL del modulo MMDVM (sondea ttyUSB0/ttyAMA0/ttyS0 con
 #    GET_VERSION) y fijarlo en la BD. Forzar /dev/ttyS0 (mini-UART) dejaba a
@@ -352,6 +372,7 @@ if [[ -x "${APP_DIR}/scripts/mmdvm_detect_port.py" ]]; then
 fi
 if [[ -z "$MMDVM_PORT" ]]; then
   if [[ -e /dev/ttyAMA0 ]]; then MMDVM_PORT="/dev/ttyAMA0"
+  elif [[ -f /boot/firmware/config.txt || -f /boot/config.txt ]]; then MMDVM_PORT="/dev/ttyAMA0"
   elif [[ -e /dev/ttyUSB0 ]]; then MMDVM_PORT="/dev/ttyUSB0"
   else MMDVM_PORT="/dev/ttyS0"; fi
   warn "no se detecto modulo por handshake; usando ${MMDVM_PORT} como placeholder (el wrapper re-sondea al arrancar)."
