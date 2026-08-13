@@ -83,7 +83,17 @@ ensure_asterisk() {
   if apt-cache show asterisk >/dev/null 2>&1 && apt-get install -y asterisk >/dev/null 2>&1; then
     log "asterisk instalado via apt (Raspbian main)."; return 0
   fi
-  warn "apt no pudo instalar asterisk. Compilando Asterisk 22 LTS desde fuente (instalador robusto)..."
+  warn "apt no pudo instalar asterisk."
+  # SKIP_ASTERISK_COMPILE=1: NO compilar Asterisk desde fuente aca. Lo usa el
+  # build de la imagen (pi-gen bajo qemu) donde compilar tarda 3-4 h. En su lugar
+  # la compilacion nativa (~30 min) se difiere al primer arranque de la Pi
+  # (02-mediguard-firstboot.sh -> instalar_asterisk.sh). Fuera del build (Pi
+  # real) SKIP_ASTERISK_COMPILE no esta seteado y compila aca normalmente.
+  if [[ "${SKIP_ASTERISK_COMPILE:-0}" == "1" ]]; then
+    warn "SKIP_ASTERISK_COMPILE=1: Asterisk se compilara en el primer arranque de la Pi (nativo, ~30 min, no bajo qemu)."
+    return 0
+  fi
+  warn "Compilando Asterisk 22 LTS desde fuente (instalador robusto)..."
   # Delega en instalar_asterisk.sh: instala TODAS las deps de build, compila con
   # pjproject-bundled (garantiza chan_pjsip), fallback -j1 si -jN OOM/racea, y
   # verifica chan_pjsip.so. Mas robusto que embeberlo aca.

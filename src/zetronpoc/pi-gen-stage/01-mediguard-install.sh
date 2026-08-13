@@ -20,6 +20,11 @@ chmod +x /tmp/instalador_rpi.sh
 
 echo "[mediguard] ejecutando instalador (gpio default BCM ${POCSAG_GPIO_PIN})..."
 # --update pasa a instalador.sh: no reinstala deps base (ya estan via 00-packages)
+# SKIP_ASTERISK_COMPILE=1: NO compilar Asterisk bajo qemu durante el build
+# (tardaria 3-4 h). La compilacion nativa (~30 min) corre en el PRIMER arranque
+# de la Pi via 02-mediguard-firstboot.sh -> instalar_asterisk.sh. Asi el build
+# de la imagen baja de ~4 h a ~30 min.
+export SKIP_ASTERISK_COMPILE=1
 bash /tmp/instalador_rpi.sh --update
 rm -f /tmp/instalador_rpi.sh
 

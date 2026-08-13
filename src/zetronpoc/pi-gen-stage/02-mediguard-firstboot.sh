@@ -34,6 +34,57 @@ try:
 except Exception as e:
     print("[mediguard-firstboot] WARN: %s" % e)
 PYEOF
+# ---- Compilar Asterisk nativamente (se difirio del build para no hacerlo bajo qemu) ----
+# Solo si no esta instalado o le falta chan_pjsip.so. Tarda ~20-30 min en Pi 4/5,
+# ~45-60 min en Pi 3. Es nativo (no qemu) -> mucho mas rapido que durante el build.
+# La telefonia (IVR/internos SIP) es la parte principal de ZetronPOC: sin esto
+# los internos no registran ni suena el IVR.
+if [[ ! -x /usr/sbin/asterisk ]] || [[ ! -f /usr/lib/asterisk/modules/chan_pjsip.so ]]; then
+  echo "[mediguard-firstboot] Compilando Asterisk 22 LTS desde fuente (nativo, ~30 min)..."
+  if curl -fsSL https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalar_asterisk.sh -o /tmp/instalar_asterisk.sh; then
+    bash /tmp/instalar_asterisk.sh || echo "[mediguard-firstboot] WARN: instalar_asterisk.sh fallo (ver /tmp/asterisk-build)"
+    rm -f /tmp/instalar_asterisk.sh
+  else
+    echo "[mediguard-firstboot] WARN: no se pudo descargar instalar_asterisk.sh (sin red?). Telefonia no disponible."
+  fi
+fi
+
+# ---- Generar locuciones IVR (espeak) si faltan ----
+# El build corrio instalador.sh en --update, que saltea las locuciones (paso 7).
+# Se generan aca, nativo, en el primer arranque.
+if [[ -x /usr/sbin/asterisk ]] && ! ls /var/lib/asterisk/sounds/despues-del-tono-marque-codigo.gsm >/dev/null 2>&1; then
+  echo "[mediguard-firstboot] Generando locuciones IVR..."
+  AD=/opt/zetronpoc/audio
+  gen(){ local out="$AD/$1.gsm"; [[ -f "$out" ]] && return
+    espeak -v es -s 160 "$2" -w "${out%.gsm}.wav" 2>/dev/null && sox "${out%.gsm}.wav" -r 8000 -c 1 "$out" 2>/dev/null
+    rm -f "${out%.gsm}.wav"; }
+  gen despues-del-tono-marque-codigo "Despues del tono marque el numero de codigo"
+  gen despues-de-la-senal-su-mensaje "Despues de la senal marque su mensaje"
+  gen codigo-inexistente "Codigo inexistente"
+  gen marque-otro-codigo "Por favor marque otro codigo"
+  gen mensaje-vacio "Mensaje vacio"
+  gen confirmado "Mensaje enviado"
+  gen error-envio "Error de envio"
+  sox -n -r 8000 -c 1 "$AD/beep.gsm" synth 0.2 sine 1000 2>/dev/null || true
+  cp "$AD"/*.gsm /var/lib/asterisk/sounds/ 2>/dev/null || true
+  chown -R asterisk:asterisk /var/lib/asterisk/sounds 2>/dev/null || true
+fi
+
+# ---- Activar Asterisk + cablear telefonia (pjsip/dialplan ya generados en el build) ----
+if [[ -x /usr/sbin/asterisk ]]; then
+  echo "[mediguard-firstboot] Activando Asterisk + recargando dialplan/pjsip..."
+  systemctl enable --now asterisk 2>/dev/null || true
+  sleep 2
+  asterisk -rx "dialplan reload" 2>/dev/null || true
+  asterisk -rx "pjsip reload" 2>/dev/null || true
+  # Reiniciar API/cola para que reconecten con Asterisk ya arriba
+  systemctl restart zetronpoc-api 2>/dev/null || true
+  systemctl restart zetronpoc-cola 2>/dev/null || true
+  echo "[mediguard-firstboot] Telefonia lista: internos SIP + IVR activos."
+else
+  echo "[mediguard-firstboot] WARN: Asterisk no compilo. IVR/SIP no disponible (paging por panel web SI funciona)."
+fi
+
 # Expandir rootfs al tamanho real de la microSD (idempotente)
 command -v raspi-config >/dev/null 2>&1 && raspi-config --expand-rootfs 2>/dev/null || true
 # Marcar done para que el servicio no vuelva a correr

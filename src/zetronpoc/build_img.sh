@@ -12,14 +12,17 @@
 #   sudo bash build_img.sh --skip-build   # solo configura pi-gen, no construye
 #
 # Requisitos: ~6 GB libres, Docker (recomendado) o debootstrap + qemu-user-binfmt.
-# Tiempo estimado: 1.5-3 h (Asterisk se compila desde fuente bajo qemu en el chroot)
+# Tiempo estimado: ~30-45 min (Asterisk NO se compila aca; se difiere al primer
+# arranque de la Pi, nativo ~30 min). Antes compilar bajo qemu tardaba 3-4 h.
 # Salida: ./mediguardos-rpi.img (flashear con BalenaEtcher / Raspberry Pi Imager)
 #
 # Nota: MMDVMHost NO se compila dentro de la imagen (no hay hardware MMDVM al
 #       construir). Una vez flasheada la Pi, instalá MMDVMHost desde el panel
 #       admin -> Diagnóstico/MMDVM o con instalador_mmdvm.sh cuando conectes el
-#       Jumbospot. Los servicios zetronpoc-api / zetronpoc-cola / asterisk sí
-#       quedan habilitados y arrancan solos en el primer boot.
+#       Jumbospot. Asterisk TAMPOCO se compila durante el build (compilar bajo
+#       qemu tardaba 3-4 h): se compila nativamente en el PRIMER arranque de la
+#       Pi (~30 min) y la telefonía (internos SIP + IVR) queda activa al finalizar.
+#       zetronpoc-api / zetronpoc-cola sí quedan habilitados y arrancan solos.
 # ============================================================================
 set -euo pipefail
 
@@ -45,8 +48,8 @@ echo "==================================================="
 echo " build_img.sh - MediGuard OS para Raspberry Pi (64b)"
 echo "==================================================="
 echo " Salida esperada : $HERE/$IMG_NAME.img"
-echo " Tiempo estimado : 1.5-3 h (Asterisk se compila desde fuente bajo qemu)"
-echo " RAM host        : 4+ GB libres (compilacion ARM emulada)"
+echo " Tiempo estimado : ~30-45 min (Asterisk se compila en el 1er boot, no aca)"
+echo " RAM host        : 2+ GB libres (sin compilacion ARM emulada)"
 echo " Disco necesario : ~6 GB libres en $HERE"
 echo ""
 
@@ -199,7 +202,7 @@ else
   cd "$HERE"
 fi
 END=$(date +%s)
-log "Build tardo ~$(( (END-START)/60 )) min."
+log "Build tardo ~$(( (END-START)/60 )) min. (Asterisk queda para el 1er boot de la Pi)"
 
 # -------------------- 6. COPIAR .img --------------------
 echo "==> 6/6 Copiando .img final..."
@@ -217,6 +220,9 @@ if [[ -f "$SRC" ]]; then
   echo "    ssh admin@<IP-DE-LA-PI>   (clave: admin123)"
   echo "  Panel publico: http://<IP-DE-LA-PI>:8080/"
   echo "  Panel admin  : http://<IP-DE-LA-PI>:8080/admin  (admin/admin123)"
+  echo "  Primer arranque: Asterisk se compila solo (nativo, ~30 min). Hasta que"
+  echo "  termine, el IVR/SIP no responde, pero el paging por panel web SI funciona."
+  echo "  Sigue el avance con: ssh admin@<IP> 'journalctl -u mediguard-firstboot -f'"
   echo "  Siguiente paso desde el panel admin:"
   echo "    1) Parametros -> IP central hospital -> Guardar"
   echo "    2) Extensiones -> claves SIP -> Aplicar a Asterisk"
