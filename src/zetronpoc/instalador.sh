@@ -198,6 +198,9 @@ chmod +x "${APP_DIR}/encoder/pocsag_gen.py"
 # wrapper que arranca MMDVMHost solo cuando el puerto del modulo existe
 # (evita el loop "svc activating" si el MMDVM no esta conectado al arrancar).
 dl "${SRC}/scripts/mmdvmhost-run.sh" "${APP_DIR}/scripts/mmdvmhost-run.sh"
+# detector del puerto real del modulo (GET_VERSION a ttyUSB0/ttyAMA0/ttyS0);
+# sin esto el instalador forzaba /dev/ttyS0 y MMDVMHost nunca hacia handshake.
+dl "${SRC}/scripts/mmdvm_detect_port.py" "${APP_DIR}/scripts/mmdvm_detect_port.py"
 chmod +x "${APP_DIR}/scripts/"*.sh
 
 dl "${SRC}/services/zetronpoc-api.service" "/etc/systemd/system/zetronpoc-api.service"
@@ -340,15 +343,30 @@ fi
 if [[ -f /boot/cmdline.txt ]]; then
   sed -i -E 's/ ?console=ttyS0,[0-9]+//g' /boot/cmdline.txt
 fi
-# 4) Fijar el puerto en la BD -> generar_mmdvm_ini y la luz del panel usan /dev/ttyS0
-python3 - <<'PYEOF'
-import sqlite3
+# 4) Detectar el puerto REAL del modulo MMDVM (sondea ttyUSB0/ttyAMA0/ttyS0 con
+#    GET_VERSION) y fijarlo en la BD. Forzar /dev/ttyS0 (mini-UART) dejaba a
+#    MMDVMHost hablando al vacio -> la LED roja del modulo titilaba sin parar.
+MMDVM_PORT=""
+if [[ -x "${APP_DIR}/scripts/mmdvm_detect_port.py" ]]; then
+  MMDVM_PORT="$(python3 "${APP_DIR}/scripts/mmdvm_detect_port.py" 2>/dev/null || true)"
+fi
+if [[ -z "$MMDVM_PORT" ]]; then
+  if [[ -e /dev/ttyAMA0 ]]; then MMDVM_PORT="/dev/ttyAMA0"
+  elif [[ -e /dev/ttyUSB0 ]]; then MMDVM_PORT="/dev/ttyUSB0"
+  else MMDVM_PORT="/dev/ttyS0"; fi
+  warn "no se detecto modulo por handshake; usando ${MMDVM_PORT} como placeholder (el wrapper re-sondea al arrancar)."
+else
+  log "puerto MMDVM detectado: ${MMDVM_PORT}"
+fi
+python3 - "$MMDVM_PORT" <<'PYEOF'
+import sqlite3, sys
 DB='/opt/zetronpoc/database/zetronpoc.db'
+port=sys.argv[1]
 try:
     c=sqlite3.connect(DB)
-    c.execute("INSERT OR REPLACE INTO config(clave,valor) VALUES('mmdvm_serial_port','/dev/ttyS0')")
+    c.execute("INSERT OR REPLACE INTO config(clave,valor) VALUES('mmdvm_serial_port',?)",(port,))
     c.commit(); c.close()
-    print("[OK] mmdvm_serial_port=/dev/ttyS0")
+    print("[OK] mmdvm_serial_port=%s" % port)
 except Exception as e:
     print("[WARN] %s" % e)
 PYEOF
