@@ -38,6 +38,14 @@ echo "==> Raspberry Pi: actualizando lista de paquetes..."
 # repos firmados (deb.debian.org), que igual quedaron actualizados.
 apt-get update -y || true
 
+echo "==> Raspberry Pi: reparando dependencias rotas (si las hay)..."
+# Si un run anterior (de instalador.sh o de una VPN) dejo paquetes en estado
+# roto (ej: network-manager-*-gnome / libnma0 que piden libgtk-3-0t64), apt-get
+# install se niega a avanzar con "Unmet dependencies" y aborta TODO. apt-get -f
+# install resuelve ese estado antes de instalar la base. Si no puede, no es
+# fatal: abajo instalamos los paquetes base igual (los base no dependen de gtk).
+apt-get -f install -y 2>&1 || warn "apt-get -f install no pudo resolver todo (continuando)."
+
 echo "==> Raspberry Pi: instalando dependencias base..."
 # Base: siempre disponibles en Pi OS 64-bit. Si alguno falla aca si abortamos.
 apt-get install -y sqlite3 python3 python3-pip sox git curl ca-certificates \

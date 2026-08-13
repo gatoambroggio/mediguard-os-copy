@@ -80,6 +80,10 @@ log "Sistema anterior limpio."
 
 # ============================ 1. DEPENDENCIAS ================================
 echo "==> 1/10 Dependencias base..."
+# Reparar estado apt roto de runs anteriores (ej: paquetes -gnome que piden
+# libgtk-3-0t64) antes de cualquier install: si no, apt aborta todo con
+# "Unmet dependencies" aunque los paquetes que pedimos no tengan nada que ver.
+apt-get -f install -y 2>&1 || warn "apt-get -f install no pudo resolver todo (continuando)."
 if [[ $UPDATE -eq 0 ]]; then
   apt-get update -y
   apt-get install -y sqlite3 python3 python3-pip alsa-utils sox git curl ca-certificates \
@@ -104,11 +108,13 @@ pip3 install --break-system-packages openpyxl xlrd 2>&1 || warn "openpyxl/xlrd n
 
 # VPN: NetworkManager (cliente OpenVPN/L2TP/PPTP) + servidores OpenVPN/PPTP/L2TP
 echo "==> 1b/10 Dependencias VPN (NetworkManager + openvpn/pptpd/strongswan/xl2tpd)..."
-apt-get install -y network-manager network-manager-openvpn network-manager-openvpn-gnome \
-  network-manager-pptp network-manager-pptp-gnome \
+# Sin las variantes -gnome: solo agregan applets GTK (libnma0 -> libgtk-3-0t64)
+# y en un server headless no se usan; ademas libgtk-3-0t64 rompe apt en Pi OS Trixie.
+apt-get install -y network-manager network-manager-openvpn \
+  network-manager-pptp \
   openvpn pptpd strongswan xl2tpd wireguard wireguard-tools 2>&1 || warn "Algunos paquetes VPN no pudieron instalarse (verifique repos universe habilitado)"
 # network-manager-l2tp suele estar en PPA, no en repos base de Ubuntu; intentar igual
-apt-get install -y network-manager-l2tp network-manager-l2tp-gnome 2>&1 || warn "network-manager-l2tp no esta en el repo base (si usa L2TP cliente, instalelo via PPA: add-apt-repository ppa:nm-l2tp/network-manager-l2tp)"
+apt-get install -y network-manager-l2tp 2>&1 || warn "network-manager-l2tp no esta en el repo base (si usa L2TP cliente, instalelo via PPA: add-apt-repository ppa:nm-l2tp/network-manager-l2tp)"
 systemctl enable --now NetworkManager 2>/dev/null || true
 echo "  Estado NetworkManager:"; systemctl is-active NetworkManager 2>/dev/null || true
 # strongswan y xl2tpd auto-arrancan al instalarse (apt los habilita por defecto).
