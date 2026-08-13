@@ -186,7 +186,9 @@ if [[ -f /boot/config.txt ]]; then
 fi
 systemctl disable serial-getty@ttyAMA0.service serial-getty@ttyS0.service 2>/dev/null || true
 systemctl disable bthelper@hciuart.service hciuart.service 2>/dev/null || true
-if ! command -v MMDVM-Host >/dev/null 2>&1 && [[ ! -x /usr/local/bin/MMDVM-Host ]]; then
+if [[ "${SKIP_MMDVM_INSTALL:-0}" == "1" ]]; then
+  warn "SKIP_MMDVM_INSTALL=1: MMDVMHost se instala en el primer arranque de la Pi (nativo, ~5-10 min, no bajo qemu)."
+elif ! command -v MMDVM-Host >/dev/null 2>&1 && [[ ! -x /usr/local/bin/MMDVM-Host ]]; then
   MMDVM_TMP="$(mktemp -d)/instalador_mmdvm.sh"
   if curl -fsSL "${SRC}/instalador_mmdvm.sh" -o "$MMDVM_TMP"; then
     bash "$MMDVM_TMP" || warn "instalador_mmdvm.sh fallo (ver journalctl -u mmdvmhost)"

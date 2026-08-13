@@ -226,13 +226,16 @@ fi
 # ============================ 5. BASE DE DATOS ==============================
 echo "==> 5/10 Inicializando base de datos..."
 if [[ $UPDATE -eq 0 ]] || [[ ! -f "${DB}" ]]; then
-  python3 "${APP_DIR}/database/db_manager.py" init
+  python3 "${APP_DIR}/database/db_manager.py" init || warn "db init fallo (se reintentara en firstboot si hace falta)"
 fi
 python3 - <<PYEOF
 import sqlite3
-c = sqlite3.connect('${DB}')
-c.execute("INSERT OR REPLACE INTO config(clave,valor) VALUES('version','${VERSION}')")
-c.commit(); c.close()
+try:
+    c = sqlite3.connect('${DB}')
+    c.execute("INSERT OR REPLACE INTO config(clave,valor) VALUES('version','${VERSION}')")
+    c.commit(); c.close()
+except Exception as e:
+    print("[WARN] no se pudo setear version: %s" % e)
 PYEOF
 chmod 640 "${DB}" 2>/dev/null || true
 chown "${AST_USER}:${AST_USER}" "${DB}" 2>/dev/null || true

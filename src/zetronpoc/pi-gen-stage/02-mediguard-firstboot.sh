@@ -34,6 +34,22 @@ try:
 except Exception as e:
     print("[mediguard-firstboot] WARN: %s" % e)
 PYEOF
+# ---- Si el build no dejo los archivos de ZetronPOC (instalador fallo en el
+# chroot), correrlo aca en el primer arranque real. Solo archivos + config
+# (Asterisk y MMDVM los instalan los bloques de abajo con la ruta rapida .deb
+# + compilacion nativa, no este). Esto garantiza que la Pi quede completa aun
+# si el build de la imagen fallo a mitad.
+if [[ -f /etc/mediguard/need-full-install ]]; then
+  echo "[mediguard-firstboot] Build incompleto -> instalando archivos ZetronPOC..."
+  if curl -fsSL https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/instalador_rpi.sh -o /tmp/instalador_rpi.sh; then
+    SKIP_ASTERISK_COMPILE=1 SKIP_MMDVM_INSTALL=1 bash /tmp/instalador_rpi.sh --update \
+      || echo "[mediguard-firstboot] WARN: instalador_rpi.sh fallo en firstboot (ver arriba)"
+    rm -f /tmp/instalador_rpi.sh
+  else
+    echo "[mediguard-firstboot] WARN: no se pudo descargar instalador_rpi.sh (sin red?)"
+  fi
+  rm -f /etc/mediguard/need-full-install
+fi
 # ---- Instalar Asterisk (ruta .deb instantanea; compila solo si falla) ----
 # instalar_asterisk.sh prueba primero el .deb del release propio, despues los
 # .deb precompilados de Ubuntu Noble arm64 (segundos, con chan_pjsip), y solo si

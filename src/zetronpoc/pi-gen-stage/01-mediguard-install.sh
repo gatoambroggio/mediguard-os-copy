@@ -19,13 +19,25 @@ curl -fsSL https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/mai
 chmod +x /tmp/instalador_rpi.sh
 
 echo "[mediguard] ejecutando instalador (gpio default BCM ${POCSAG_GPIO_PIN})..."
-# --update pasa a instalador.sh: no reinstala deps base (ya estan via 00-packages)
-# SKIP_ASTERISK_COMPILE=1: NO compilar Asterisk bajo qemu durante el build
-# (tardaria 3-4 h). La compilacion nativa (~30 min) corre en el PRIMER arranque
-# de la Pi via 02-mediguard-firstboot.sh -> instalar_asterisk.sh. Asi el build
-# de la imagen baja de ~4 h a ~30 min.
+# --update: no reinstala deps base (ya estan via 00-packages).
+# SKIP_ASTERISK_COMPILE=1 + SKIP_MMDVM_INSTALL=1: NO compilar ni Asterisk ni
+# MMDVMHost bajo qemu (lento + fragil). Ambos se instalan nativamente en el
+# PRIMER arranque de la Pi via 02-mediguard-firstboot.sh (~5-10 min). Asi el
+# build baja a ~30 min y no aborta por una compilacion ARM emulada que falle.
 export SKIP_ASTERISK_COMPILE=1
-bash /tmp/instalador_rpi.sh --update
+export SKIP_MMDVM_INSTALL=1
+# CRITICO: si el instalador falla por cualquier motivo (red, apt, python, etc.)
+# NO abortamos el build -> no habria .img y el usuario se queda sin nada. Se
+# marca un flag y 02-mediguard-firstboot.sh corre el instalador COMPLETO en el
+# primer arranque real. Resultado: la imagen SIEMPRE se genera y en la Pi todo
+# se instala solo.
+mkdir -p /etc/mediguard
+if bash /tmp/instalador_rpi.sh --update; then
+  echo "[mediguard] instalacion en rootfs OK."
+else
+  echo "[mediguard] WARN: instalador fallo en el build -> se completa en el primer boot."
+  touch /etc/mediguard/need-full-install
+fi
 rm -f /tmp/instalador_rpi.sh
 
 echo "[mediguard] instalacion completada dentro del rootfs."
