@@ -436,6 +436,17 @@ class Handler(BaseHTTPRequestHandler):
         if p == "/api/login": return jtext(self, "use POST", 405)
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
 
+        if p == "/api/me":
+            return jok(self, {"username": db.token_user(_tok(self), ""),
+                              "role": db.token_role(_tok(self), "user"),
+                              "modulos": db.token_modulos(_tok(self), [])})
+        if p == "/api/usuarios":
+            if not db.token_is_admin(_tok(self)): return jok(self, {"error": "requiere admin"}, 403)
+            return jok(self, db.listar_usuarios())
+        if p == "/api/usuarios/modulos":
+            if not db.token_is_admin(_tok(self)): return jok(self, {"error": "requiere admin"}, 403)
+            return jok(self, [{"k": k, "l": l} for k, l in db.MODULES])
+
         if p == "/api/pagers/export":
             rows = db.buscar_pagers("")
             data = build_xlsx(["codigo","cap_code","nombre","apellido","area","baudios","funcion","descripcion"],
@@ -714,6 +725,15 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 aud(self, "instalar", "mmdvm", "", "excepcion: %s" % str(e)[:120])
                 return jok(self, {"ok": False, "error": str(e)})
+        if p == "/api/usuarios":
+            if not db.token_is_admin(_tok(self)): return jok(self, {"error": "requiere admin"}, 403)
+            try:
+                nid = db.crear_usuario(d)
+                aud(self, "crear", "usuario", nid, d.get("username", ""))
+                evlog(self, "info", "auth", "crear usuario %s" % d.get("username", ""))
+                return jok(self, {"id": nid})
+            except ValueError as e:
+                return jok(self, {"error": str(e)}, 400)
         if p == "/api/extensions":
             nid = db.crear_extension(d)
             aud(self, "crear", "extension", nid, d.get("numero", ""))
@@ -816,6 +836,15 @@ class Handler(BaseHTTPRequestHandler):
     def _put(self):
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
         u = urllib.parse.urlparse(self.path); p = u.path; d = self._json()
+        m = re.match(r'/api/usuarios/(\d+)$', p)
+        if m:
+            if not db.token_is_admin(_tok(self)): return jok(self, {"error": "requiere admin"}, 403)
+            try:
+                db.actualizar_usuario(int(m.group(1)), d)
+                aud(self, "actualizar", "usuario", m.group(1), d.get("username", ""))
+                return jok(self, {"ok": True})
+            except ValueError as e:
+                return jok(self, {"error": str(e)}, 400)
         if p == "/api/config":
             keys = list(d.keys())
             for k, v in d.items(): db.set_config(k, "" if v is None else str(v))
@@ -889,6 +918,16 @@ class Handler(BaseHTTPRequestHandler):
     def _delete(self):
         if not need_auth(self): return jok(self, {"error": "no autorizado"}, 401)
         p = urllib.parse.urlparse(self.path).path
+        m = re.match(r'/api/usuarios/(\d+)$', p)
+        if m:
+            if not db.token_is_admin(_tok(self)): return jok(self, {"error": "requiere admin"}, 403)
+            try:
+                name = db.borrar_usuario(int(m.group(1)))
+                aud(self, "borrar", "usuario", m.group(1), name or "")
+                evlog(self, "warn", "auth", "borrar usuario %s" % (name or ""))
+                return jok(self, {"ok": True})
+            except ValueError as e:
+                return jok(self, {"error": str(e)}, 400)
         m = re.match(r'/api/changelog/(\d+)$', p)
         if m:
             db.borrar_changelog(int(m.group(1)))

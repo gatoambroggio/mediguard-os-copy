@@ -12,6 +12,18 @@ DEFAULT_DB = "/opt/zetronpoc/database/zetronpoc.db"
 PJSIP_CONF = "/etc/asterisk/pjsip.conf"
 _TOKENS = {}
 
+# Modulos del panel asignables a usuarios (key, label). 'usuarios' es admin-only
+# (no se asigna: el admin lo ve siempre, el usuario comun nunca).
+MODULES = [
+    ("ext", "Extensiones"), ("central", "Config central"), ("pagers", "Pagers"),
+    ("enviar", "Enviar"), ("grupos", "Grupos"), ("import", "Importar"),
+    ("hist", "Historial"), ("dash", "Dashboard"), ("plantillas", "Plantillas"),
+    ("programados", "Programados"), ("logs", "Logs"), ("aud", "Auditoria"),
+    ("cfg", "Parametros"), ("config", "Configuracion"), ("chlog", "Cambios codigo"),
+    ("dbadmin", "DB Admin"), ("pbx", "PBX"), ("cola", "Cola"), ("bd", "Base datos"),
+    ("diag", "Diagnostico"), ("vpn", "VPN"),
+]
+
 @contextmanager
 def get_conn(db_path=DEFAULT_DB):
     conn = sqlite3.connect(db_path)
@@ -45,6 +57,17 @@ def _migrate_schema(conn):
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         fecha_hora TEXT, pager_id INTEGER, codigo TEXT, usuario TEXT,
         campos_json TEXT, cantidad INTEGER)""")
+    # usuarios (multiusuario del panel). role='admin' = superusuario (ve todo),
+    # role='user' = ve solo los modulos de la lista modulos (JSON array).
+    conn.execute("""CREATE TABLE IF NOT EXISTS usuarios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        role TEXT DEFAULT 'user',
+        modulos TEXT DEFAULT '[]',
+        activo INTEGER DEFAULT 1,
+        created_date TEXT)""")
+    _seed_admin_user(conn)
 
 def init_db(db_path=DEFAULT_DB):
     base = os.path.dirname(__file__)
@@ -850,21 +873,75 @@ def historial(filtros, limit=50, offset=0, db_path=DEFAULT_DB):
     return {"rows": rows, "total": total, "limit": limit, "offset": offset}
 
 # ===================== AUTH =====================
+def _seed_admin_user(conn):
+    """Crea el usuario admin inicial desde config (admin_user/admin_pass) si la
+    tabla usuarios esta vacia. Garantiza que siempre haya un superusuario
+    accesible con las credenciales historicas (compat hacia atras)."""
+    try:
+        n = conn.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0]
+    except Exception:
+        return
+    if n > 0:
+        return
+    au, ap = "admin", "admin123"
+    try:
+        row = conn.execute("SELECT valor FROM config WHERE clave='admin_user'").fetchone()
+        if row and row["valor"]: au = row["valor"]
+        row = conn.execute("SELECT valor FROM config WHERE clave='admin_pass'").fetchone()
+        if row and row["valor"]: ap = row["valor"]
+    except Exception:
+        pass
+    conn.execute("INSERT OR REPLACE INTO usuarios (username,password,role,modulos,activo,created_date) "
+                 "VALUES (?,?,?,?,1,?)", (au, ap, "admin", "[]",
+                                          datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
 def login_validar(user, passw, db_path=DEFAULT_DB):
-    """Autentica al operador. Auto-repara la BD si falta la tabla config y
-    nunca lanza: si la BD es inaccesible, usa admin/admin123 para que el panel
-    nunca quede bloqueado por un problema de base de datos."""
+    """Autentica al operador contra la tabla usuarios (multiusuario). El
+    role='admin' es superusuario (ve todos los modulos); role='user' ve solo
+    los modulos asignados en `modulos` (JSON array). Fallback: si la tabla no
+    existe o esta vacia y las credenciales matchean config admin_user/admin_pass,
+    las migra a un usuario admin y entra (compat hacia atras)."""
+    import json as _json
+    row = None
     try:
         with get_conn(db_path) as conn:
-            conn.execute("CREATE TABLE IF NOT EXISTS config (clave TEXT PRIMARY KEY, valor TEXT)")
-            conn.execute("INSERT OR IGNORE INTO config (clave,valor) VALUES ('admin_user','admin')")
-            conn.execute("INSERT OR IGNORE INTO config (clave,valor) VALUES ('admin_pass','admin123')")
+            conn.execute("""CREATE TABLE IF NOT EXISTS usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL, role TEXT DEFAULT 'user', modulos TEXT DEFAULT '[]',
+                activo INTEGER DEFAULT 1, created_date TEXT)""")
+            _seed_admin_user(conn)
+            row = conn.execute("SELECT * FROM usuarios WHERE username=? AND activo=1", (user,)).fetchone()
+    except Exception:
+        row = None
+    if row and row["password"] == passw:
+        modulos = []
+        try: modulos = _json.loads(row["modulos"] or "[]")
+        except Exception: modulos = []
+        tok = secrets.token_hex(16)
+        _TOKENS[tok] = {"user": row["username"], "exp": time.time() + 86400,
+                        "role": row["role"] or "user", "modulos": modulos, "uid": row["id"]}
+        return tok
+    # fallback legacy: config admin_user/admin_pass (migra a usuarios si hace falta)
+    try:
         au = get_config("admin_user", "admin", db_path)
         ap = get_config("admin_pass", "admin123", db_path)
     except Exception:
         au, ap = "admin", "admin123"
-    if user == au and passw == ap:
-        tok = secrets.token_hex(16); _TOKENS[tok] = {"user": user, "exp": time.time() + 86400}
+    if user and user == au and passw == ap:
+        try:
+            with get_conn(db_path) as conn:
+                conn.execute("""CREATE TABLE IF NOT EXISTS usuarios (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL, role TEXT DEFAULT 'user', modulos TEXT DEFAULT '[]',
+                    activo INTEGER DEFAULT 1, created_date TEXT)""")
+                _seed_admin_user(conn)
+                conn.execute("INSERT OR IGNORE INTO usuarios (username,password,role,modulos,activo,created_date) "
+                             "VALUES (?,?,?,?,1,?)", (au, ap, "admin", "[]",
+                                                      datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        except Exception:
+            pass
+        tok = secrets.token_hex(16)
+        _TOKENS[tok] = {"user": au, "exp": time.time() + 86400, "role": "admin", "modulos": [], "uid": 0}
         return tok
     return None
 
@@ -878,8 +955,7 @@ def verificar_token(tok):
         _TOKENS.pop(tok, None); return False
     return True
 
-def token_user(tok, default="sistema"):
-    """Devuelve el nombre del operador asociado al token (para auditoria)."""
+def _tok_field(tok, field, default=None):
     v = _TOKENS.get(tok)
     if not v: return default
     exp = v.get("exp") if isinstance(v, dict) else None
@@ -887,10 +963,92 @@ def token_user(tok, default="sistema"):
         _TOKENS.pop(tok, None); return default
     if time.time() > exp:
         _TOKENS.pop(tok, None); return default
-    return v.get("user") or default
+    return v.get(field, default)
+
+def token_user(tok, default="sistema"):
+    """Devuelve el nombre del operador asociado al token (para auditoria)."""
+    return _tok_field(tok, "user", default) or default
+
+def token_role(tok, default="user"):
+    return _tok_field(tok, "role", default) or default
+
+def token_modulos(tok, default=None):
+    return _tok_field(tok, "modulos", default if default is not None else [])
+
+def token_is_admin(tok):
+    return _tok_field(tok, "role", "user") == "admin"
+
+def token_uid(tok, default=0):
+    return _tok_field(tok, "uid", default) or default
 
 def cerrar_sesion(tok):
     _TOKENS.pop(tok, None)
+
+# ===================== USUARIOS (multiusuario del panel) =====================
+def listar_usuarios(db_path=DEFAULT_DB):
+    import json as _json
+    with get_conn(db_path) as conn:
+        rows = [dict(r) for r in conn.execute(
+            "SELECT id,username,role,modulos,activo,created_date FROM usuarios ORDER BY id")]
+    for r in rows:
+        try: r["modulos"] = _json.loads(r["modulos"] or "[]")
+        except Exception: r["modulos"] = []
+        # no exponer el password
+    return rows
+
+def crear_usuario(data, db_path=DEFAULT_DB):
+    import json as _json
+    user = (data.get("username") or "").strip()
+    if not user: raise ValueError("falta el nombre de usuario")
+    pw = data.get("password") or ""
+    if not pw: raise ValueError("falta la clave")
+    role = data.get("role", "user") or "user"
+    if role not in ("admin", "user"): role = "user"
+    mods = data.get("modulos", [])
+    if not isinstance(mods, list): mods = []
+    mods = [m for m in mods if isinstance(m, str)]
+    with get_conn(db_path) as conn:
+        conn.execute("INSERT INTO usuarios (username,password,role,modulos,activo,created_date) "
+                     "VALUES (?,?,?,?,?,?)",
+                     (user, pw, role, _json.dumps(mods), int(data.get("activo", 1)),
+                      datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        return conn.execute("SELECT id FROM usuarios WHERE username=?", (user,)).fetchone()["id"]
+
+def actualizar_usuario(uid, data, db_path=DEFAULT_DB):
+    import json as _json
+    with get_conn(db_path) as conn:
+        row = conn.execute("SELECT * FROM usuarios WHERE id=?", (uid,)).fetchone()
+        if not row: raise ValueError("usuario no encontrado")
+        user = (data.get("username") or row["username"]).strip()
+        role = data.get("role", row["role"]) or "user"
+        if role not in ("admin", "user"): role = "user"
+        mods = data.get("modulos")
+        if isinstance(mods, list):
+            mods = _json.dumps([m for m in mods if isinstance(m, str)])
+        else:
+            mods = row["modulos"]
+        if data.get("activo") is not None:
+            activo = int(data.get("activo"))
+        else:
+            activo = row["activo"]
+        pw = data.get("password")
+        if pw:
+            conn.execute("UPDATE usuarios SET username=?,password=?,role=?,modulos=?,activo=? WHERE id=?",
+                         (user, pw, role, mods, activo, uid))
+        else:
+            conn.execute("UPDATE usuarios SET username=?,role=?,modulos=?,activo=? WHERE id=?",
+                         (user, role, mods, activo, uid))
+
+def borrar_usuario(uid, db_path=DEFAULT_DB):
+    with get_conn(db_path) as conn:
+        row = conn.execute("SELECT * FROM usuarios WHERE id=?", (uid,)).fetchone()
+        if not row: raise ValueError("usuario no encontrado")
+        if (row["role"] or "") == "admin":
+            n = conn.execute("SELECT COUNT(*) FROM usuarios WHERE role='admin' AND activo=1").fetchone()[0]
+            if n <= 1:
+                raise ValueError("no se puede eliminar el unico administrador")
+        conn.execute("DELETE FROM usuarios WHERE id=?", (uid,))
+        return row["username"]
 
 # ===================== PLANTILLAS / PROGRAMADOS =====================
 def listar_plantillas(db_path=DEFAULT_DB):
