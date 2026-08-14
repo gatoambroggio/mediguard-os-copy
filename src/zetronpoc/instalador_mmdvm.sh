@@ -26,6 +26,19 @@ err(){ echo -e "${R}[ERR]${NC}  $*" >&2; }
 
 [[ $EUID -ne 0 ]] && { err "Ejecuta como root o con sudo."; exit 1; }
 
+# dl_retry <url> <dest> — reintenta hasta 5x contra 503/404 transitorios de la
+# CDN. No aborta (devuelve 1); el llamador ya hace warn y continúa.
+dl_retry(){
+  local url="$1" dest="$2" i=0
+  while :; do
+    if curl -fsSL --retry 3 --retry-delay 2 "$url" -o "$dest" 2>/dev/null; then return 0; fi
+    i=$((i+1))
+    [[ $i -ge 5 ]] && return 1
+    warn "descarga fallo (intento $i/5), reintentando en 3s: $url"
+    sleep 3
+  done
+}
+
 echo "==> 1/6 Dependencias (build + mosquitto)..."
 apt-get update -y
 apt-get install -y git g++ make wget curl mosquitto mosquitto-clients \
@@ -129,7 +142,7 @@ log "MMDVM.ini escrito con [MQTT] y [RemoteControl] habilitados."
 # (/dev/ttyUSB0) puede no ser donde esta la placa y MMDVMHost nunca hace
 # handshake (LED roja del modulo titilando para siempre).
 PROBE="${APP_DIR}/scripts/mmdvm_detect_port.py"
-if curl -fsSL "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/scripts/mmdvm_detect_port.py" -o "$PROBE" 2>/dev/null; then
+if dl_retry "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/scripts/mmdvm_detect_port.py" "$PROBE"; then
   chmod +x "$PROBE"
   DET="$(python3 "$PROBE" "$PORT" "$BAUD" 2>/dev/null || true)"
   if [[ -n "$DET" ]]; then
@@ -145,7 +158,7 @@ fi
 # Wrapper: fuente unica en el repo. Auto-detecta el puerto real del modulo
 # (GET_VERSION a ttyUSB0/ttyAMA0/ttyS0) y reescribe el .ini si hace falta.
 mkdir -p "${APP_DIR}/scripts"
-if curl -fsSL "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/scripts/mmdvmhost-run.sh" -o "${APP_DIR}/scripts/mmdvmhost-run.sh"; then
+if dl_retry "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/scripts/mmdvmhost-run.sh" "${APP_DIR}/scripts/mmdvmhost-run.sh"; then
   chmod +x "${APP_DIR}/scripts/mmdvmhost-run.sh"
   log "wrapper mmdvmhost-run.sh descargado del repo (auto-detecta puerto MMDVM)."
 else
@@ -155,7 +168,7 @@ fi
 echo "==> 4/6 Servicio systemd mmdvmhost..."
 # Fuente unica del service file: src/zetronpoc/services/mmdvmhost.service (repo).
 # Asi el panel y el instalador principal (--update) siempre usan el mismo.
-if curl -fsSL "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/services/mmdvmhost.service" -o "$SVC"; then
+if dl_retry "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/services/mmdvmhost.service" "$SVC"; then
   systemctl daemon-reload
   log "Servicio mmdvmhost descargado del repo (apunta a ${INI})."
 else

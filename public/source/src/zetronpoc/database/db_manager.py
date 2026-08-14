@@ -650,9 +650,29 @@ def registrar_envio_encolado(qid, codigo, caps, mensaje, baudios, origen, db_pat
                 (ts, origen, codigo, cap, mensaje, baudios, "encolado", "", qid))
 
 def actualizar_bitacora_envio(qid, cap, estado, obs="", db_path=DEFAULT_DB):
+    """Actualiza la fila de bitacora del envio a su estado final. Si la fila no
+    existe (no hubo registrar_envio_encolado: envios programados, IVR viejo, o
+    encolado antes de esta version), la INSERTA con el estado final para que el
+    mensaje SI figure en el historial en vez de quedar invisible."""
     with get_conn(db_path) as conn:
-        conn.execute("UPDATE bitacora SET estado=?, observaciones=? WHERE cola_id=? AND cap_code=?",
-                     (estado, obs, qid, cap))
+        cur = conn.execute("UPDATE bitacora SET estado=?, observaciones=? WHERE cola_id=? AND cap_code=?",
+                           (estado, obs, qid, cap))
+        if cur.rowcount == 0:
+            # la fila nunca se creo (encolar sin registrar): insertarla ahora
+            # con el estado final y el cap_code real. interno_origen/mensaje/
+            # baudios no los tenemos aqui -> dejamos los defaults de la cola.
+            row = conn.execute("SELECT codigo,mensaje,baudios,origen FROM cola_envios WHERE id=?", (qid,)).fetchone()
+            if row:
+                conn.execute(
+                    "INSERT INTO bitacora (fecha_hora,interno_origen,codigo,cap_code,mensaje,baudios,estado,observaciones,cola_id) "
+                    "VALUES (?,?,?,?,?,?,?,?,?)",
+                    (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), row["origen"] or "",
+                     row["codigo"], cap, row["mensaje"], row["baudios"], estado, obs, qid))
+            else:
+                conn.execute(
+                    "INSERT INTO bitacora (fecha_hora,cap_code,estado,observaciones,cola_id) "
+                    "VALUES (?,?,?,?,?)",
+                    (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), cap, estado, obs, qid))
 
 def marcar_bitacora_error(qid, obs, db_path=DEFAULT_DB):
     with get_conn(db_path) as conn:

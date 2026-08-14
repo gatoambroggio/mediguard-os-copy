@@ -28,8 +28,15 @@ err(){ echo -e "${R}[ERR]${NC}  $*" >&2; }
 
 [[ $EUID -ne 0 ]] && { err "Ejecuta como root o con sudo."; exit 1; }
 
-dl(){ # dl <url> <dest>
-  if ! curl -fsSL "$1" -o "$2"; then err "No se pudo descargar $1"; exit 1; fi
+dl(){ # dl <url> <dest> — reintenta hasta 5x contra 503/404 transitorios de la CDN
+  local url="$1" dest="$2" i=0
+  while :; do
+    if curl -fsSL --retry 3 --retry-delay 2 "$url" -o "$dest"; then return 0; fi
+    i=$((i+1))
+    if [[ $i -ge 5 ]]; then err "No se pudo descargar $url ($i intentos)"; exit 1; fi
+    warn "descarga fallo (intento $i/5), reintentando en 3s: $url"
+    sleep 3
+  done
 }
 
 echo "==> Raspberry Pi: actualizando lista de paquetes..."
