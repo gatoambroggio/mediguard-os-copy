@@ -9,7 +9,7 @@ APP_DIR = os.environ.get("ZETRONPOC_DIR", "/opt/zetronpoc")
 sys.path.insert(0, APP_DIR)
 sys.path.insert(0, os.path.join(APP_DIR, "database"))
 from db_manager import (resolver_destino, registrar_bitacora, encolar_mensaje, get_config,
-                        actualizar_bitacora_envio, marcar_bitacora_error)
+                        actualizar_bitacora_envio, marcar_bitacora_error, registrar_envio_encolado)
 
 ENCODER = os.path.join(APP_DIR, "encoder/pocsag_gen.py")
 AUDIO_DIR = os.path.join(APP_DIR, "audio")
@@ -61,6 +61,11 @@ def main():
     # --- IVR: solo encolar, el worker se encarga de transmitir ---
     if not worker:
         qid = encolar_mensaje(codigo, caps, mensaje, baudios, interno)
+        # registrar en bitacora ahora (igual que el path web) para que el
+        # mensaje aparezca en el historial de inmediato. Sin esto, el IVR
+        # encola sin crear la fila y el worker solo hace UPDATE (no INSERT)
+        # -> el envio desde el telefono nunca llegaba al historial.
+        registrar_envio_encolado(qid, codigo, caps, mensaje, baudios, interno)
         set_result(True)
         log("Mensaje encolado (IVR) id=%s interno=%s codigo=%s msg=%s" % (qid, interno, codigo, mensaje))
         return
