@@ -571,32 +571,43 @@ class Handler(BaseHTTPRequestHandler):
             port = (db.get_config("mmdvm_serial_port", "/dev/ttyUSB0") or "/dev/ttyUSB0").strip() or "/dev/ttyUSB0"
             baud = (db.get_config("mmdvm_baud", "115200") or "115200").strip() or "115200"
             port_present = os.path.exists(port)
-            if not port_present:
-                import glob as _g
-                _cands = sorted(_g.glob("/dev/ttyUSB*") + _g.glob("/dev/ttyACM*") + _g.glob("/dev/ttyAMA*") + _g.glob("/dev/ttyS*"))
-                port_present = bool(_cands)
-                if _cands:
-                    port = _cands[0]
-            # Handshake REAL (GET_VERSION) contra el puerto configurado via el
-            # detector. connected=true SOLO si el modulo responde — no basta con
-            # que el servicio este 'active' (el wrapper lo mantiene activo
-            # esperando el modulo) ni con que el nodo del puerto exista.
-            # --single: probea SOLO el puerto configurado (no barre otros) para
-            # acotar el tiempo y no abrir multiples puertos durante el polling.
+            probe_script = os.path.join(APP_DIR, "scripts", "mmdvm_detect_port.py")
             handshake_ok = False
             firmware_version = None
-            probe_script = os.path.join(APP_DIR, "scripts", "mmdvm_detect_port.py")
-            if os.path.exists(probe_script) and port_present:
-                try:
-                    r = subprocess.run([sys.executable, probe_script, "--version", "--single", port, baud],
-                                       capture_output=True, text=True, timeout=3)
-                    out = (r.stdout or "").strip()
-                    if r.returncode == 0 and out:
-                        handshake_ok = True
-                        if "\t" in out:
-                            firmware_version = out.split("\t", 1)[1].strip() or None
-                except Exception:
-                    handshake_ok = False
+            if os.path.exists(probe_script):
+                # 1) fast path: handshake SOLO contra el puerto configurado
+                #    (--single no abre otros puertos -> polling de 10s rapido).
+                if port_present:
+                    try:
+                        r = subprocess.run([sys.executable, probe_script, "--version", "--single", port, baud],
+                                           capture_output=True, text=True, timeout=3)
+                        out = (r.stdout or "").strip()
+                        if r.returncode == 0 and out:
+                            handshake_ok = True
+                            if "\t" in out:
+                                firmware_version = out.split("\t", 1)[1].strip() or None
+                    except Exception:
+                        pass
+                # 2) si el puerto configurado no responde, barrer TODOS los
+                #    candidatos: USB puede reenumerar el modulo de ttyUSB0 a
+                #    ttyUSB1 y sin este fallback el panel decia "sin modulo"
+                #    aunque la placa estuviera viva en otro puerto. El detector
+                #    sin --single prueba el sugerido primero y despues el resto.
+                if not handshake_ok:
+                    try:
+                        r = subprocess.run([sys.executable, probe_script, "--version", port, baud],
+                                           capture_output=True, text=True, timeout=9)
+                        out = (r.stdout or "").strip()
+                        if r.returncode == 0 and out and "\t" in out:
+                            p, fw = out.split("\t", 1)
+                            port = p.strip(); port_present = True
+                            firmware_version = fw.strip() or None
+                            handshake_ok = True
+                    except Exception:
+                        pass
+            if not port_present:
+                import glob as _g
+                port_present = bool(_g.glob("/dev/ttyUSB*") or _g.glob("/dev/ttyACM*") or _g.glob("/dev/ttyAMA*") or _g.glob("/dev/ttyS*"))
             return jok(self, {"installed": bin_ok, "service": svc,
                               "binary": "/usr/local/bin/MMDVM-Host" if bin_ok else None,
                               "port": port, "port_present": port_present,
