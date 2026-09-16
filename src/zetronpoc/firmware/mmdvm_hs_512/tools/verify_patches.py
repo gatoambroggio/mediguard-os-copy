@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 verify_patches.py - Verifica que los 3 patches quedaron aplicados correctamente
-en el source del MMDVM_HS clonado.
+en el source del MMDVM_HS clonado, comparando contra la configuracion probada
+que anda en el hardware (Libre Kit ADF7021, SIMPLEX, 512 baud, 149.255 MHz).
 
 Uso:
     verify_patches.py [MMDVM_HS_DIR]   # default: ../MMDVM_HS (relativo a tools/)
@@ -39,30 +40,27 @@ def main():
     if config is None:
         check("Config.h existe", False)
         return 1
-    all_ok &= check("Config.h: NANO_HOTSPOT definido", "#define NANO_HOTSPOT" in config)
-    all_ok &= check("Config.h: LIBRE_KIT_ADF7021 NO definido",
-                    "#define LIBRE_KIT_ADF7021" not in config or
-                    "// #define LIBRE_KIT_ADF7021" in config)
-    all_ok &= check("Config.h: STM32_USART1_HOST definido", "#define STM32_USART1_HOST" in config)
-    all_ok &= check("Config.h: STM32_USB_HOST NO definido",
-                    "#define STM32_USB_HOST" not in config or
-                    "// #define STM32_USB_HOST" in config)
-    all_ok &= check("Config.h: ADF7021_14_7456 definido", "#define ADF7021_14_7456" in config)
-    # SIMPLEX: la placa tiene 1 solo ADF7021. DUPLEX causa crash en clones
-    # chinos (PA5/SLE2 flotando -> spurious interrupts -> STM32 hang).
-    # El firmware oficial generic_gpio_fw que funciona es SIMPLEX.
+    all_ok &= check("Config.h: LIBRE_KIT_ADF7021 definido (board correcto)",
+                    "#define LIBRE_KIT_ADF7021" in config)
+    all_ok &= check("Config.h: NANO_HOTSPOT NO definido (board incorrecto descartado)",
+                    "#define NANO_HOTSPOT" not in config)
     all_ok &= check("Config.h: DUPLEX NO definido (SIMPLEX, evita crash en single-ADF7021)",
-                    "#define DUPLEX" not in config)
+                    "#define DUPLEX" not in config or "// #define DUPLEX" in config)
+    all_ok &= check("Config.h: STM32_USART1_HOST definido", "#define STM32_USART1_HOST" in config)
+    all_ok &= check("Config.h: ADF7021_14_7456 definido", "#define ADF7021_14_7456" in config)
+    all_ok &= check("Config.h: SERIAL_REPEATER_BAUD 9600", "9600" in config)
     all_ok &= check("Config.h: POCSAG_512 definido (baud custom)", "#define POCSAG_512" in config)
-    all_ok &= check("Config.h: POCSAG_149MHZ definido (freq custom)", "#define POCSAG_149MHZ" in config)
+    all_ok &= check("Config.h: DISABLE_FREQ_CHECK definido", "#define DISABLE_FREQ_CHECK" in config)
+    all_ok &= check("Config.h: DISABLE_FREQ_BAN definido", "#define DISABLE_FREQ_BAN" in config)
+    all_ok &= check("Config.h: USE_ALTERNATE_POCSAG_LEDS definido", "#define USE_ALTERNATE_POCSAG_LEDS" in config)
 
     # --- IO.h ---
     io = read(os.path.join(src, "IO.h"))
     if io is None:
         check("IO.h existe", False)
         return 1
-    all_ok &= check("IO.h: VHF1_MAX extendido a 150 MHz",
-                    "150000000" in io and "#if defined(POCSAG_149MHZ)" in io)
+    all_ok &= check("IO.h: VHF1_MAX = 150 MHz (soporta 149.255 MHz)",
+                    "150000000" in io)
 
     # --- ADF7021.h ---
     adf = read(os.path.join(src, "ADF7021.h"))

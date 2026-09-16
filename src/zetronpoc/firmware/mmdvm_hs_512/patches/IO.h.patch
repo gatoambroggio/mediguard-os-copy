@@ -1,17 +1,11 @@
 --- a/IO.h
 +++ b/IO.h
-@@ -30,8 +30,12 @@
- #define LOW      0
- #define HIGH     1
+@@ -24,7 +24,7 @@
  
  // HS frequency ranges
-+#if defined(POCSAG_149MHZ)
-+// Extended VHF1 for 149.255 MHz POCSAG (hospital paging)
-+#define VHF1_MIN  144000000
-+#define VHF1_MAX  150000000
-+#else
  #define VHF1_MIN  144000000
- #define VHF1_MAX  148000000
-+#endif
+-#define VHF1_MAX  148000000
++#define VHF1_MAX  150000000
  #define VHF2_MIN  219000000
  #define VHF2_MAX  225000000
+ #define UHF1_MIN  420000000

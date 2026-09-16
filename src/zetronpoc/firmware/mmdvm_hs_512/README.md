@@ -63,16 +63,23 @@ soporta 80-325 MHz, así que 149.255 MHz es físicamente alcanzable.
 
 ---
 
-## SIMPLEX (sin DUPLEX) — fix para placa nueva
+## LIBRE_KIT_ADF7021 + SIMPLEX — fix para placa nueva
 
-El firmware oficial `generic_gpio_fw.bin` que funciona en la placa nueva es
-**SIMPLEX (sin `#define DUPLEX`)**. Definir DUPLEX en una placa single-ADF7021
-causa **crash del STM32** (PA5/SLE2 flotando genera spurious interrupts que
-cuelgan el MCU en clones chinos). El STM32 no responde a GET_VERSION y MMDVMHost
-entra en loop de reintentos.
+El firmware que **anda en el hardware** (probado, extraído del .bin que funcionaba)
+está compilado con **`LIBRE_KIT_ADF7021`** (NO `NANO_HOTSPOT`) y **SIMPLEX** (sin
+`#define DUPLEX`).
 
-**Config.h**: `#define DUPLEX` **NO** está definido. POCSAG es TX-only, no
-necesita DUPLEX. El firmware arranca correctamente en la placa nueva.
+**Por qué `NANO_HOTSPOT` causaba crash**: `NANO_HOTSPOT` y `LIBRE_KIT_ADF7021`
+configuran el **pin mapping del STM32** hacia el ADF7021 (SLE, SCLK, SDATA, SREAD,
+CE, etc.) de forma distinta. Si la placa está cableada como Libre Kit pero el
+firmware la trata como Nano hotSPOT, los pines quedan cruzados y el STM32 se cuelga
+esperando respuesta del ADF7021 → **crash loop (LED rojo rápido)**.
+
+**Por qué SIMPLEX**: la placa tiene 1 solo ADF7021. Definir DUPLEX en una placa
+single-ADF7021 causa crash (PA5/SLE2 flotando → spurious interrupts).
+
+**Config.h**: `LIBRE_KIT_ADF7021` definido, `NANO_HOTSPOT` comentado, `DUPLEX`
+comentado. POCSAG es TX-only, no necesita DUPLEX.
 
 ---
 
@@ -80,7 +87,7 @@ necesita DUPLEX. El firmware arranca correctamente en la placa nueva.
 
 | # | Archivo | Qué hace |
 |---|---|---|
-| 1 | `patches/Config.h` | Reemplazo completo: `NANO_HOTSPOT`, **SIMPLEX** (sin DUPLEX, evita crash en placa nueva), `STM32_USART1_HOST`, `ADF7021_14_7456`, `SERIAL_REPEATER_BAUD 115200` |
+| 1 | `patches/Config.h` | Reemplazo completo: **`LIBRE_KIT_ADF7021`** (board correcto, NO `NANO_HOTSPOT`), **SIMPLEX** (sin DUPLEX), `STM32_USART1_HOST`, `ADF7021_14_7456`, `SERIAL_REPEATER_BAUD 9600`, `DISABLE_FREQ_CHECK`, `DISABLE_FREQ_BAN` |
 | 2 | `patches/IO.h.patch` | `VHF1_MAX`: 148000000 → 150000000 (envuelto en `#if defined(POCSAG_149MHZ)`) |
 | 3 | `patches/ADF7021.h.patch` | `ADF7021_REG3_POCSAG`: 512 baud (envuelto en `#if defined(POCSAG_512)`) |
 

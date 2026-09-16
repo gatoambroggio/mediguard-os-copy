@@ -3,11 +3,11 @@
 #
 # Build STANDALONE (make hs, sin bootloader USB-DFU) -> se flashea a 0x08000000
 # con stm32flash por serial (/dev/ttyAMA0). La tabla de vectores queda en 0x0.
-# Matchea el target oficial "nano-hotspot" del Makefile de MMDVM_HS que usa
-# mmdvm_f1.bin (make hs) flasheado a 0x0.
+# make hs = build generico para STM32F1 hotspot (el board se selecciona via
+# Config.h, no via el target del make). Genera mmdvm_f1.bin flasheable a 0x0.
 #
-# Los defines POCSAG_512 y POCSAG_149MHZ van directo en Config.h (no hace
-# falta pasarlos por linea de comando al make).
+# El define POCSAG_512 va directo en Config.h (no hace falta pasarlo por
+# linea de comando al make).
 #
 # Requiere:
 #   - gcc-arm-none-eabi libstdc++-arm-none-eabi-newlib libnewlib-arm-none-eabi
@@ -44,7 +44,7 @@ make hs OSC=14745600
 
 # mmdvm_f1.bin = standalone (sin bootloader), vector table en 0x08000000.
 # Flashear a 0x08000000 (0x0) con stm32flash.
-# Es lo que usa el target oficial "nano-hotspot" del Makefile de MMDVM_HS.
+# make hs = standalone (sin bootloader), cualquier board F1.
 BIN="$TARGET/bin/mmdvm_f1.bin"
 if [ ! -f "$BIN" ]; then
   echo "ERROR: no se genero $BIN"
