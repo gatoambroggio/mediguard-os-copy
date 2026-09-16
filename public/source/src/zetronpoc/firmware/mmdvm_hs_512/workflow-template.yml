@@ -64,7 +64,7 @@ jobs:
             Firmware MMDVM_HS compilado con:
             - Frecuencia: VHF1_MAX extendido a 150 MHz (soporta 149.255 MHz)
             - Baud: 512 baud POCSAG (REG3 del ADF7021 reconfigurado)
-            - Board: Nano_hotSPOT (BI7JTA), TCXO 14.7456 MHz, SIMPLEX (single ADF7021), UART host
+            - Board: Nano_hotSPOT (BI7JTA), TCXO 14.7456 MHz, DUPLEX, UART host
 
             Flashear:
               USB-DFU: ./flash.sh firmware_pocsag512_149mhz.bin

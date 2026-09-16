@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Clona el MMDVM_HS oficial (juribeparada), aplica los 3 patches:
-#   1) Config.h  -> NANO_HOTSPOT board (BI7JTA), UART host, DUPLEX, TCXO 14.7456
+#   1) Config.h  -> NANO_HOTSPOT board (BI7JTA), UART host, SIMPLEX, TCXO 14.7456
 #   2) IO.h      -> VHF1_MAX extendido a 150 MHz (para 149.255 MHz)
 #   3) ADF7021.h -> REG3 POCSAG a 512 baud (CLK output del ADF7021 = baud de TX)
 set -euo pipefail
@@ -109,7 +109,7 @@ python3 "$HERE/tools/verify_patches.py" "$TARGET" || {
 
 echo
 echo "=== Patches aplicados correctamente ==="
-echo "  - Config.h:  NANO_HOTSPOT, DUPLEX, STM32_USART1_HOST, TCXO 14.7456 MHz"
+echo "  - Config.h:  NANO_HOTSPOT, SIMPLEX (sin DUPLEX), STM32_USART1_HOST, TCXO 14.7456 MHz"
 echo "  - IO.h:      VHF1_MAX = 150 MHz (soporta 149.255 MHz)"
 echo "  - ADF7021.h: REG3 POCSAG = 512 baud (CLK output del ADF7021)"
 echo

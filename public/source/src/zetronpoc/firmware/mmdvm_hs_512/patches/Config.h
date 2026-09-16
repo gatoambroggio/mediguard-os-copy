@@ -20,15 +20,14 @@
 #define  CONFIG_H
 
 // Nano hotSPOT (BI7JTA) - Jumbospot clone
-// Single ADF7021, SIMPLEX (NO duplex — DUPLEX es para placas con 2x ADF7021)
+// Single ADF7021, full duplex via BIDIR_DATA_PIN, UART host
 #define NANO_HOTSPOT
 
 // Enable ADF7021 support:
 #define ENABLE_ADF7021
 
-// SIMPLEX: single ADF7021. NO definir DUPLEX (eso es para dual ADF7021).
-// BIDIR_DATA_PIN ya viene habilitado por defecto en Globals.h (Standard TX/RX
-// Data Interface del ADF7021, necesario para scan mode).
+// Full duplex with single ADF7021 (bidirectional data pin)
+#define DUPLEX
 
 // TCXO 14.7456 MHz (confirmado del string de firmware: MMDVM_HS-v1.6.0 14.7456MHz)
 #define ADF7021_14_7456

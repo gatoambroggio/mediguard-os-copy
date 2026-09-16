@@ -1,138 +1,175 @@
-# MMDVM_HS — Firmware 512 baud POCSAG (flag `POCSAG_512`)
+# MMDVM_HS — Firmware 512 baud POCSAG + 149.255 MHz (Nano_hotSPOT)
 
-Fork de trabajo del firmware **MMDVM_HS** (juribeparada/MMDVM_HS) para que el
-Jumbospot transmita POCSAG a **512 baud** y los pagers de 512 decodifiquen
-texto legible en vez del chorizo "number-hyphen" actual.
+Firmware **MMDVM_HS** customizado para el sistema **MediGuard OS** (paginación
+hospitalaria de emergencia). Dos fixes sobre el firmware oficial:
+
+1. **149.255 MHz**: extendido `VHF1_MAX` de 148 a 150 MHz en `IO.h` para que el
+   firmware acepte la frecuencia sin NAK reason 4 y seleccione `REG1_VHF1` (VCO
+   externo, correcto para VHF) en `ifConf()`.
+
+2. **512 baud POCSAG**: reconfigurado `REG3` del ADF7021 (`ADF7021.h`) para que el
+   CLK output del ADF7021 genere 512 baud en lugar de 1200. **El baud de TX lo
+   controla el ADF7021**, no un timer del STM32.
 
 > ⚠️ **Esto es firmware. Compilar y flashear lo hacés vos en el Jumbospot.** El
-> `.bin` precompilado lo entrega un workflow de GitHub Actions (ver más abajo);
-> vos lo flasheas con `flash.sh`.
+> `.bin` precompilado lo entrega un workflow de GitHub Actions; vos lo flasheas
+> con `flash.sh`.
 
 ---
 
-## El diagnóstico (probado, no adivinado)
+## El diagnóstico (probado en el source, no adivinado)
 
-El MMDVM_HS oficial **solo soporta POCSAG a 1200 baud** (dice el repo: *"POCSAG
-1200 pager protocol"*). El baud de TX lo fija el **STM32**, no el ADF7021:
+### 1. El baud de TX lo controla el ADF7021, NO el STM32
 
-| Palanca | Qué hace | ¿Cambia el baud de TX? |
+El `interrupt()` del MMDVM_HS **es disparado por el CLK output del ADF7021** (no
+por un timer del STM32):
+
+```cpp
+// ADF7021.cpp — void CIO::interrupt()
+uint8_t clk = CLK_pin();           // ← CLK del ADF7021
+if (clk == last_clk) return;       // fire on edge
+else last_clk = clk;
+
+if (m_tx && clk == 0U) {           // falling edge → TX
+    m_txBuffer.get(bit, m_control);
+    TXD_pin(bit ? HIGH : LOW);     // 1 bit por flanco de bajada
+}
+if (!m_tx && clk == 1U) {          // rising edge → RX
+    m_rxBuffer.put(RXD_pin(), ...);
+}
+```
+
+El CLK output del ADF7021 se configura con el **registro REG3**. Por lo tanto,
+**cambiar REG3 cambia el baud de TX** (y RX). El README anterior que decía "R3 es
+RX-only" estaba equivocado.
+
+### 2. 149.255 MHz cae fuera del rango VHF1 (144-148 MHz)
+
+En `IO.h`:
+```cpp
+#define VHF1_MIN  144000000
+#define VHF1_MAX  148000000   // ← 149.255 MHz queda FUERA
+```
+
+Esto causa dos problemas en `IO.cpp` + `ADF7021.cpp`:
+
+| Función | Qué pasa con 149.255 MHz | Consecuencia |
 |---|---|---|
-| **STM32 `CIO::interrupt()`** | ISR del timer que drena `m_txBuffer` al pin **TXD** del ADF7021 | **SÍ** ← esta hay que tocar |
-| R3 `ADF7021_REG3_POCSAG` | `CDR_CLK` = clock de **recuperación de RX** | **NO** (RX-only) |
-| `POCSAG_512` en `Config.h` | no se lee para el baud | **NO** |
-| `packNumeric` / `BCD_VALUES` (MMDVMHost) | cifrado del mensaje | **NO** (probado: nibble 0 perfecto) |
+| `setFreq()` | No cae en ninguna banda válida → **NAK reason 4** | MMDVMHost no puede setear la freq |
+| `ifConf()` | Cae al `else` → usa `REG1_UHF1` (VCO interno UHF) | PLL no lockea → **no hay RF** |
 
-**Por qué tus dos intentos anteriores no anduvieron (dead-ends confirmados):**
-- `POCSAG_512` en `Config.h` → el baud no se lee de ahí.
-- R3 `0x2A4F8513` en `ADF7021.h` → R3 fija `CDR_CLK` (RX), no el TX.
-
-Los dos palazos fueron al ADF7021. El baud real lo da el **timer del STM32** (la
-ISR `CIO::interrupt()` que clockea `TXD`). El `createCal` del código genera un
-*"600 Hz square wave"* = el tono de preamble de **1200 baud**, confirmando el
-default. Ese timer **nunca fue parcheado**. Es el palo que falta.
-
-**La prueba definitiva de que NO es bit-level:** un mensaje `00000` (puros ceros)
-no puede dar dígitos no-cero si el pager leyera el campo de mensaje — los
-dígitos que ves (`0381 06030`) salen de leer paridad BCH / IDLE como mensaje, que
-es justo lo que pasa cuando el baud no coincide y el pager pierde el encuadre.
+**El fix**: extender `VHF1_MAX` a 150 MHz. El ADF7021 con VCO externo (`REG1_VHF1`)
+soporta 80-325 MHz, así que 149.255 MHz es físicamente alcanzable.
 
 ---
 
-## El flujo (find → confirm → patch → build → flash)
+## Los 3 patches
 
-### 1) Clonar y localizar el bit-clock
+| # | Archivo | Qué hace |
+|---|---|---|
+| 1 | `patches/Config.h` | Reemplazo completo: `NANO_HOTSPOT`, `DUPLEX`, `STM32_USART1_HOST`, `ADF7021_14_7456` |
+| 2 | `patches/IO.h.patch` | `VHF1_MAX`: 148000000 → 150000000 (envuelto en `#if defined(POCSAG_149MHZ)`) |
+| 3 | `patches/ADF7021.h.patch` | `ADF7021_REG3_POCSAG`: 512 baud (envuelto en `#if defined(POCSAG_512)`) |
+
+---
+
+## Build flow (local o GitHub Actions)
+
+### Opción A: GitHub Actions (automático)
+
+El workflow vive en `workflow-template.yml` dentro de este directorio. Al
+publicar desde el panel admin (Descarga → "Publicar a GitHub"), el publicador
+lo remapea a `.github/workflows/build-firmware.yml` en la raiz del repo.
+
+> **Requisito**: el conector de GitHub debe tener el scope `workflow` (además de
+> `repo`). Si no lo tiene, el commit del workflow fallará con 403.
+
+Al pushear a `main` cambios en `src/zetronpoc/firmware/mmdvm_hs_512/`, el workflow:
+1. Instala el toolchain ARM
+2. Clona `juribeparada/MMDVM_HS` + submódulo `STM32F10X_Lib`
+3. Aplica los 3 patches
+4. Verifica que quedaron aplicados (`verify_patches.py`)
+5. Compila con `make bl`
+6. Publica `firmware_pocsag512_149mhz.bin` como **Release** descargable
+
+URL de descarga:
+```
+https://github.com/gatoambroggio/mediguard-os-copy/releases/download/pocsag512-149mhz-latest/firmware_pocsag512_149mhz.bin
+```
+
+### Opción B: Local (Raspberry Pi o PC Linux)
+
 ```bash
 cd src/zetronpoc/firmware/mmdvm_hs_512
+
+# 1. Instalar toolchain ARM
+sudo apt install gcc-arm-none-eabi libstdc++-arm-none-eabi-newlib libnewlib-arm-none-eabi
+
+# 2. Clonar y parchear
 ./clone_and_patch.sh
-```
-Esto clona `juribeparada/MMDVM_HS`, aplica el parche de R3 (queda por consistencia,
-pero **no es el que resuelve el baud**), y corre `tools/find_pocsag_clock.py`,
-que imprime el **POCSAG BIT-CLOCK REPORT**: la ISR `CIO::interrupt()`, el setup
-del timer `CIO::startInt()`, el branch `STATE_POCSAG` de `ifConf()`, y las
-constantes candidatas a samples-per-bit — todo con números de línea.
 
-### 2) Confirmar el lever
-Del reporte identificás:
-- la **línea** que fija el samples-per-bit de POCSAG (o el divider del timer
-  para `STATE_POCSAG`), y
-- la **base rate** del timer (sample rate en `startInt()`).
-
-Con esos dos datos, el patch a 512 baud es:
-```
-new_samples_per_bit = round(base_rate / 512)
-```
-- Si base = **24 kHz** → 47 muestras/bit → 510.6 baud (0.27% err, dentro 2%).
-- Si base = **9.6 kHz** → 19 muestras/bit → 505.3 baud (1.37% err, dentro 2%).
-
-### 3) Aplicar el patch (envuelto en `#if defined(POCSAG_512) / #else`)
-La línea confirmada se reemplaza por un bloque reversible:
-```cpp
-#if defined(POCSAG_512)
-// 512 baud: round(base_rate/512) muestras/bit
-<samples_per_bit = NEW>
-#else
-// 1200 baud (default MMDVM_HS)
-<samples_per_bit = OLD>
-#endif
-```
-Sin `-DPOCSAG_512` → compila el 1200 original (fallback limpio).
-
-### 4) Compilar
-```bash
+# 3. Compilar (usa Makefile oficial, NO PlatformIO)
 ./build_firmware.sh
-# -> firmware_pocsag512.bin
+# -> firmware_pocsag512_149mhz.bin
 ```
-Requisitos: PlatformIO Core (`pip install platformio`) + toolchain ARM (PIO lo
-baja solo). El flag crítico `-DPOCSAG_512` ya está en el env `pocsag512-144`
-del `platformio.ini`, junto a `-DADF7021_14_7456` (TCXO 14.7456 MHz,
-Jumbospot/ZumSpot).
 
-### 5) Flashear el Jumbospot (STM32, USB-DFU)
+---
+
+## Flashear al Jumbospot (STM32)
+
+### USB-DFU (recomendado)
+
 1. Desconectá el Jumbospot del USB.
 2. Poné el STM32 en modo DFU: puente `BOOT0=1` y reconectá al USB.
 3. `lsusb` → aparece `STMicroelectronics STM Device in DFU Mode`.
 4. Flasheá:
    ```bash
-   ./flash.sh firmware_pocsag512.bin
-   # equivale a: dfu-util -a 0 -s 0x08008000:leave -D firmware_pocsag512.bin
+   ./flash.sh firmware_pocsag512_149mhz.bin
+   # equivale a: dfu-util -a 0 -s 0x08008000:leave -D firmware_pocsag512_149mhz.bin
    ```
 5. Sacá el puente `BOOT0`, desconectá/reconectá USB → arranca con el nuevo fw.
 
-> `flash.sh` usa `dfu-util` (`sudo apt install dfu-util`).
+> Requiere `dfu-util`: `sudo apt install dfu-util`
 
-### 6) Verificar
+### Serial (stm32flash)
+
+```bash
+cd MMDVM_HS
+sudo apt install stm32flash
+sudo make nano-hotspot    # flashea via /dev/ttyAMA0
+```
+
+---
+
+## Verificar
+
 ```bash
 sudo systemctl restart mmdvmhost
 journalctl -u mmdvmhost -f | grep -i pocsag
 ```
+
 Desde el panel admin (Diagnóstico → Test page) dispará un page a un cap de 512.
 El pager debe mostrar **texto legible**.
 
----
+### Verificar baud real con RTL-SDR
 
-## `.bin` precompilado (sin instalar PlatformIO)
-
-No tenés toolchain ARM a mano: el `.bin` lo compila un **workflow de GitHub
-Actions** al publicar el source al repo. El workflow corre `clone_and_patch.sh`
-+ `build_firmware.sh` y publica `firmware_pocsag512.bin` como **Release**
-descargable. URL de descarga directa una vez publicado:
+```bash
+./verify_baud.sh 149255000 1234567
+# 256 Hz = 512 baud (OK)
+# 600 Hz = 1200 baud (el flag NO tomo efecto)
 ```
-https://github.com/<owner>/<repo>/releases/download/pocsag512-latest/firmware_pocsag512.bin
-```
-
-> El workflow solo publica el `.bin` cuando el patch a 512 baud quedó aplicado.
-> Si `find_pocsag_clock.py` no encuentra el lever (detección ambigua), el
-> workflow **falla ruidosamente** con el reporte en el log — no publica un
-> `.bin` a 1200 baud trancado como si fuera 512.
 
 ---
 
-## Fallback reversible a 1200
+## Fallback reversible
 
-Si 512 no decodifica o la TX se corrompe:
-1. Recompilar **sin** `-DPOCSAG_512` (el `#else` restaura el samples-per-bit de 1200).
-2. Re-flashear.
-3. No hace falta tocar `MMDVM.ini` ni el pipeline `dispatch_mqtt`.
+### Volver a 1200 baud
+Recompilar **sin** `-DPOCSAG_512` (el `#else` restaura REG3 de 1200 baud).
+El patch de `ADF7021.h` está envuelto en `#if defined(POCSAG_512) / #else`.
+
+### Volver a 148 MHz max
+Recompilar **sin** `-DPOCSAG_149MHZ` (el `#else` restaura VHF1_MAX=148 MHz).
+El patch de `IO.h` está envuelto en `#if defined(POCSAG_149MHZ) / #else`.
 
 ---
 
@@ -140,20 +177,22 @@ Si 512 no decodifica o la TX se corrompe:
 
 | Archivo | Qué hace |
 |---|---|
-| `patches/ADF7021.h.patch` | diff de R3 con `#if POCSAG_512` (RX-only, queda por consistencia) |
-| `tools/find_pocsag_clock.py` | **Localiza el bit-clock real de POCSAG** en el source clonado (reporte con líneas) |
-| `tools/reg3_calc.py` | Recalcula R3 para cualquier baud/XTAL (referencia, no resuelve el TX) |
-| `clone_and_patch.sh` | Clona MMDVM_HS oficial, aplica patches y corre el finder |
-| `build_firmware.sh` | Compila el env `pocsag512-144` y copia el `.bin` al fork |
-| `platformio.ini` | Env de build con `-DPOCSAG_512 -DADF7021_14_7456` |
+| `patches/Config.h` | Config.h completo para NANO_HOTSPOT (BI7JTA) |
+| `patches/IO.h.patch` | VHF1_MAX extendido a 150 MHz |
+| `patches/ADF7021.h.patch` | REG3 POCSAG 512 baud |
+| `tools/verify_patches.py` | Verifica que los 3 patches quedaron aplicados |
+| `tools/find_pocsag_clock.py` | Reporte de diagnóstico del bit-clock (referencia) |
+| `tools/reg3_calc.py` | Recalcula R3 para cualquier baud/XTAL (referencia) |
+| `clone_and_patch.sh` | Clona MMDVM_HS oficial, aplica patches y verifica |
+| `build_firmware.sh` | Compila con `make bl` y copia el `.bin` |
 | `flash.sh` | Flashea el `.bin` al STM32 con `dfu-util` |
+| `verify_baud.sh` | Verifica el baud real de TX con RTL-SDR |
+| `workflow-template.yml` | Workflow de GitHub Actions (publicado como `.github/workflows/build-firmware.yml`) |
 
 ---
 
 ## TCXO
 
-Este fork asume **TCXO 14.7456 MHz** (Jumbospot/ZumSpot actuales → define
-`ADF7021_14_7456`). Si tu placa es 12.2880 MHz, usá el env `pocsag512-122880`
-(comentado en `platformio.ini`) con `-DADF7021_12_2880`. Verificá tu TCXO antes de
-compilar; usar el set de registros equivocado hace que la TX no funcione o salga
-fuera de banda.
+TCXO **14.7456 MHz** (confirmado del string de firmware `MMDVM_HS-v1.6.0 20200803
+14.7456MHz`). Si tu placa es 12.2880 MHz, usá `-DADF7021_12_2880` en lugar de
+`-DADF7021_14_7456` en `patches/Config.h`.

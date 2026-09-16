@@ -63,11 +63,24 @@ soporta 80-325 MHz, así que 149.255 MHz es físicamente alcanzable.
 
 ---
 
+## ⚠️ Fix crítico: DUPLEX removido (v2)
+
+El primer build tenía `#define DUPLEX` en Config.h, pero el Nano hotSPOT tiene
+**un solo ADF7021** (es simplex). Con DUPLEX activado, el firmware configura un
+EXTI interrupt en PA5 para un segundo ADF7021 que no existe en la placa. Si PA5
+está flotando, el STM32 se queda trabado atendiendo interrupciones espurias y
+**nunca responde al UART** — MMDVMHost no puede obtener la versión del firmware.
+
+**Fix**: `DUPLEX` removido de Config.h. La placa ahora compila como simplex
+(single ADF7021), que es lo correcto para el Nano hotSPOT / Jumbospot.
+
+---
+
 ## Los 3 patches
 
 | # | Archivo | Qué hace |
 |---|---|---|
-| 1 | `patches/Config.h` | Reemplazo completo: `NANO_HOTSPOT`, `DUPLEX`, `STM32_USART1_HOST`, `ADF7021_14_7456` |
+| 1 | `patches/Config.h` | Reemplazo completo: `NANO_HOTSPOT`, **SIMPLEX (sin DUPLEX)**, `STM32_USART1_HOST`, `ADF7021_14_7456` |
 | 2 | `patches/IO.h.patch` | `VHF1_MAX`: 148000000 → 150000000 (envuelto en `#if defined(POCSAG_149MHZ)`) |
 | 3 | `patches/ADF7021.h.patch` | `ADF7021_REG3_POCSAG`: 512 baud (envuelto en `#if defined(POCSAG_512)`) |
 
