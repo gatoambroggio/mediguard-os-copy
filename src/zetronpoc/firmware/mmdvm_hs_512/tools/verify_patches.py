@@ -42,8 +42,9 @@ def main():
         return 1
     all_ok &= check("Config.h: LIBRE_KIT_ADF7021 definido (board correcto)",
                     "#define LIBRE_KIT_ADF7021" in config)
+    # Check that NANO_HOTSPOT is not an ACTIVE define (it can appear in comments)
     all_ok &= check("Config.h: NANO_HOTSPOT NO definido (board incorrecto descartado)",
-                    "#define NANO_HOTSPOT" not in config)
+                    "\n#define NANO_HOTSPOT" not in config)
     all_ok &= check("Config.h: DUPLEX NO definido (SIMPLEX, evita crash en single-ADF7021)",
                     "#define DUPLEX" not in config or "// #define DUPLEX" in config)
     all_ok &= check("Config.h: STM32_USART1_HOST definido", "#define STM32_USART1_HOST" in config)
