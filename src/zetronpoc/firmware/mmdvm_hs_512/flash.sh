@@ -1,29 +1,27 @@
 #!/usr/bin/env bash
-# Flashea el firmware.bin al STM32 del Jumbospot por USB-DFU.
-# Previo: pones el Jumbospot en modo DFU (BOOT0=1) y lo conectas por USB.
-# Requiere dfu-util:  sudo apt install dfu-util
+# Flashea el firmware.bin al STM32 del Jumbospot por SERIAL (stm32flash).
+#
+# El firmware es STANDALONE (sin bootloader) -> se graba a 0x08000000 (0x0).
+# No requiere BOOT0 jumper ni modo DFU — flashea directo por UART.
+#
+# Requiere stm32flash:  sudo apt install stm32flash
 set -euo pipefail
 
-BIN="${1:-}"
-if [ -z "$BIN" ] || [ ! -f "$BIN" ]; then
-  echo "Uso: flash.sh <firmware.bin>"
-  echo "  ej: flash.sh firmware_pocsag512_149mhz.bin"
+BIN="${1:-firmware_pocsag512_149mhz.bin}"
+PORT="${2:-/dev/ttyAMA0}"
+
+if [ ! -f "$BIN" ]; then
+  echo "Uso: flash.sh <firmware.bin> [serial_port]"
+  echo "  ej: flash.sh firmware_pocsag512_149mhz.bin /dev/ttyAMA0"
   exit 1
 fi
 
-if ! command -v dfu-util >/dev/null 2>&1; then
-  echo "ERROR: dfu-util no instalado.  sudo apt install dfu-util"
+if ! command -v stm32flash >/dev/null 2>&1; then
+  echo "ERROR: stm32flash no instalado.  sudo apt install stm32flash"
   exit 2
 fi
 
-echo "Buscando STM32 en modo DFU..."
-if ! lsusb | grep -qi "STM.*DFU"; then
-  echo "WARN: no veo 'STM Device in DFU Mode' en lsusb."
-  echo "      Pone el Jumbospot en DFU (puente BOOT0=1) y reconecta USB."
-  echo "      Continuo igual por si el ID no matchea..."
-fi
+echo "Flasheando $BIN a 0x08000000 via $PORT..."
+sudo stm32flash -b 115200 -v -w "$BIN" -g 0x0 -R "$PORT"
 
-echo "Flasheando $BIN a 0x08008000..."
-sudo dfu-util -a 0 -s 0x08008000:leave -D "$BIN"
-
-echo "OK. Sacá BOOT0, desconectá/reconectá USB -> arranca con el nuevo fw."
+echo "OK. El STM32 reseteo y arranco con el nuevo firmware."

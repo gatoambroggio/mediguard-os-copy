@@ -102,7 +102,7 @@ Al pushear a `main` cambios en `src/zetronpoc/firmware/mmdvm_hs_512/`, el workfl
 2. Clona `juribeparada/MMDVM_HS` + submódulo `STM32F10X_Lib`
 3. Aplica los 3 patches
 4. Verifica que quedaron aplicados (`verify_patches.py`)
-5. Compila con `make bl`
+5. Compila con `make` (standalone, sin bootloader)
 6. Publica `firmware_pocsag512_149mhz.bin` como **Release** descargable
 
 URL de descarga:
@@ -121,7 +121,7 @@ sudo apt install gcc-arm-none-eabi libstdc++-arm-none-eabi-newlib libnewlib-arm-
 # 2. Clonar y parchear
 ./clone_and_patch.sh
 
-# 3. Compilar (usa Makefile oficial, NO PlatformIO)
+# 3. Compilar (build standalone, sin bootloader — flashable a 0x0)
 ./build_firmware.sh
 # -> firmware_pocsag512_149mhz.bin
 ```
@@ -130,27 +130,28 @@ sudo apt install gcc-arm-none-eabi libstdc++-arm-none-eabi-newlib libnewlib-arm-
 
 ## Flashear al Jumbospot (STM32)
 
-### USB-DFU (recomendado)
+### Serial — stm32flash (recomendado)
 
-1. Desconectá el Jumbospot del USB.
-2. Poné el STM32 en modo DFU: puente `BOOT0=1` y reconectá al USB.
-3. `lsusb` → aparece `STMicroelectronics STM Device in DFU Mode`.
-4. Flasheá:
-   ```bash
-   ./flash.sh firmware_pocsag512_149mhz.bin
-   # equivale a: dfu-util -a 0 -s 0x08008000:leave -D firmware_pocsag512_149mhz.bin
-   ```
-5. Sacá el puente `BOOT0`, desconectá/reconectá USB → arranca con el nuevo fw.
-
-> Requiere `dfu-util`: `sudo apt install dfu-util`
-
-### Serial (stm32flash)
+El firmware es **standalone** (sin bootloader USB-DFU): tabla de vectores en
+`0x0`, flashable directo a `0x08000000` por UART. No requiere modo DFU ni
+puente BOOT0.
 
 ```bash
-cd MMDVM_HS
 sudo apt install stm32flash
-sudo make nano-hotspot    # flashea via /dev/ttyAMA0
+./flash.sh firmware_pocsag512_149mhz.bin
+# equivale a: stm32flash -b 115200 -v -w firmware_pocsag512_149mhz.bin -g 0x0 -R /dev/ttyAMA0
 ```
+
+Si te da **NACK al ~67%** (write protection activada de fábrica):
+
+```bash
+sudo stm32flash -k /dev/ttyAMA0     # quita write protection (WRP)
+# DESCONECTAR Y RECONECTAR la placa (power-cycle obligatorio tras -k)
+./flash.sh firmware_pocsag512_149mhz.bin
+```
+
+> Si `-k` solo no alcanza (RDP Level 1): `sudo stm32flash -u /dev/ttyAMA0`
+> antes del `-k` (esto borra todo el flash, incluyendo bootloader de fábrica).
 
 ---
 

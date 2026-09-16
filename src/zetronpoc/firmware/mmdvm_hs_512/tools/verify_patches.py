@@ -53,6 +53,8 @@ def main():
     # ADF7021 que no existe, y el STM32 se cuelga atendiendo interrupciones espurias.
     all_ok &= check("Config.h: DUPLEX NO definido (simplex, single ADF7021)",
                     "#define DUPLEX" not in config or "// #define DUPLEX" in config)
+    all_ok &= check("Config.h: POCSAG_512 definido (baud custom)", "#define POCSAG_512" in config)
+    all_ok &= check("Config.h: POCSAG_149MHZ definido (freq custom)", "#define POCSAG_149MHZ" in config)
 
     # --- IO.h ---
     io = read(os.path.join(src, "IO.h"))

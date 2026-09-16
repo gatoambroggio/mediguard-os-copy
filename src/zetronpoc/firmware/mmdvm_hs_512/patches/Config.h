@@ -23,6 +23,12 @@
 // Single ADF7021, SIMPLEX (NO duplex — DUPLEX es para placas con 2x ADF7021)
 #define NANO_HOTSPOT
 
+// POCSAG customizations — definidas aca directamente para NO depender del Makefile.
+// POCSAG_512:     REG3 del ADF7021 reconfigurado para 512 baud (ver ADF7021.h)
+// POCSAG_149MHZ:  VHF1_MAX extendido a 150 MHz para 149.255 MHz (ver IO.h)
+#define POCSAG_512
+#define POCSAG_149MHZ
+
 // Enable ADF7021 support:
 #define ENABLE_ADF7021
 
