@@ -37,8 +37,8 @@ fi
 echo "[1/3] make clean..."
 make clean
 
-echo "[2/3] make  (build standalone — sin bootloader, vector table en 0x0)..."
-make
+echo "[2/3] make OSC=14745600  (standalone, TCXO 14.7456 MHz, vector table en 0x0)..."
+make OSC=14745600
 
 # mmdvm_f1.bin = standalone (sin bootloader), flashable a 0x08000000 con stm32flash
 BIN="$TARGET/bin/mmdvm_f1.bin"
