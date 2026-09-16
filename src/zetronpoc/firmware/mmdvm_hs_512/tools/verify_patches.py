@@ -49,7 +49,6 @@ def main():
                     "// #define STM32_USB_HOST" in config)
     all_ok &= check("Config.h: ADF7021_14_7456 definido", "#define ADF7021_14_7456" in config)
     # DUPLEX NO debe estar definido: el Nano hotSPOT tiene 1 solo ADF7021 (simplex).
-<<<<<<< HEAD
     # Si DUPLEX está activado, el firmware configura un EXTI en PA5 para un segundo
     # ADF7021 que no existe, y el STM32 se cuelga atendiendo interrupciones espurias.
     all_ok &= check("Config.h: DUPLEX NO definido (simplex, single ADF7021)",
