@@ -32,11 +32,11 @@
 // Enable ADF7021 support:
 #define ENABLE_ADF7021
 
-// DUPLEX — el firmware oficial del Nano hotSPOT lo define.
-// Aunque la placa tiene 1 solo ADF7021, el codigo DUPLEX es el que usa el
-// firmware oficial (string: "dual ADF7021"). Removerlo causaba que el STM32
-// no arranque.
-#define DUPLEX
+// SIMPLEX — la placa Nano hotSPOT nueva tiene 1 solo ADF7021.
+// Definir DUPLEX causaba crash del STM32 (PA5/SLE2 flotando genera spurious
+// interrupts que cuelgan el MCU en clones chinos single-ADF7021).
+// El firmware oficial generic_gpio_fw que probamos es SIMPLEX y funciona.
+// POCSAG es TX-only, no necesita DUPLEX.
 
 // TCXO 14.7456 MHz (confirmado del string de firmware: MMDVM_HS-v1.6.0 14.7456MHz)
 #define ADF7021_14_7456

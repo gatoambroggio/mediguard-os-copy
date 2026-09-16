@@ -48,10 +48,11 @@ def main():
                     "#define STM32_USB_HOST" not in config or
                     "// #define STM32_USB_HOST" in config)
     all_ok &= check("Config.h: ADF7021_14_7456 definido", "#define ADF7021_14_7456" in config)
-    # DUPLEX debe estar definido: el firmware oficial del Nano hotSPOT lo define.
-    # El string de version oficial dice "dual ADF7021". Sin DUPLEX el firmware no arranca.
-    all_ok &= check("Config.h: DUPLEX definido (match firmware oficial)",
-                    "#define DUPLEX" in config)
+    # SIMPLEX: la placa tiene 1 solo ADF7021. DUPLEX causa crash en clones
+    # chinos (PA5/SLE2 flotando -> spurious interrupts -> STM32 hang).
+    # El firmware oficial generic_gpio_fw que funciona es SIMPLEX.
+    all_ok &= check("Config.h: DUPLEX NO definido (SIMPLEX, evita crash en single-ADF7021)",
+                    "#define DUPLEX" not in config)
     all_ok &= check("Config.h: POCSAG_512 definido (baud custom)", "#define POCSAG_512" in config)
     all_ok &= check("Config.h: POCSAG_149MHZ definido (freq custom)", "#define POCSAG_149MHZ" in config)
 
