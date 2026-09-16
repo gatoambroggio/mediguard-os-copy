@@ -63,15 +63,16 @@ soporta 80-325 MHz, así que 149.255 MHz es físicamente alcanzable.
 
 ---
 
-## DUPLEX (match firmware oficial)
+## SIMPLEX (sin DUPLEX) — fix para placa nueva
 
-El firmware oficial del Nano hotSPOT **define `#define DUPLEX`** en Config.h
-(confirmado en el issue #159 del repo juribeparada/MMDVM_HS). El string de
-versión oficial dice "dual ADF7021". Aunque la placa tiene un solo ADF7021,
-el código DUPLEX es el que usa el firmware oficial y **sin DUPLEX el STM32
-no arranca correctamente**.
+El firmware oficial `generic_gpio_fw.bin` que funciona en la placa nueva es
+**SIMPLEX (sin `#define DUPLEX`)**. Definir DUPLEX en una placa single-ADF7021
+causa **crash del STM32** (PA5/SLE2 flotando genera spurious interrupts que
+cuelgan el MCU en clones chinos). El STM32 no responde a GET_VERSION y MMDVMHost
+entra en loop de reintentos.
 
-**Config.h**: `#define DUPLEX` está presente, igual que el oficial.
+**Config.h**: `#define DUPLEX` **NO** está definido. POCSAG es TX-only, no
+necesita DUPLEX. El firmware arranca correctamente en la placa nueva.
 
 ---
 
@@ -79,7 +80,7 @@ no arranca correctamente**.
 
 | # | Archivo | Qué hace |
 |---|---|---|
-| 1 | `patches/Config.h` | Reemplazo completo: `NANO_HOTSPOT`, **DUPLEX** (match oficial), `STM32_USART1_HOST`, `ADF7021_14_7456`, `SERIAL_REPEATER_BAUD 115200` |
+| 1 | `patches/Config.h` | Reemplazo completo: `NANO_HOTSPOT`, **SIMPLEX** (sin DUPLEX, evita crash en placa nueva), `STM32_USART1_HOST`, `ADF7021_14_7456`, `SERIAL_REPEATER_BAUD 115200` |
 | 2 | `patches/IO.h.patch` | `VHF1_MAX`: 148000000 → 150000000 (envuelto en `#if defined(POCSAG_149MHZ)`) |
 | 3 | `patches/ADF7021.h.patch` | `ADF7021_REG3_POCSAG`: 512 baud (envuelto en `#if defined(POCSAG_512)`) |
 
