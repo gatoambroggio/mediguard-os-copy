@@ -1,0 +1,71 @@
+name: Build Firmware POCSAG 512 baud + 149.255 MHz
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/zetronpoc/firmware/mmdvm_hs_512/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install ARM GCC toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi libstdc++-arm-none-eabi-newlib libnewlib-arm-none-eabi
+
+      - name: Clone & patch MMDVM_HS
+        working-directory: src/zetronpoc/firmware/mmdvm_hs_512
+        run: |
+          chmod +x clone_and_patch.sh
+          ./clone_and_patch.sh
+
+      - name: Verify patches
+        working-directory: src/zetronpoc/firmware/mmdvm_hs_512
+        run: |
+          python3 tools/verify_patches.py MMDVM_HS
+
+      - name: Build firmware
+        working-directory: src/zetronpoc/firmware/mmdvm_hs_512
+        run: |
+          chmod +x build_firmware.sh
+          ./build_firmware.sh
+
+      - name: Verify .bin was generated
+        run: |
+          BIN="src/zetronpoc/firmware/mmdvm_hs_512/firmware_pocsag512_149mhz.bin"
+          if [ ! -f "$BIN" ]; then
+            echo "ERROR: no se genero $BIN"
+            exit 1
+          fi
+          echo "Binary generated: $BIN ($(stat -c%s "$BIN") bytes)"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware_pocsag512_149mhz
+          path: src/zetronpoc/firmware/mmdvm_hs_512/firmware_pocsag512_149mhz.bin
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: pocsag512-149mhz-latest
+          name: Firmware POCSAG 512 baud + 149.255 MHz
+          body: |
+            Firmware MMDVM_HS compilado con:
+            - Frecuencia: VHF1_MAX extendido a 150 MHz (soporta 149.255 MHz)
+            - Baud: 512 baud POCSAG (REG3 del ADF7021 reconfigurado)
+            - Board: Nano_hotSPOT (BI7JTA), TCXO 14.7456 MHz, DUPLEX, UART host
+
+            Flashear:
+              USB-DFU: ./flash.sh firmware_pocsag512_149mhz.bin
+              Serial:  cd MMDVM_HS && sudo make nano-hotspot
+          files: src/zetronpoc/firmware/mmdvm_hs_512/firmware_pocsag512_149mhz.bin
+          prerelease: false
+          draft: false
