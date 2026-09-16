@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Compila el firmware MMDVM_HS con los patches POCSAG 512 baud + 149.255 MHz.
 #
-# Build STANDALONE (sin bootloader USB-DFU) -> se flashea a 0x08000000 con
-# stm32flash por serial (/dev/ttyAMA0). La tabla de vectores queda en 0x0.
+# Build STANDALONE (make hs, sin bootloader USB-DFU) -> se flashea a 0x08000000
+# con stm32flash por serial (/dev/ttyAMA0). La tabla de vectores queda en 0x0.
+# Matchea el target oficial "nano-hotspot" del Makefile de MMDVM_HS que usa
+# mmdvm_f1.bin (make hs) flasheado a 0x0.
 #
 # Los defines POCSAG_512 y POCSAG_149MHZ van directo en Config.h (no hace
 # falta pasarlos por linea de comando al make).
@@ -37,13 +39,13 @@ fi
 echo "[1/3] make clean..."
 make clean
 
-echo "[2/3] make bl OSC=14745600  (con USB DFU bootloader, TCXO 14.7456 MHz)..."
-make bl OSC=14745600
+echo "[2/3] make hs OSC=14745600  (standalone, TCXO 14.7456 MHz)..."
+make hs OSC=14745600
 
-# mmdvm_f1bl.bin = build con bootloader (USB DFU en los primeros 8KB + firmware)
-# Flashear a 0x08000000 (0x0) con stm32flash — el bootloader arranca primero
-# y luego salta al firmware principal en 0x08002000.
-BIN="$TARGET/bin/mmdvm_f1bl.bin"
+# mmdvm_f1.bin = standalone (sin bootloader), vector table en 0x08000000.
+# Flashear a 0x08000000 (0x0) con stm32flash.
+# Es lo que usa el target oficial "nano-hotspot" del Makefile de MMDVM_HS.
+BIN="$TARGET/bin/mmdvm_f1.bin"
 if [ ! -f "$BIN" ]; then
   echo "ERROR: no se genero $BIN"
   echo "  Revisa el log de make arriba."

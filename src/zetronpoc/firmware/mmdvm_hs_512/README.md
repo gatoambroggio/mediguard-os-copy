@@ -120,7 +120,7 @@ sudo apt install gcc-arm-none-eabi libstdc++-arm-none-eabi-newlib libnewlib-arm-
 # 2. Clonar y parchear
 ./clone_and_patch.sh
 
-# 3. Compilar (build con USB DFU bootloader — flashable a 0x0)
+# 3. Compilar (make hs standalone — flashable a 0x0)
 ./build_firmware.sh
 # -> firmware_pocsag512_149mhz.bin
 ```
@@ -131,9 +131,11 @@ sudo apt install gcc-arm-none-eabi libstdc++-arm-none-eabi-newlib libnewlib-arm-
 
 ### Serial — stm32flash (recomendado)
 
-El firmware incluye el **USB DFU bootloader** en los primeros 8KB (igual que el
-firmware oficial). Flashear a `0x08000000` (0x0) por UART. `flash.sh` maneja
-automáticamente la secuencia BOOT0/NRST por GPIO — no hace falta tocar jumpers.
+El firmware es **standalone** (`make hs`, sin bootloader USB-DFU): tabla de
+vectores en `0x08000000`, flashable directo a `0x0` por UART. Es lo mismo que
+usa el target oficial `nano-hotspot` del Makefile de MMDVM_HS. `flash.sh`
+maneja automáticamente la secuencia BOOT0/NRST por GPIO — no hace falta tocar
+jumpers.
 
 ```bash
 sudo apt install stm32flash gpiod

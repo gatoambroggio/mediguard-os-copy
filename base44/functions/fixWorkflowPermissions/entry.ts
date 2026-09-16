@@ -74,7 +74,7 @@ jobs:
             - Frecuencia: VHF1_MAX extendido a 150 MHz (soporta 149.255 MHz)
             - Baud: 512 baud POCSAG (REG3 del ADF7021 reconfigurado)
             - Board: Nano_hotSPOT (BI7JTA), DUPLEX (match oficial), UART host
-            - Build: make bl (con USB DFU bootloader), flashable a 0x08000000
+            - Build: make hs OSC=14745600 (standalone, sin bootloader), flashable a 0x08000000
 
             Flashear por serial:
               sudo apt install stm32flash gpiod
