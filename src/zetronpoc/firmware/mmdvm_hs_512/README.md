@@ -77,8 +77,14 @@ soporta 80-325 MHz, así que 149.255 MHz es físicamente alcanzable.
 
 ### Opción A: GitHub Actions (automático)
 
-Al pushear a `main` cambios en `src/zetronpoc/firmware/mmdvm_hs_512/`, el workflow
-de GitHub Actions:
+El workflow vive en `workflow-template.yml` dentro de este directorio. Al
+publicar desde el panel admin (Descarga → "Publicar a GitHub"), el publicador
+lo remapea a `.github/workflows/build-firmware.yml` en la raiz del repo.
+
+> **Requisito**: el conector de GitHub debe tener el scope `workflow` (además de
+> `repo`). Si no lo tiene, el commit del workflow fallará con 403.
+
+Al pushear a `main` cambios en `src/zetronpoc/firmware/mmdvm_hs_512/`, el workflow:
 1. Instala el toolchain ARM
 2. Clona `juribeparada/MMDVM_HS` + submódulo `STM32F10X_Lib`
 3. Aplica los 3 patches
@@ -88,7 +94,7 @@ de GitHub Actions:
 
 URL de descarga:
 ```
-https://github.com/<owner>/<repo>/releases/download/pocsag512-149mhz-latest/firmware_pocsag512_149mhz.bin
+https://github.com/gatoambroggio/mediguard-os-copy/releases/download/pocsag512-149mhz-latest/firmware_pocsag512_149mhz.bin
 ```
 
 ### Opción B: Local (Raspberry Pi o PC Linux)
@@ -181,7 +187,7 @@ El patch de `IO.h` está envuelto en `#if defined(POCSAG_149MHZ) / #else`.
 | `build_firmware.sh` | Compila con `make bl` y copia el `.bin` |
 | `flash.sh` | Flashea el `.bin` al STM32 con `dfu-util` |
 | `verify_baud.sh` | Verifica el baud real de TX con RTL-SDR |
-| `.github/workflows/build-firmware.yml` | Workflow de GitHub Actions |
+| `workflow-template.yml` | Workflow de GitHub Actions (publicado como `.github/workflows/build-firmware.yml`) |
 
 ---
 
