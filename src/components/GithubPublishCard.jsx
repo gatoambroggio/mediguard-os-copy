@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ArrowUpRight,
   GitPullRequest,
+  Wrench,
 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 
@@ -60,6 +61,9 @@ export default function GithubPublishCard() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
+  const [fixing, setFixing] = useState(false);
+  const [fixResult, setFixResult] = useState(null);
+  const [fixError, setFixError] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -123,6 +127,22 @@ export default function GithubPublishCard() {
     }
   };
 
+  const fixWorkflow = async () => {
+    setFixError("");
+    setFixResult(null);
+    setFixing(true);
+    try {
+      const res = await base44.functions.invoke("fixWorkflowPermissions", {});
+      const data = res && res.data ? res.data : res;
+      if (!data || data.error) throw new Error((data && data.error) || "fallo desconocido");
+      setFixResult(data);
+    } catch (e) {
+      setFixError(e.message || String(e));
+    } finally {
+      setFixing(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }}
@@ -158,6 +178,49 @@ export default function GithubPublishCard() {
         {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <GitPullRequest className="w-5 h-5" />}
         {busy ? "Publicando…" : "Publicar a GitHub (push a main)"}
       </motion.button>
+
+      <button
+        onClick={fixWorkflow}
+        disabled={fixing}
+        className="w-full mt-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-60 border border-slate-600/50 text-slate-200 font-medium py-3 rounded-2xl transition flex items-center justify-center gap-2 text-sm"
+        title="Commitea el workflow con permissions: contents: write directo al repo (saltea el problema de contenido stale)"
+      >
+        {fixing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wrench className="w-4 h-4" />}
+        {fixing ? "Fixeando…" : "Fix Workflow (permissions: contents: write)"}
+      </button>
+
+      {fixResult && (
+        <div className="mt-3 flex items-start gap-2 text-sm bg-sky-500/10 border border-sky-500/30 rounded-2xl px-4 py-3">
+          <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-sky-400" />
+          <div className="text-sky-200">
+            {fixResult.already_fixed ? (
+              <>El workflow ya tenía el permiso — no hace falta commitear.</>
+            ) : (
+              <>
+                Workflow commiteado con <code className="font-mono">permissions: contents: write</code>.
+                <a
+                  href={fixResult.commit_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-2 inline-flex items-center gap-1 underline text-sky-300 hover:text-sky-100"
+                >
+                  Ver commit <ArrowUpRight className="w-3.5 h-3.5" />
+                </a>
+                <div className="mt-1 text-[11px] text-sky-300/70">
+                  Andá a Actions → "Run workflow" para disparar el build + Release.
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {fixError && (
+        <div className="mt-3 flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span className="break-words">{fixError}</span>
+        </div>
+      )}
 
       {result && (
         <div className="mt-4 flex items-start gap-2 text-sm bg-emerald-500/10 border border-emerald-500/30 rounded-2xl px-4 py-3">
