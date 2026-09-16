@@ -14,7 +14,7 @@
 #
 # Uso:
 #   ./verify_baud.sh <frecuencia_hz> [cap_code]
-#   ./verify_baud.sh 145000000 1234567
+#   ./verify_baud.sh 149255000 1234567
 set -euo pipefail
 
 FREQ="${1:?Uso: verify_baud.sh <frecuencia_hz> [cap_code]}"

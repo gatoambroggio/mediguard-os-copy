@@ -7,7 +7,7 @@ set -euo pipefail
 BIN="${1:-}"
 if [ -z "$BIN" ] || [ ! -f "$BIN" ]; then
   echo "Uso: flash.sh <firmware.bin>"
-  echo "  ej: flash.sh .pio/build/pocsag512-144/firmware.bin"
+  echo "  ej: flash.sh firmware_pocsag512_149mhz.bin"
   exit 1
 fi
 

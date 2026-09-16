@@ -13,7 +13,7 @@ import { base44 } from "@/api/base44Client";
 // Snapshot build-time del arbol fuente de ZetronPOC (contenido inlined por Vite).
 // Solo extensiones de texto: Vite ?raw no provee default export para archivos sin extension (ej. VERSION).
 const zetronpocModules = import.meta.glob(
-  "/src/zetronpoc/**/*.{py,html,sql,sh,conf,service,md,jsonc,json,txt,ini,cfg,css,js,jsx,ts,tsx}",
+  "/src/zetronpoc/**/*.{py,html,sql,sh,conf,service,md,jsonc,json,txt,ini,cfg,css,js,jsx,ts,tsx,h,patch,c,cpp,hpp,yml,yaml}",
   { query: "?raw", import: "default", eager: true }
 );
 
@@ -29,7 +29,13 @@ function buildFiles() {
   for (const [path, content] of Object.entries(zetronpocModules)) {
     if (typeof content !== "string" || !content) continue;
     if (content.indexOf("\0") !== -1) continue; // saltea binarios
-    files.push({ path: path.replace(/^\//, ""), content_b64: b64encode(content) });
+    let pubPath = path.replace(/^\//, "");
+    // Remapear workflow-template.yml a .github/workflows/build-firmware.yml
+    // (GitHub Actions solo lee workflows desde la raiz del repo)
+    if (pubPath.endsWith("/workflow-template.yml")) {
+      pubPath = ".github/workflows/build-firmware.yml";
+    }
+    files.push({ path: pubPath, content_b64: b64encode(content) });
   }
   return files.sort((a, b) => a.path.localeCompare(b.path));
 }
