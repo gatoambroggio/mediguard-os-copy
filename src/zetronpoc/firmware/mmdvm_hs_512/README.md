@@ -133,21 +133,29 @@ sudo apt install gcc-arm-none-eabi libstdc++-arm-none-eabi-newlib libnewlib-arm-
 ### Serial — stm32flash (recomendado)
 
 El firmware es **standalone** (sin bootloader USB-DFU): tabla de vectores en
-`0x0`, flashable directo a `0x08000000` por UART. No requiere modo DFU ni
-puente BOOT0.
+`0x0`, flashable directo a `0x08000000` por UART. `flash.sh` maneja
+automáticamente la secuencia BOOT0/NRST por GPIO — no hace falta tocar jumpers.
 
 ```bash
-sudo apt install stm32flash
-./flash.sh firmware_pocsag512_149mhz.bin
-# equivale a: stm32flash -b 115200 -v -w firmware_pocsag512_149mhz.bin -g 0x0 -R /dev/ttyAMA0
+sudo apt install stm32flash gpiod
+sudo ./flash.sh firmware_pocsag512_149mhz.bin
 ```
+
+El script hace 3 cosas solo:
+1. **Entra al bootloader**: BOOT0=1 (GPIO 20) + pulso NRST (GPIO 21)
+2. **Flashea**: `stm32flash -b 115200 -v -w firmware.bin -g 0x0 /dev/ttyAMA0`
+3. **Arranca el firmware**: BOOT0=0 + pulso NRST → el STM32 arranca el firmware nuevo
+
+> Pines GPIO por defecto: BOOT0=20, NRST=21 (igual que el Makefile de MMDVM_HS).
+> Override: `BOOT0_PIN=23 NRST_PIN=24 sudo ./flash.sh firmware.bin`
+> RPi 5: `GPIOCHIP=gpiochip4 sudo ./flash.sh firmware.bin`
 
 Si te da **NACK al ~67%** (write protection activada de fábrica):
 
 ```bash
 sudo stm32flash -k /dev/ttyAMA0     # quita write protection (WRP)
-# DESCONECTAR Y RECONECTAR la placa (power-cycle obligatorio tras -k)
-./flash.sh firmware_pocsag512_149mhz.bin
+sleep 1
+sudo ./flash.sh firmware_pocsag512_149mhz.bin
 ```
 
 > Si `-k` solo no alcanza (RDP Level 1): `sudo stm32flash -u /dev/ttyAMA0`
