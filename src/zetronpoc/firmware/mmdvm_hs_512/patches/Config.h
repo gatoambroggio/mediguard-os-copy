@@ -20,7 +20,7 @@
 #define  CONFIG_H
 
 // Nano hotSPOT (BI7JTA) - Jumbospot clone
-// Single ADF7021, SIMPLEX (NO duplex — DUPLEX es para placas con 2x ADF7021)
+// Match exactamente el Config.h oficial del MMDVM_HS para Nano hotSPOT.
 #define NANO_HOTSPOT
 
 // POCSAG customizations — definidas aca directamente para NO depender del Makefile.
@@ -32,9 +32,11 @@
 // Enable ADF7021 support:
 #define ENABLE_ADF7021
 
-// SIMPLEX: single ADF7021. NO definir DUPLEX (eso es para dual ADF7021).
-// BIDIR_DATA_PIN ya viene habilitado por defecto en Globals.h (Standard TX/RX
-// Data Interface del ADF7021, necesario para scan mode).
+// DUPLEX — el firmware oficial del Nano hotSPOT lo define.
+// Aunque la placa tiene 1 solo ADF7021, el codigo DUPLEX es el que usa el
+// firmware oficial (string: "dual ADF7021"). Removerlo causaba que el STM32
+// no arranque.
+#define DUPLEX
 
 // TCXO 14.7456 MHz (confirmado del string de firmware: MMDVM_HS-v1.6.0 14.7456MHz)
 #define ADF7021_14_7456
@@ -56,7 +58,7 @@
 
 // Nextion LCD serial port repeater on USART2
 #define SERIAL_REPEATER
-#define SERIAL_REPEATER_BAUD 9600
+#define SERIAL_REPEATER_BAUD 115200
 
 // Enable P25 Wide modulation:
 // #define ENABLE_P25_WIDE

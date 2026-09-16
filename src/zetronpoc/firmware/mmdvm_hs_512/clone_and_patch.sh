@@ -109,7 +109,7 @@ python3 "$HERE/tools/verify_patches.py" "$TARGET" || {
 
 echo
 echo "=== Patches aplicados correctamente ==="
-echo "  - Config.h:  NANO_HOTSPOT, SIMPLEX (sin DUPLEX), STM32_USART1_HOST, TCXO 14.7456 MHz"
+echo "  - Config.h:  NANO_HOTSPOT, DUPLEX, STM32_USART1_HOST, TCXO 14.7456 MHz (match oficial)"
 echo "  - IO.h:      VHF1_MAX = 150 MHz (soporta 149.255 MHz)"
 echo "  - ADF7021.h: REG3 POCSAG = 512 baud (CLK output del ADF7021)"
 echo

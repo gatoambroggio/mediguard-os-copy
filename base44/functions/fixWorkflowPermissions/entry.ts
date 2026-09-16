@@ -70,13 +70,15 @@ jobs:
           name: Firmware POCSAG 512 baud + 149.255 MHz
           body: |
             Firmware MMDVM_HS compilado con:
+            - TCXO: 14.7456 MHz (OSC=14745600)
             - Frecuencia: VHF1_MAX extendido a 150 MHz (soporta 149.255 MHz)
             - Baud: 512 baud POCSAG (REG3 del ADF7021 reconfigurado)
-            - Board: Nano_hotSPOT (BI7JTA), TCXO 14.7456 MHz, DUPLEX, UART host
+            - Board: Nano_hotSPOT (BI7JTA), DUPLEX (match oficial), UART host
+            - Build: make bl (con USB DFU bootloader), flashable a 0x08000000
 
-            Flashear:
-              USB-DFU: ./flash.sh firmware_pocsag512_149mhz.bin
-              Serial:  cd MMDVM_HS && sudo make nano-hotspot
+            Flashear por serial:
+              sudo apt install stm32flash gpiod
+              sudo ./flash.sh firmware_pocsag512_149mhz.bin
           files: src/zetronpoc/firmware/mmdvm_hs_512/firmware_pocsag512_149mhz.bin
           prerelease: false
           draft: false

@@ -63,16 +63,15 @@ soporta 80-325 MHz, así que 149.255 MHz es físicamente alcanzable.
 
 ---
 
-## ⚠️ Fix crítico: DUPLEX removido (v2)
+## DUPLEX (match firmware oficial)
 
-El primer build tenía `#define DUPLEX` en Config.h, pero el Nano hotSPOT tiene
-**un solo ADF7021** (es simplex). Con DUPLEX activado, el firmware configura un
-EXTI interrupt en PA5 para un segundo ADF7021 que no existe en la placa. Si PA5
-está flotando, el STM32 se queda trabado atendiendo interrupciones espurias y
-**nunca responde al UART** — MMDVMHost no puede obtener la versión del firmware.
+El firmware oficial del Nano hotSPOT **define `#define DUPLEX`** en Config.h
+(confirmado en el issue #159 del repo juribeparada/MMDVM_HS). El string de
+versión oficial dice "dual ADF7021". Aunque la placa tiene un solo ADF7021,
+el código DUPLEX es el que usa el firmware oficial y **sin DUPLEX el STM32
+no arranca correctamente**.
 
-**Fix**: `DUPLEX` removido de Config.h. La placa ahora compila como simplex
-(single ADF7021), que es lo correcto para el Nano hotSPOT / Jumbospot.
+**Config.h**: `#define DUPLEX` está presente, igual que el oficial.
 
 ---
 
@@ -80,7 +79,7 @@ está flotando, el STM32 se queda trabado atendiendo interrupciones espurias y
 
 | # | Archivo | Qué hace |
 |---|---|---|
-| 1 | `patches/Config.h` | Reemplazo completo: `NANO_HOTSPOT`, **SIMPLEX (sin DUPLEX)**, `STM32_USART1_HOST`, `ADF7021_14_7456` |
+| 1 | `patches/Config.h` | Reemplazo completo: `NANO_HOTSPOT`, **DUPLEX** (match oficial), `STM32_USART1_HOST`, `ADF7021_14_7456`, `SERIAL_REPEATER_BAUD 115200` |
 | 2 | `patches/IO.h.patch` | `VHF1_MAX`: 148000000 → 150000000 (envuelto en `#if defined(POCSAG_149MHZ)`) |
 | 3 | `patches/ADF7021.h.patch` | `ADF7021_REG3_POCSAG`: 512 baud (envuelto en `#if defined(POCSAG_512)`) |
 
@@ -121,7 +120,7 @@ sudo apt install gcc-arm-none-eabi libstdc++-arm-none-eabi-newlib libnewlib-arm-
 # 2. Clonar y parchear
 ./clone_and_patch.sh
 
-# 3. Compilar (build standalone, sin bootloader — flashable a 0x0)
+# 3. Compilar (build con USB DFU bootloader — flashable a 0x0)
 ./build_firmware.sh
 # -> firmware_pocsag512_149mhz.bin
 ```
@@ -132,8 +131,8 @@ sudo apt install gcc-arm-none-eabi libstdc++-arm-none-eabi-newlib libnewlib-arm-
 
 ### Serial — stm32flash (recomendado)
 
-El firmware es **standalone** (sin bootloader USB-DFU): tabla de vectores en
-`0x0`, flashable directo a `0x08000000` por UART. `flash.sh` maneja
+El firmware incluye el **USB DFU bootloader** en los primeros 8KB (igual que el
+firmware oficial). Flashear a `0x08000000` (0x0) por UART. `flash.sh` maneja
 automáticamente la secuencia BOOT0/NRST por GPIO — no hace falta tocar jumpers.
 
 ```bash

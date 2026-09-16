@@ -65,8 +65,8 @@ jobs:
             - TCXO: 14.7456 MHz (OSC=14745600)
             - Frecuencia: VHF1_MAX extendido a 150 MHz (soporta 149.255 MHz)
             - Baud: 512 baud POCSAG (REG3 del ADF7021 reconfigurado)
-            - Board: Nano_hotSPOT (BI7JTA), SIMPLEX (single ADF7021), UART host
-            - Build: standalone (make hs), vector table en 0x0, flashable a 0x08000000
+            - Board: Nano_hotSPOT (BI7JTA), DUPLEX (match oficial), UART host
+            - Build: make bl (con USB DFU bootloader), flashable a 0x08000000
 
             Flashear por serial:
               sudo apt install stm32flash gpiod
