@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Clona el MMDVM_HS oficial (juribeparada), aplica los 3 patches:
-#   1) Config.h  -> NANO_HOTSPOT board (BI7JTA), UART host, DUPLEX, TCXO 14.7456
+#   1) Config.h  -> LIBRE_KIT_ADF7021 board, UART host, SIMPLEX, TCXO 14.7456, 512 baud
 #   2) IO.h      -> VHF1_MAX extendido a 150 MHz (para 149.255 MHz)
 #   3) ADF7021.h -> REG3 POCSAG a 512 baud (CLK output del ADF7021 = baud de TX)
 set -euo pipefail
@@ -24,9 +24,9 @@ git submodule update
 
 echo "[3/4] Aplicando patches..."
 
-# --- Patch 1: Config.h (reemplazo completo por NANO_HOTSPOT) ---
+# --- Patch 1: Config.h (reemplazo completo por LIBRE_KIT_ADF7021) ---
 cp "$HERE/patches/Config.h" Config.h
-echo "    Config.h: NANO_HOTSPOT board config aplicado"
+echo "    Config.h: LIBRE_KIT_ADF7021 board config aplicado"
 
 # --- Patch 2: IO.h (VHF1_MAX 148 -> 150 MHz para 149.255 MHz) ---
 IO_PATCH="$HERE/patches/IO.h.patch"
@@ -34,26 +34,15 @@ if git apply --check "$IO_PATCH" 2>/dev/null; then
   git apply "$IO_PATCH"
   echo "    IO.h: VHF1_MAX extendido a 150 MHz (git apply)"
 else
-  # Fallback: sed directo
-  python3 - "$HERE/patches/IO.h.patch" <<'PY'
-import sys
+  # Fallback: sed directo (148000000 -> 150000000)
+  python3 - <<'PY'
 with open("IO.h", encoding="utf-8", errors="replace") as f:
     s = f.read()
-old = """// HS frequency ranges
-#define VHF1_MIN  144000000
-#define VHF1_MAX  148000000"""
-new = """// HS frequency ranges
-#if defined(POCSAG_149MHZ)
-// Extended VHF1 for 149.255 MHz POCSAG (hospital paging)
-#define VHF1_MIN  144000000
-#define VHF1_MAX  150000000
-#else
-#define VHF1_MIN  144000000
-#define VHF1_MAX  148000000
-#endif"""
+old = "#define VHF1_MAX  148000000"
+new = "#define VHF1_MAX  150000000"
 if old not in s:
-    print("    ERROR: no se encontro el bloque VHF1_MIN/VHF1_MAX en IO.h")
-    sys.exit(1)
+    print("    ERROR: no se encontro VHF1_MAX 148000000 en IO.h")
+    raise SystemExit(1)
 s = s.replace(old, new, 1)
 with open("IO.h", "w", encoding="utf-8") as f:
     f.write(s)
@@ -71,7 +60,6 @@ elif git apply --3way "$ADF_PATCH" 2>/dev/null; then
 else
   echo "    WARN: git apply fallo para ADF7021.h. Aplicando fallback Python..."
   python3 - <<'PY'
-import sys
 path = "ADF7021.h"
 with open(path, encoding="utf-8", errors="replace") as f:
     s = f.read()
@@ -94,7 +82,7 @@ s = s.replace("#define ADF7021_REG3_POCSAG      0x2A4F0093", block_147456, 1)
 s = s.replace("#define ADF7021_REG3_POCSAG      0x29EE8093", block_122880, 1)
 if s == before:
     print("    ERROR: no se encontro ADF7021_REG3_POCSAG para reemplazar.")
-    sys.exit(1)
+    raise SystemExit(1)
 with open(path, "w", encoding="utf-8") as f:
     f.write(s)
 print("    ADF7021.h: REG3 POCSAG 512 baud aplicado (fallback Python)")
@@ -109,7 +97,7 @@ python3 "$HERE/tools/verify_patches.py" "$TARGET" || {
 
 echo
 echo "=== Patches aplicados correctamente ==="
-echo "  - Config.h:  NANO_HOTSPOT, DUPLEX, STM32_USART1_HOST, TCXO 14.7456 MHz"
+echo "  - Config.h:  LIBRE_KIT_ADF7021, SIMPLEX (sin DUPLEX), STM32_USART1_HOST, TCXO 14.7456 MHz"
 echo "  - IO.h:      VHF1_MAX = 150 MHz (soporta 149.255 MHz)"
 echo "  - ADF7021.h: REG3 POCSAG = 512 baud (CLK output del ADF7021)"
 echo

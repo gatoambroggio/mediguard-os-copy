@@ -425,6 +425,10 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
     cfg = all_config(db_path)
     def g(k, d=""):
         return (cfg.get(k) or d).strip()
+    # Tipo de placa: 'hotspot' (ADF7021, RF propia) o 'repeater' (modem que
+    # modula un radio externo, firmware G4KLX). La repetidora usa UART 460800 y
+    # es full duplex; la frecuencia de RF la fija el radio, no el .ini.
+    board_type = (g("mmdvm_board_type", "hotspot")).lower()
     callsign = g("mmdvm_callsign", "LU1ABC")
     port = g("mmdvm_serial_port", "/dev/ttyUSB0")
     baud = g("mmdvm_baud", "115200")
@@ -435,7 +439,7 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
     except (ValueError, TypeError):
         freq_hz = "433800000"
     pocsag_baud = g("mmdvm_pocsag_baud", "1200")
-    duplex = g("mmdvm_duplex", "0")
+    duplex = g("mmdvm_duplex", "1" if board_type == "repeater" else "0")
     tx_invert = g("mmdvm_tx_invert", "0")
     rx_invert = g("mmdvm_rx_invert", "0")
     ptt_invert = g("mmdvm_ptt_invert", "1")
@@ -458,7 +462,12 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
     mqtt_port = g("mmdvm_mqtt_port", "1883")
     mqtt_name = g("mmdvm_mqtt_name", "host")
     conn_type = (g("mmdvm_connection_type", "uart")).lower()
-    uart_speed = g("mmdvm_uart_speed", baud) or baud
+    if board_type == "repeater":
+        # La repetidora siempre va por UART; el firmware G4KLX V3F4 usa 460800.
+        conn_type = "uart"
+        uart_speed = g("mmdvm_uart_speed", "460800") or "460800"
+    else:
+        uart_speed = g("mmdvm_uart_speed", baud) or baud
     # ---- Merge: preserva secciones/keys no manejadas por el panel ----
     # El operador suele tunear a mano [POCSAG] POCSAGTXLevel/Speed/POCSAGInvert
     # para su hardware (NP88, 512 baud, VHF). Si el panel sobreescribe todo,
@@ -584,6 +593,9 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
         "# MMDVM.ini - generado por ZetronPOC / MediGuard OS (merge)",
         "# El panel maneja [General]/[Modem]/[MQTT]/[Remote Control]/[Log] y [POCSAG] Enable.",
         "# El resto (POCSAGTXLevel, Speed, [OLED], [HTTP], etc.) se preserva del .ini existente.",
+        "# Placa: %s%s" % (board_type,
+                            " (radio externo: el RF lo fija el radio, la frecuencia del .ini no aplica)"
+                            if board_type == "repeater" else " (hotspot ADF7021, RF propia)"),
     ]
     for sec in existing_order:
         out_lines.append("")

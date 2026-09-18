@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Copy, Check } from "lucide-react";
 
 const DEFAULTS = {
+  boardType: "hotspot",
   callsign: "LU1ABC",
   serialPort: "/dev/ttyUSB0",
   baud: "115200",
@@ -28,6 +29,17 @@ export default function MmdvmConfig() {
 
   const set = (k, v) => setCfg((c) => ({ ...c, [k]: v }));
 
+  // Cambiar el tipo de placa ajusta los defaults dependientes: la repetidora
+  // habla por UART a 460800 (firmware G4KLX V3F4) y es full duplex; el hotspot
+  // ADF7021 va por USB a 115200 y simplex.
+  const setBoard = (v) => setCfg((c) => ({
+    ...c,
+    boardType: v,
+    ...(v === "repeater"
+      ? { connectionType: "uart", uartSpeed: "460800", duplex: "1" }
+      : { connectionType: "usb", baud: "115200", duplex: "0" }),
+  }));
+
   const ini = useMemo(() => {
     const modeFlags = cfg.enableVoice
       ? `DMR=1
@@ -45,8 +57,12 @@ NXDN=0`;
 UARTPort=${cfg.serialPort}
 UARTSpeed=${cfg.uartSpeed}`
       : `BaudeRate=${cfg.baud}`;
+    const boardNote = cfg.boardType === "repeater"
+      ? "# Placa REPETIDORA (radio externo): la frecuencia de RF la fija el RADIO, no este .ini."
+      : "# Placa HOTSPOT (ADF7021): RF propia; la frecuencia se setea al modulo.";
     return `# MMDVM.ini — generado por ZetronPOC / MediGuard OS
 # Modulo MMDVM UHF/VHF por puerto serie (sin Raspberry, sin .wav)
+${boardNote}
 
 [General]
 Callsign=${cfg.callsign}
@@ -114,6 +130,7 @@ FileRoot=MMDVM
       <div className="rounded-[24px] bg-white/80 backdrop-blur-xl border border-slate-200 p-5">
         <h3 className="font-display font-bold text-slate-900 mb-4">Parametros del modulo</h3>
         <div className="grid sm:grid-cols-2 gap-3">
+          <Select label="Tipo de placa" value={cfg.boardType} onChange={setBoard} opts={[["hotspot", "Hotspot (ADF7021)"], ["repeater", "Repetidora (radio externo)"]]} />
           <Field label="Callsign" value={cfg.callsign} onChange={(v) => set("callsign", v)} />
           <Select label="Conexion" value={cfg.connectionType} onChange={(v) => set("connectionType", v)} opts={[["usb", "USB / ttyUSB"], ["uart", "UART (ttyAMA0)"]]} />
           <Field label="Puerto serie" value={cfg.serialPort} onChange={(v) => set("serialPort", v)} mono />
@@ -122,7 +139,7 @@ FileRoot=MMDVM
           ) : (
             <Field label="Baudios" value={cfg.baud} onChange={(v) => set("baud", v)} mono />
           )}
-          <Field label="Frecuencia (MHz)" value={cfg.frequency} onChange={(v) => set("frequency", v)} mono />
+          <Field label={cfg.boardType === "repeater" ? "Frecuencia del radio (MHz)" : "Frecuencia (MHz)"} value={cfg.frequency} onChange={(v) => set("frequency", v)} mono />
           <Field label="POCSAG baudios" value={cfg.pocsagBaud} onChange={(v) => set("pocsagBaud", v)} mono />
           <Field label="TX Level (0-100)" value={cfg.txLevel} onChange={(v) => set("txLevel", v)} mono />
           <Field label="TX Offset (Hz)" value={cfg.txOffset} onChange={(v) => set("txOffset", v)} mono />
@@ -137,6 +154,14 @@ FileRoot=MMDVM
           <Toggle label="Modos de voz (DMR/DStar/YSF)" checked={cfg.enableVoice} onChange={(v) => set("enableVoice", v)} />
           <Toggle label="DAPNET (red global de pagers)" checked={cfg.dapnetEnable} onChange={(v) => set("dapnetEnable", v)} />
         </div>
+
+        {cfg.boardType === "repeater" && (
+          <div className="mt-3 rounded-xl bg-amber-50 border border-amber-200 px-3.5 py-3 text-[11px] text-amber-800 leading-relaxed">
+            Modo repetidora: esta placa no tiene RF propia. Conectá el radio por el cable (PTT/COS/audio)
+            y programá el radio a la frecuencia de paginación. El .ini usa UART a 460800 (firmware G4KLX V3F4);
+            si tu placa trae firmware viejo, bajá a 115200.
+          </div>
+        )}
 
         {cfg.dapnetEnable && (
           <div className="mt-3 grid sm:grid-cols-2 gap-3 pt-3 border-t border-slate-200">

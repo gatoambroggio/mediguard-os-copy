@@ -172,31 +172,6 @@ else:
 s.close()
 PYEOF
 
-# Clasificar el tipo de placa segun el byte de protocolo de GET_VERSION:
-#   1 = MMDVM_HS    -> hotspot con chip ADF7021 (RF propia)
-#   2 = G4KLX MMDVM -> repetidora: modem que modula un radio externo
-if [ -f "/opt/zetronpoc/scripts/mmdvm_detect_port.py" ]; then
-  BOARD_INFO=$(python3 /opt/zetronpoc/scripts/mmdvm_detect_port.py "$PORT" 115200 --board 2>/dev/null || echo "")
-  if [ -n "$BOARD_INFO" ]; then
-    KIND=$(echo "$BOARD_INFO" | cut -f2)
-    case "$KIND" in
-      repeater)
-        ok "Tipo de placa: REPETIDORA (radio externo, firmware G4KLX)"
-        echo -e "    El RF lo genera el RADIO conectado; la frecuencia del .ini NO aplica."
-        echo -e "    Config: Protocol=uart, UARTSpeed=460800 (firmware V3F4) o 115200 (viejo)."
-        ;;
-      hotspot)
-        ok "Tipo de placa: HOTSPOT (ADF7021, RF propia)"
-        ;;
-      *)
-        warn "Tipo de placa: no se pudo clasificar (proto=${KIND:-?})"
-        ;;
-    esac
-  else
-    warn "No se pudo leer el tipo de placa (modulo sin responder)"
-  fi
-fi
-
 # ---------------------------------------------------------------------------
 # 4. Test de frecuencia 149.255 MHz
 # ---------------------------------------------------------------------------
@@ -323,10 +298,4 @@ echo -e "    El problema está en MMDVMHost o la configuración POCSAG."
 echo -e "    Verificar que POCSAG=1 en MMDVM.ini y que el page se está enviando"
 echo -e "    por el canal correcto (API → MMDVMHost)."
 echo -e "    ${C}sudo journalctl -u mmdvmhost -f${N}  # y enviar un page de prueba"
-echo ""
-echo -e "  ${B}Si la placa es una REPETIDORA (radio externo):${N}"
-echo -e "    El test de frecuencia del paso 4 no aplica: el RF lo fija el radio."
-echo -e "    Verificá: cable PTT/COS/audio conectado, radio programado a la"
-echo -e "    frecuencia de paginación, y UARTSpeed del .ini acorde al firmware."
-echo -e "    Test en vivo: desde el panel admin (Diagnóstico → Test page)."
 echo ""

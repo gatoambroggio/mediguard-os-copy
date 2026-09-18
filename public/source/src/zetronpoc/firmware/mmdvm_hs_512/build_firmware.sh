@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 # Compila el firmware MMDVM_HS con los patches POCSAG 512 baud + 149.255 MHz.
 #
-# Usa el Makefile oficial (NO PlatformIO). Requiere:
-#   - gcc-arm-none-eabi gdb-arm-none-eabi libstdc++-arm-none-eabi-newlib libnewlib-arm-none-eabi
-#   - El submodulo STM32F10X_Lib (clone_and_patch.sh lo inicializa)
+# Build STANDALONE (make hs, sin bootloader USB-DFU) -> se flashea a 0x08000000
+# con stm32flash por serial (/dev/ttyAMA0). La tabla de vectores queda en 0x0.
+# make hs = build generico para STM32F1 hotspot (el board se selecciona via
+# Config.h, no via el target del make). Genera mmdvm_f1.bin flasheable a 0x0.
 #
-# Uso:
-#     ./build_firmware.sh [MMDVM_HS_DIR]     # default: ./MMDVM_HS
+# El define POCSAG_512 va directo en Config.h (no hace falta pasarlo por
+# linea de comando al make).
+#
+# Requiere:
+#   - gcc-arm-none-eabi libstdc++-arm-none-eabi-newlib libnewlib-arm-none-eabi
+#   - El submodulo STM32F10X_Lib (clone_and_patch.sh lo inicializa)
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -25,7 +30,6 @@ fi
 
 cd "$TARGET"
 
-# Verificar toolchain ARM
 if ! command -v arm-none-eabi-gcc >/dev/null 2>&1; then
   echo "ERROR: arm-none-eabi-gcc no instalado."
   echo "  Ubuntu/Debian: sudo apt install gcc-arm-none-eabi libstdc++-arm-none-eabi-newlib libnewlib-arm-none-eabi"
@@ -35,24 +39,25 @@ fi
 echo "[1/3] make clean..."
 make clean
 
-echo "[2/3] make bl  (compila firmware MMDVM_HS con bootloader STM32F1)..."
-# 'bl' = con bootloader USB-DFU (para flash con dfu-util a 0x08008000)
-make bl
+echo "[2/3] make hs OSC=14745600  (standalone, TCXO 14.7456 MHz)..."
+make hs OSC=14745600
 
-BIN="$TARGET/bin/mmdvm_f1bl.bin"
+# mmdvm_f1.bin = standalone (sin bootloader), vector table en 0x08000000.
+# Flashear a 0x08000000 (0x0) con stm32flash.
+# make hs = standalone (sin bootloader), cualquier board F1.
+BIN="$TARGET/bin/mmdvm_f1.bin"
 if [ ! -f "$BIN" ]; then
   echo "ERROR: no se genero $BIN"
-  echo "  Busca tambien: $TARGET/bin/mmdvm_f1.bin (sin bootloader)"
   echo "  Revisa el log de make arriba."
   exit 1
 fi
 
 OUT="$HERE/firmware_pocsag512_149mhz.bin"
 cp "$BIN" "$OUT"
-echo "[3/3] Listo: $OUT"
+echo "[3/3] Listo: $OUT ($(stat -c%s "$OUT") bytes)"
 echo
 echo "Flashealo al STM32 del Jumbospot con:"
-echo "    ./flash.sh $OUT"
+echo "    sudo ./flash.sh $OUT"
 echo
-echo "O si flasheas por serial (stm32flash):"
-echo "    cd $TARGET && sudo make nano-hotspot"
+echo "Si la placa tiene write protection (NACK al ~67%):"
+echo "    sudo stm32flash -k /dev/ttyAMA0  &&  power-cycle  &&  re-flashear"

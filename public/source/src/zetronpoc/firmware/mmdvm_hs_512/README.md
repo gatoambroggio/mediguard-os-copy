@@ -63,11 +63,31 @@ soporta 80-325 MHz, así que 149.255 MHz es físicamente alcanzable.
 
 ---
 
+## LIBRE_KIT_ADF7021 + SIMPLEX — fix para placa nueva
+
+El firmware que **anda en el hardware** (probado, extraído del .bin que funcionaba)
+está compilado con **`LIBRE_KIT_ADF7021`** (NO `NANO_HOTSPOT`) y **SIMPLEX** (sin
+`#define DUPLEX`).
+
+**Por qué `NANO_HOTSPOT` causaba crash**: `NANO_HOTSPOT` y `LIBRE_KIT_ADF7021`
+configuran el **pin mapping del STM32** hacia el ADF7021 (SLE, SCLK, SDATA, SREAD,
+CE, etc.) de forma distinta. Si la placa está cableada como Libre Kit pero el
+firmware la trata como Nano hotSPOT, los pines quedan cruzados y el STM32 se cuelga
+esperando respuesta del ADF7021 → **crash loop (LED rojo rápido)**.
+
+**Por qué SIMPLEX**: la placa tiene 1 solo ADF7021. Definir DUPLEX en una placa
+single-ADF7021 causa crash (PA5/SLE2 flotando → spurious interrupts).
+
+**Config.h**: `LIBRE_KIT_ADF7021` definido, `NANO_HOTSPOT` comentado, `DUPLEX`
+comentado. POCSAG es TX-only, no necesita DUPLEX.
+
+---
+
 ## Los 3 patches
 
 | # | Archivo | Qué hace |
 |---|---|---|
-| 1 | `patches/Config.h` | Reemplazo completo: `NANO_HOTSPOT`, `DUPLEX`, `STM32_USART1_HOST`, `ADF7021_14_7456` |
+| 1 | `patches/Config.h` | Reemplazo completo: **`LIBRE_KIT_ADF7021`** (board correcto, NO `NANO_HOTSPOT`), **SIMPLEX** (sin DUPLEX), `STM32_USART1_HOST`, `ADF7021_14_7456`, `SERIAL_REPEATER_BAUD 9600`, `DISABLE_FREQ_CHECK`, `DISABLE_FREQ_BAN` |
 | 2 | `patches/IO.h.patch` | `VHF1_MAX`: 148000000 → 150000000 (envuelto en `#if defined(POCSAG_149MHZ)`) |
 | 3 | `patches/ADF7021.h.patch` | `ADF7021_REG3_POCSAG`: 512 baud (envuelto en `#if defined(POCSAG_512)`) |
 
@@ -89,7 +109,7 @@ Al pushear a `main` cambios en `src/zetronpoc/firmware/mmdvm_hs_512/`, el workfl
 2. Clona `juribeparada/MMDVM_HS` + submódulo `STM32F10X_Lib`
 3. Aplica los 3 patches
 4. Verifica que quedaron aplicados (`verify_patches.py`)
-5. Compila con `make bl`
+5. Compila con `make` (standalone, sin bootloader)
 6. Publica `firmware_pocsag512_149mhz.bin` como **Release** descargable
 
 URL de descarga:
@@ -108,7 +128,7 @@ sudo apt install gcc-arm-none-eabi libstdc++-arm-none-eabi-newlib libnewlib-arm-
 # 2. Clonar y parchear
 ./clone_and_patch.sh
 
-# 3. Compilar (usa Makefile oficial, NO PlatformIO)
+# 3. Compilar (make hs standalone — flashable a 0x0)
 ./build_firmware.sh
 # -> firmware_pocsag512_149mhz.bin
 ```
@@ -117,27 +137,38 @@ sudo apt install gcc-arm-none-eabi libstdc++-arm-none-eabi-newlib libnewlib-arm-
 
 ## Flashear al Jumbospot (STM32)
 
-### USB-DFU (recomendado)
+### Serial — stm32flash (recomendado)
 
-1. Desconectá el Jumbospot del USB.
-2. Poné el STM32 en modo DFU: puente `BOOT0=1` y reconectá al USB.
-3. `lsusb` → aparece `STMicroelectronics STM Device in DFU Mode`.
-4. Flasheá:
-   ```bash
-   ./flash.sh firmware_pocsag512_149mhz.bin
-   # equivale a: dfu-util -a 0 -s 0x08008000:leave -D firmware_pocsag512_149mhz.bin
-   ```
-5. Sacá el puente `BOOT0`, desconectá/reconectá USB → arranca con el nuevo fw.
-
-> Requiere `dfu-util`: `sudo apt install dfu-util`
-
-### Serial (stm32flash)
+El firmware es **standalone** (`make hs`, sin bootloader USB-DFU): tabla de
+vectores en `0x08000000`, flashable directo a `0x0` por UART. Es lo mismo que
+usa el target oficial `nano-hotspot` del Makefile de MMDVM_HS. `flash.sh`
+maneja automáticamente la secuencia BOOT0/NRST por GPIO — no hace falta tocar
+jumpers.
 
 ```bash
-cd MMDVM_HS
-sudo apt install stm32flash
-sudo make nano-hotspot    # flashea via /dev/ttyAMA0
+sudo apt install stm32flash gpiod
+sudo ./flash.sh firmware_pocsag512_149mhz.bin
 ```
+
+El script hace 3 cosas solo:
+1. **Entra al bootloader**: BOOT0=1 (GPIO 20) + pulso NRST (GPIO 21)
+2. **Flashea**: `stm32flash -b 115200 -v -w firmware.bin -g 0x0 /dev/ttyAMA0`
+3. **Arranca el firmware**: BOOT0=0 + pulso NRST → el STM32 arranca el firmware nuevo
+
+> Pines GPIO por defecto: BOOT0=20, NRST=21 (igual que el Makefile de MMDVM_HS).
+> Override: `BOOT0_PIN=23 NRST_PIN=24 sudo ./flash.sh firmware.bin`
+> RPi 5: `GPIOCHIP=gpiochip4 sudo ./flash.sh firmware.bin`
+
+Si te da **NACK al ~67%** (write protection activada de fábrica):
+
+```bash
+sudo stm32flash -k /dev/ttyAMA0     # quita write protection (WRP)
+sleep 1
+sudo ./flash.sh firmware_pocsag512_149mhz.bin
+```
+
+> Si `-k` solo no alcanza (RDP Level 1): `sudo stm32flash -u /dev/ttyAMA0`
+> antes del `-k` (esto borra todo el flash, incluyendo bootloader de fábrica).
 
 ---
 

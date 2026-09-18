@@ -19,24 +19,52 @@
 #if !defined(CONFIG_H)
 #define  CONFIG_H
 
-// Nano hotSPOT (BI7JTA) - Jumbospot clone
-// Single ADF7021, full duplex via BIDIR_DATA_PIN, UART host
-#define NANO_HOTSPOT
+// Select one board (STM32F103 based boards)
+// 1) ZUMspot RPi or ZUMspot USB:
+// #define ZUMSPOT_ADF7021
+// 2) Libre Kit board or any homebrew hotspot with modified RF7021SE and Blue Pill STM32F103:
+#define LIBRE_KIT_ADF7021
+// 3) MMDVM_HS_Hat revisions 1.1, 1.2 and 1.4 (DB9MAT & DF2ET)
+// #define MMDVM_HS_HAT_REV12
+// 4) MMDVM_HS_Dual_Hat revisions 1.0 (DB9MAT & DF2ET & DO7EN)
+// #define MMDVM_HS_DUAL_HAT_REV10
+// 5) Nano hotSPOT (BI7JTA)
+// #define NANO_HOTSPOT
+// 6) NanoDV NPi or USB revisions 1.0 (BG4TGO & BG5HHP)
+// #define NANO_DV_REV10
+// 7) D2RG MMDVM_HS RPi (BG3MDO, VE2GZI, CA6JAU)
+// #define D2RG_MMDVM_HS
+// 8) BridgeCom SkyBridge HotSpot
+// #define SKYBRIDGE_HS
+// 9) LoneStar USB Stick ADF7071
+// #define LONESTAR_USB
 
 // Enable ADF7021 support:
 #define ENABLE_ADF7021
 
-// Full duplex with single ADF7021 (bidirectional data pin)
-#define DUPLEX
+// Enable full duplex support with dual ADF7021 (valid for homebrew hotspots only):
+// #define DUPLEX
 
-// TCXO 14.7456 MHz (confirmado del string de firmware: MMDVM_HS-v1.6.0 14.7456MHz)
+// TCXO of the ADF7021
+// For 14.7456 MHz:
 #define ADF7021_14_7456
+// For 12.2880 MHz:
+// #define ADF7021_12_2880
 
+// Configure receiver gain for ADF7021
 // AGC automatic, default settings:
 #define AD7021_GAIN_AUTO
+// AGC automatic with high LNA linearity:
+// #define AD7021_GAIN_AUTO_LIN
+// AGC OFF, lowest gain:
+// #define AD7021_GAIN_LOW
+// AGC OFF, highest gain:
+// #define AD7021_GAIN_HIGH
 
-// Host communication: UART (Jumbospot conectado via USB-TTL serial)
+// Host communication selection:
 #define STM32_USART1_HOST
+// #define STM32_USB_HOST
+// #define STM32_I2C_HOST
 
 // I2C host address:
 #define I2C_ADDR 0x22
@@ -45,40 +73,50 @@
 #define ENABLE_SCAN_MODE
 
 // Send RSSI value:
-#define SEND_RSSI_DATA
+// #define SEND_RSSI_DATA
 
-// Nextion LCD serial port repeater on USART2
+// Enable Nextion LCD serial port repeater on USART2 (ZUMspot Libre Kit and ZUMspot RPi):
 #define SERIAL_REPEATER
 #define SERIAL_REPEATER_BAUD 9600
+
+// Enable Nextion LCD serial port repeater on USART1 (Do not use with STM32_USART1_HOST enabled):
+// #define SERIAL_REPEATER_USART1
 
 // Enable P25 Wide modulation:
 // #define ENABLE_P25_WIDE
 
-// Engage a constant or descreet Service LED mode once repeater is running 
+// Disable mode LEDs blink during scan mode:
+// #define QUIET_MODE_LEDS
+
+// Engage a constant or descreet Service LED mode once repeater is running
 // #define CONSTANT_SRV_LED
+// #define CONSTANT_SRV_LED_INVERTED
 // #define DISCREET_SRV_LED
+// #define DISCREET_SRV_LED_INVERTED
 
 // Use the YSF and P25 LEDs for NXDN
-// #define USE_ALTERNATE_NXDN_LEDS
+#define USE_ALTERNATE_NXDN_LEDS
 
 // Use the D-Star and P25 LEDs for M17
 // #define USE_ALTERNATE_M17_LEDS
 
 // Use the D-Star and DMR LEDs for POCSAG
-// #define USE_ALTERNATE_POCSAG_LEDS
+#define USE_ALTERNATE_POCSAG_LEDS
 
 // Enable for RPi 3B+, USB mode
-// #define LONG_USB_RESET
+#define LONG_USB_RESET
 
 // Enable modem debug messages
 #define ENABLE_DEBUG
 
 // Disable frequency bands check
-// #define DISABLE_FREQ_CHECK
+#define DISABLE_FREQ_CHECK
 
 // Disable frequency restrictions (satellite, ISS, etc)
-// #define DISABLE_FREQ_BAN
+#define DISABLE_FREQ_BAN
 
+//POGSAG 512 BAUDIOS
+#define POCSAG_512
 // Enable UDID feature
 // #define ENABLE_UDID
 

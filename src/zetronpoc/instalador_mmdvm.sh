@@ -18,6 +18,17 @@ CALLSIGN="${MMDVM_CALLSIGN:-LU1ABC}"
 PORT="${MMDVM_PORT:-/dev/ttyUSB0}"
 BAUD="${MMDVM_BAUD:-115200}"
 FREQ="${MMDVM_FREQ:-433800000}"
+# Tipo de placa: 'hotspot' (ADF7021) o 'repeater' (modem de radio externo).
+# La repetidora corre firmware G4KLX (V3F4) y habla por UART a 460800; su RF lo
+# fija el radio conectado, no la frecuencia de este .ini.
+BOARD="${MMDVM_BOARD:-hotspot}"
+if [[ "$BOARD" == "repeater" ]]; then
+  UART_SPEED="${MMDVM_UART_SPEED:-460800}"
+  DUPLEX="1"
+else
+  UART_SPEED="${MMDVM_UART_SPEED:-$BAUD}"
+  DUPLEX="0"
+fi
 
 G="\033[1;32m"; Y="\033[1;33m"; R="\033[1;31m"; NC="\033[0m"
 log(){ echo -e "${G}[OK]${NC}   $*"; }
@@ -68,7 +79,7 @@ cat > "$INI" <<EOF
 Callsign=${CALLSIGN}
 Id=${CALLSIGN// /}000
 Timeout=180
-Duplex=0
+Duplex=${DUPLEX}
 RFModeHang=10
 DMR=0
 DSTAR=0
@@ -82,7 +93,7 @@ Display=None
 Port=${PORT}
 Protocol=uart
 UARTPort=${PORT}
-UARTSpeed=${BAUD}
+UARTSpeed=${UART_SPEED}
 RXFrequency=${FREQ}
 TXFrequency=${FREQ}
 TXInvert=1
@@ -197,6 +208,7 @@ fi
 
 echo "--------------------------------------------"
 log "MMDVM instalado."
+echo "  placa      : ${BOARD}  (UART ${UART_SPEED})"
 echo "  .ini       : ${INI}"
 echo "  broker     : 127.0.0.1:1883 (topic host/command <- dispatch)"
 echo "  remote ctl : 127.0.0.1:7642"
