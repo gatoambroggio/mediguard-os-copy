@@ -68,6 +68,24 @@ else
   log "MMDVMHost compilado e instalado en $BIN."
 fi
 
+# Detectar el puerto REAL del modulo ANTES de escribir el .ini: asi ${PORT} ya
+# es el valor final y no hace falta reescribir el archivo despues. Un sed sin
+# anclar a [Modem] pisaba tambien [MQTT] Port y [Remote Control] Port, dejando a
+# MMDVMHost sin broker -> nunca se suscribia a host/command y no transmitia.
+PROBE="${APP_DIR}/scripts/mmdvm_detect_port.py"
+mkdir -p "${APP_DIR}/scripts"
+if dl_retry "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/scripts/mmdvm_detect_port.py" "$PROBE"; then
+  chmod +x "$PROBE"
+  DET="$(python3 "$PROBE" "$PORT" "$BAUD" 2>/dev/null || true)"
+  if [[ -n "$DET" ]]; then
+    PORT="$DET"; log "puerto MMDVM detectado: ${PORT}"
+  else
+    warn "no se detecto modulo por handshake; .ini queda en ${PORT} (el wrapper re-sondea al arrancar)."
+  fi
+else
+  warn "no se pudo descargar mmdvm_detect_port.py; .ini queda en ${PORT}."
+fi
+
 echo "==> 3/6 Escribiendo MMDVM.ini completo en ${INI}..."
 mkdir -p "$MMDVM_DIR" /var/log/mmdvm
 cat > "$INI" <<EOF
@@ -141,30 +159,12 @@ Enabled=0
 [Log]
 DisplayLevel=1
 FileLevel=1
-FilePath=/var/log/mmdvm
+FilePath=/var/log/mmdvm/
 FileRoot=MMDVM
 EOF
 # RSSI.dat vacio para evitar el error de startup
 [[ -f "$MMDVM_DIR/RSSI.dat" ]] || touch "$MMDVM_DIR/RSSI.dat"
 log "MMDVM.ini escrito con [MQTT] y [RemoteControl] habilitados."
-
-# Detectar el puerto REAL del modulo (sondea ttyUSB0/ttyAMA0/ttyS0 con
-# GET_VERSION) y reescribir el .ini con ese. Sin esto, PORT por defecto
-# (/dev/ttyUSB0) puede no ser donde esta la placa y MMDVMHost nunca hace
-# handshake (LED roja del modulo titilando para siempre).
-PROBE="${APP_DIR}/scripts/mmdvm_detect_port.py"
-if dl_retry "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/scripts/mmdvm_detect_port.py" "$PROBE"; then
-  chmod +x "$PROBE"
-  DET="$(python3 "$PROBE" "$PORT" "$BAUD" 2>/dev/null || true)"
-  if [[ -n "$DET" ]]; then
-    PORT="$DET"; log "puerto MMDVM detectado: ${PORT}"
-    sed -i -E "s#^(Port=).*#\1${PORT}#; s#^(UARTPort=).*#\1${PORT}#" "$INI"
-  else
-    warn "no se detecto modulo por handshake; .ini queda en ${PORT} (el wrapper re-sondea al arrancar)."
-  fi
-else
-  warn "no se pudo descargar mmdvm_detect_port.py; .ini queda en ${PORT}."
-fi
 
 # Wrapper: fuente unica en el repo. Auto-detecta el puerto real del modulo
 # (GET_VERSION a ttyUSB0/ttyAMA0/ttyS0) y reescribe el .ini si hace falta.

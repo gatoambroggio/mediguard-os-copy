@@ -508,7 +508,7 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
             "Port": remote_port,
         },
         "Log": {
-            "FilePath": "/var/log/mmdvm",
+            "FilePath": "/var/log/mmdvm/",
             "FileName": "MMDVM-%Y-%m-%d.log",
             "FileLevel": "1",
             "DisplayLevel": "1",
