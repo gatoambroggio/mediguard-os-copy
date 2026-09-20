@@ -574,7 +574,15 @@ class Handler(BaseHTTPRequestHandler):
             probe_script = os.path.join(APP_DIR, "scripts", "mmdvm_detect_port.py")
             handshake_ok = False
             firmware_version = None
-            if os.path.exists(probe_script):
+            # CRITICO: NO sondear el puerto serie mientras MMDVMHost esta activo.
+            # El probe abre el puerto (ej. /dev/ttyAMA0) y escribe un frame
+            # GET_VERSION en el MISMO puerto que MMDVMHost usa para hablar con el
+            # modulo: la respuesta del modem entra en el stream de MMDVMHost, lo
+            # desincroniza y aborta la transmision POCSAG en curso. El panel llama
+            # a este endpoint cada 10s -> con el panel abierto ningun page salia
+            # por RF (MMDVMHost moria en medio del envio).
+            can_probe = (svc != "active")
+            if os.path.exists(probe_script) and can_probe:
                 # 1) fast path: handshake SOLO contra el puerto configurado
                 #    (--single no abre otros puertos -> polling de 10s rapido).
                 if port_present:
@@ -608,6 +616,10 @@ class Handler(BaseHTTPRequestHandler):
             if not port_present:
                 import glob as _g
                 port_present = bool(_g.glob("/dev/ttyUSB*") or _g.glob("/dev/ttyACM*") or _g.glob("/dev/ttyAMA*") or _g.glob("/dev/ttyS*"))
+            if not can_probe:
+                # No sondeamos porque MMDVMHost tiene el puerto abierto: si el
+                # servicio esta activo y el puerto existe, lo esta usando el.
+                handshake_ok = (svc == "active" and port_present)
             return jok(self, {"installed": bin_ok, "service": svc,
                               "binary": "/usr/local/bin/MMDVM-Host" if bin_ok else None,
                               "port": port, "port_present": port_present,
