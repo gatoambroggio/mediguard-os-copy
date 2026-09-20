@@ -42,9 +42,10 @@ fi
 # ini_get <seccion> <clave> -> valor de la clave dentro de esa seccion del .ini
 ini_get(){
   awk -v sec="$1" -v key="$2" '
+    BEGIN { tgt = tolower(sec); gsub(/[[:space:]]/, "", tgt); tgt = "[" tgt "]" }
     /^[[:space:]]*\[/ {
       s = $0; gsub(/[[:space:]]/, "", s)
-      f = (tolower(s) == "[" tolower(sec) "]") ? 1 : 0
+      f = (tolower(s) == tgt) ? 1 : 0
       next
     }
     f && $0 !~ /^[[:space:]]*[;#]/ && index($0, "=") {
@@ -217,9 +218,15 @@ for b in bauds:
         print("    Verifique que el servicio MMDVMHost esté detenido:")
         print("    sudo systemctl stop mmdvmhost")
         sys.exit(1)
-    os.write(fd, build(CMD_GET_VERSION))
-    time.sleep(0.3)
-    fr = read_frame(fd, 2.0)
+    # El modulo puede tardar en contestar justo despues de que MMDVMHost suelta
+    # el puerto: reintentar el GET_VERSION antes de darlo por muerto.
+    fr = None
+    for _ in range(3):
+        os.write(fd, build(CMD_GET_VERSION))
+        time.sleep(0.3)
+        fr = read_frame(fd, 2.0)
+        if fr:
+            break
     if fr:
         opened = (b, fd, fr)
         break
