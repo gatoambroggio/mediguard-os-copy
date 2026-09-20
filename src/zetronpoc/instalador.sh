@@ -208,6 +208,9 @@ dl "${SRC}/scripts/mmdvmhost-run.sh" "${APP_DIR}/scripts/mmdvmhost-run.sh"
 # detector del puerto real del modulo (GET_VERSION a ttyUSB0/ttyAMA0/ttyS0);
 # sin esto el instalador forzaba /dev/ttyS0 y MMDVMHost nunca hacia handshake.
 dl "${SRC}/scripts/mmdvm_detect_port.py" "${APP_DIR}/scripts/mmdvm_detect_port.py"
+# diagnostico de placa de punta a punta (servicio, firmware, tipo de placa,
+# test de frecuencia y paridad del MMDVM.ini). Sin pyserial: usa termios.
+dl "${SRC}/scripts/diagnostico_placa.sh" "${APP_DIR}/scripts/diagnostico_placa.sh"
 chmod +x "${APP_DIR}/scripts/"*.sh
 # CRITICO: el detector .py tambien necesita +x. El wrapper mmdvmhost-run.sh
 # hace `[[ -x "$PROBE" ]]` antes de ejecutarlo; sin +x lo saltea con

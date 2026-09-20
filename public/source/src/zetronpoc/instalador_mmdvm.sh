@@ -18,6 +18,17 @@ CALLSIGN="${MMDVM_CALLSIGN:-LU1ABC}"
 PORT="${MMDVM_PORT:-/dev/ttyUSB0}"
 BAUD="${MMDVM_BAUD:-115200}"
 FREQ="${MMDVM_FREQ:-433800000}"
+# Tipo de placa: 'hotspot' (ADF7021) o 'repeater' (modem de radio externo).
+# La repetidora corre firmware G4KLX (V3F4) y habla por UART a 460800; su RF lo
+# fija el radio conectado, no la frecuencia de este .ini.
+BOARD="${MMDVM_BOARD:-hotspot}"
+if [[ "$BOARD" == "repeater" ]]; then
+  UART_SPEED="${MMDVM_UART_SPEED:-460800}"
+  DUPLEX="1"
+else
+  UART_SPEED="${MMDVM_UART_SPEED:-$BAUD}"
+  DUPLEX="0"
+fi
 
 G="\033[1;32m"; Y="\033[1;33m"; R="\033[1;31m"; NC="\033[0m"
 log(){ echo -e "${G}[OK]${NC}   $*"; }
@@ -57,6 +68,24 @@ else
   log "MMDVMHost compilado e instalado en $BIN."
 fi
 
+# Detectar el puerto REAL del modulo ANTES de escribir el .ini: asi ${PORT} ya
+# es el valor final y no hace falta reescribir el archivo despues. Un sed sin
+# anclar a [Modem] pisaba tambien [MQTT] Port y [Remote Control] Port, dejando a
+# MMDVMHost sin broker -> nunca se suscribia a host/command y no transmitia.
+PROBE="${APP_DIR}/scripts/mmdvm_detect_port.py"
+mkdir -p "${APP_DIR}/scripts"
+if dl_retry "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/scripts/mmdvm_detect_port.py" "$PROBE"; then
+  chmod +x "$PROBE"
+  DET="$(python3 "$PROBE" "$PORT" "$BAUD" 2>/dev/null || true)"
+  if [[ -n "$DET" ]]; then
+    PORT="$DET"; log "puerto MMDVM detectado: ${PORT}"
+  else
+    warn "no se detecto modulo por handshake; .ini queda en ${PORT} (el wrapper re-sondea al arrancar)."
+  fi
+else
+  warn "no se pudo descargar mmdvm_detect_port.py; .ini queda en ${PORT}."
+fi
+
 echo "==> 3/6 Escribiendo MMDVM.ini completo en ${INI}..."
 mkdir -p "$MMDVM_DIR" /var/log/mmdvm
 cat > "$INI" <<EOF
@@ -68,7 +97,7 @@ cat > "$INI" <<EOF
 Callsign=${CALLSIGN}
 Id=${CALLSIGN// /}000
 Timeout=180
-Duplex=0
+Duplex=${DUPLEX}
 RFModeHang=10
 DMR=0
 DSTAR=0
@@ -82,7 +111,7 @@ Display=None
 Port=${PORT}
 Protocol=uart
 UARTPort=${PORT}
-UARTSpeed=${BAUD}
+UARTSpeed=${UART_SPEED}
 RXFrequency=${FREQ}
 TXFrequency=${FREQ}
 TXInvert=1
@@ -130,30 +159,12 @@ Enabled=0
 [Log]
 DisplayLevel=1
 FileLevel=1
-FilePath=/var/log/mmdvm
+FilePath=/var/log/mmdvm/
 FileRoot=MMDVM
 EOF
 # RSSI.dat vacio para evitar el error de startup
 [[ -f "$MMDVM_DIR/RSSI.dat" ]] || touch "$MMDVM_DIR/RSSI.dat"
 log "MMDVM.ini escrito con [MQTT] y [RemoteControl] habilitados."
-
-# Detectar el puerto REAL del modulo (sondea ttyUSB0/ttyAMA0/ttyS0 con
-# GET_VERSION) y reescribir el .ini con ese. Sin esto, PORT por defecto
-# (/dev/ttyUSB0) puede no ser donde esta la placa y MMDVMHost nunca hace
-# handshake (LED roja del modulo titilando para siempre).
-PROBE="${APP_DIR}/scripts/mmdvm_detect_port.py"
-if dl_retry "https://raw.githubusercontent.com/gatoambroggio/mediguard-os-copy/main/src/zetronpoc/scripts/mmdvm_detect_port.py" "$PROBE"; then
-  chmod +x "$PROBE"
-  DET="$(python3 "$PROBE" "$PORT" "$BAUD" 2>/dev/null || true)"
-  if [[ -n "$DET" ]]; then
-    PORT="$DET"; log "puerto MMDVM detectado: ${PORT}"
-    sed -i -E "s#^(Port=).*#\1${PORT}#; s#^(UARTPort=).*#\1${PORT}#" "$INI"
-  else
-    warn "no se detecto modulo por handshake; .ini queda en ${PORT} (el wrapper re-sondea al arrancar)."
-  fi
-else
-  warn "no se pudo descargar mmdvm_detect_port.py; .ini queda en ${PORT}."
-fi
 
 # Wrapper: fuente unica en el repo. Auto-detecta el puerto real del modulo
 # (GET_VERSION a ttyUSB0/ttyAMA0/ttyS0) y reescribe el .ini si hace falta.
@@ -197,6 +208,7 @@ fi
 
 echo "--------------------------------------------"
 log "MMDVM instalado."
+echo "  placa      : ${BOARD}  (UART ${UART_SPEED})"
 echo "  .ini       : ${INI}"
 echo "  broker     : 127.0.0.1:1883 (topic host/command <- dispatch)"
 echo "  remote ctl : 127.0.0.1:7642"

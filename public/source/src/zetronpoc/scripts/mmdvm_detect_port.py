@@ -9,8 +9,11 @@ placa MMDVM-HS (esa vive en /dev/ttyAMA0 con dtoverlay=disable-bt, o en
 nunca hace handshake y la LED roja del modulo queda titilando.
 
 Uso:
-  mmdvm_detect_port.py [puerto_sugerido] [baud]
+  mmdvm_detect_port.py [puerto_sugerido] [baud] [--version] [--board] [--single]
   - imprime el puerto que responde y sale 0
+  - --version: imprime "puerto<TAB>version_firmware"
+  - --board:   imprime "puerto<TAB>hotspot|repeater<TAB>proto<TAB>version"
+               (proto 1 = MMDVM_HS hotspot; proto 2 = G4KLX repetidora de radio)
   - si ninguno responde, sale 1 (sin imprimir nada)
 
 Deteccion preferida: USB-TTL (ttyUSB/ttyACM) > ttyAMA0 (HAT) > ttyS0 (mini-UART).
@@ -37,14 +40,26 @@ def _parse_version(frame):
         return None
 
 
+def _parse_proto(frame):
+    """Byte de version de protocolo de GET_VERSION:
+    1 = MMDVM_HS (hotspot ADF7021), 2 = G4KLX MMDVM (repetidora de radio externo).
+    Frame MMDVM: 0xE0 <len> <cmd> <protover> <desc...> <crc> <crc>."""
+    try:
+        plen = frame[1]
+        payload = frame[2:2 + plen]
+        return payload[1] if len(payload) >= 2 else None
+    except Exception:
+        return None
+
+
 def probe(port, baud=115200, timeout=1.6):
-    """(ok, version_str) — ok True si `port` responde a GET_VERSION con un
+    """(ok, version_str, proto) — ok True si `port` responde a GET_VERSION con un
     frame MMDVM valido; version_str es la descripcion de firmware del modulo
-    (o None)."""
+    (o None); proto es el byte de version de protocolo (1/2, o None)."""
     try:
         fd = os.open(port, os.O_RDWR | os.O_NOCTTY | os.O_NDELAY)
     except OSError:
-        return (False, None)
+        return (False, None, None)
     try:
         fcntl.fcntl(fd, fcntl.F_SETFL, 0)
         a = termios.tcgetattr(fd)
@@ -76,10 +91,10 @@ def probe(port, baud=115200, timeout=1.6):
         termios.tcflush(fd, termios.TCIOFLUSH)
         # un MMDVM valido responde con un frame que arranca en 0xE0
         if first and first[0] == FRAME_START and len(first) >= 3:
-            return (True, _parse_version(first))
-        return (False, None)
+            return (True, _parse_version(first), _parse_proto(first))
+        return (False, None, None)
     except Exception:
-        return (False, None)
+        return (False, None, None)
     finally:
         try:
             os.close(fd)
@@ -103,8 +118,20 @@ def candidates():
     return res
 
 
-def _emit(port, ver, want_version):
-    if want_version and ver:
+def _board_kind(proto):
+    """Clasifica la placa por el byte de protocolo de GET_VERSION."""
+    if proto == 2:
+        return "repeater"
+    if proto == 1:
+        return "hotspot"
+    return "desconocido"
+
+
+def _emit(port, ver, proto, want_version, want_board):
+    if want_board:
+        print("%s\t%s\t%s\t%s" % (port, _board_kind(proto),
+                                  proto if proto is not None else "?", ver or ""))
+    elif want_version and ver:
         print("%s\t%s" % (port, ver))
     else:
         print(port)
@@ -113,11 +140,14 @@ def _emit(port, ver, want_version):
 def main():
     baud = 115200
     want_version = False
+    want_board = False
     single = False
     pos = []
     for a in sys.argv[1:]:
         if a == "--version":
             want_version = True
+        elif a == "--board":
+            want_board = True
         elif a == "--single":
             single = True
         elif not a.startswith("--"):
@@ -130,17 +160,17 @@ def main():
     suggested = pos[0] if pos else ""
     # 1) si pasan un puerto sugerido, probarlo primero
     if suggested:
-        ok, ver = probe(suggested, baud)
+        ok, ver, proto = probe(suggested, baud)
         if ok:
-            _emit(suggested, ver, want_version); return 0
+            _emit(suggested, ver, proto, want_version, want_board); return 0
         if single:
             # --single: NO barrer otros candidatos (acota el tiempo del polling)
             return 1
     # 2) barrer candidatos por prioridad
     for p in candidates():
-        ok, ver = probe(p, baud)
+        ok, ver, proto = probe(p, baud)
         if ok:
-            _emit(p, ver, want_version); return 0
+            _emit(p, ver, proto, want_version, want_board); return 0
     return 1
 
 
