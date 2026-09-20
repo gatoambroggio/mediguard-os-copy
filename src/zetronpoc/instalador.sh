@@ -211,6 +211,10 @@ dl "${SRC}/scripts/mmdvm_detect_port.py" "${APP_DIR}/scripts/mmdvm_detect_port.p
 # diagnostico de placa de punta a punta (servicio, firmware, tipo de placa,
 # test de frecuencia y paridad del MMDVM.ini). Sin pyserial: usa termios.
 dl "${SRC}/scripts/diagnostico_placa.sh" "${APP_DIR}/scripts/diagnostico_placa.sh"
+# flasheo del firmware custom (512 baud / 149.255 MHz) en una sola corrida:
+# baja el binario del release, lo verifica, flashea por serial y deja la placa
+# como HOTSPOT en la BD (evita el Duplex=1 que cuelga el ADF7021 simple).
+dl "${SRC}/scripts/instalar_firmware_mmdvm.sh" "${APP_DIR}/scripts/instalar_firmware_mmdvm.sh"
 chmod +x "${APP_DIR}/scripts/"*.sh
 # CRITICO: el detector .py tambien necesita +x. El wrapper mmdvmhost-run.sh
 # hace `[[ -x "$PROBE" ]]` antes de ejecutarlo; sin +x lo saltea con
