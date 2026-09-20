@@ -235,6 +235,15 @@ else:
 open(KIND_FILE, "w").write(kind)
 
 print("  Versión de firmware: \033[1m%s\033[0m" % (version or "(sin descripción)"))
+# Version de protocolo: la transmision POCSAG por el protocolo serie entro con
+# la v2. Un modulo v1 (firmware viejo) acepta el handshake y hasta recibe el
+# batch, pero NO lo modula: no baja PTT y MMDVMHost nunca loguea "Transmitted
+# POCSAG". Es el unico diagnostico que explica "Data to MMDVM" sin PTT.
+if isinstance(proto, int) and proto < 2:
+    print("  \033[1;33m!\033[0m Protocolo MMDVM v%d: este firmware NO transmite POCSAG (necesita v2+)." % proto)
+    print("    Sintoma: MMDVMHost loguea 'Data to MMDVM' y NUNCA 'Transmitted POCSAG',")
+    print("    y el PTT del modulo no se mueve. Unico arreglo: actualizar el firmware")
+    print("    del modem a un build G4KLX con POCSAG (2021 o posterior).")
 if kind == "repeater":
     print("  \033[0;32m✓\033[0m Tipo de placa: REPETIDORA (radio externo, firmware G4KLX)")
     # POCSAG se agrego al firmware MMDVM (G4KLX) despues de 2021: un build viejo
