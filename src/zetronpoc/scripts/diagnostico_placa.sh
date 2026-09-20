@@ -42,10 +42,19 @@ fi
 # ini_get <seccion> <clave> -> valor de la clave dentro de esa seccion del .ini
 ini_get(){
   awk -v sec="$1" -v key="$2" '
-    /^\[/ { f = (tolower($0) == "[" tolower(sec) "]") ? 1 : 0; next }
-    f && $0 ~ "=" {
-      k = tolower($1); gsub(/[[:space:]]/, "", k)
-      if (k == tolower(key)) { v = $2; gsub(/[[:space:]]/, "", v); print v; exit }
+    /^[[:space:]]*\[/ {
+      s = $0; gsub(/[[:space:]]/, "", s)
+      f = (tolower(s) == "[" tolower(sec) "]") ? 1 : 0
+      next
+    }
+    f && $0 !~ /^[[:space:]]*[;#]/ && index($0, "=") {
+      split($0, kv, "=")
+      k = tolower(kv[1]); gsub(/[[:space:]]/, "", k)
+      if (k == tolower(key)) {
+        v = substr($0, index($0, "=") + 1)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", v)
+        print v; exit
+      }
     }
   ' "$INI" 2>/dev/null
 }
@@ -55,11 +64,12 @@ ini_get(){
 # ---------------------------------------------------------------------------
 hdr "1. Servicio MMDVMHost"
 
+WAS_ACTIVE=0
 if systemctl is-active --quiet mmdvmhost 2>/dev/null; then
   ok "MMDVMHost está corriendo"
+  WAS_ACTIVE=1
 else
-  fail "MMDVMHost NO está corriendo"
-  systemctl start mmdvmhost 2>/dev/null || warn "No se pudo iniciar automáticamente"
+  warn "MMDVMHost NO está corriendo"
 fi
 
 echo -e "\n  ${B}Últimas 15 líneas del log:${N}"
@@ -109,6 +119,16 @@ fi
 # ---------------------------------------------------------------------------
 # 3. Firmware y tipo de placa  ·  4. Test de frecuencia
 # ---------------------------------------------------------------------------
+# CRITICO: el handshake serie necesita el puerto LIBRE. MMDVMHost lo tiene
+# abierto y se come la respuesta al GET_VERSION, asi que el test daba "el
+# modulo no responde" aunque el modulo este perfecto. Se detiene el servicio
+# solo para la prueba y se vuelve a levantar al final.
+if [ "$WAS_ACTIVE" = "1" ]; then
+  echo -e "  ${Y}!${N} Deteniendo MMDVMHost para liberar ${PORT} (se reinicia al final)..."
+  systemctl stop mmdvmhost 2>/dev/null || true
+  sleep 1
+fi
+
 KIND_FILE="$(mktemp)"
 trap 'rm -f "$KIND_FILE"' EXIT
 
@@ -367,4 +387,9 @@ elif [ "$KIND" = "hotspot" ]; then
 fi
 echo -e "  ${B}Si el paso 4 dio ACK pero el pager no suena:${N} el problema está en la"
 echo -e "    portación POCSAG (velocidad de 512 baud en el firmware) o en el .ini."
+echo ""
+if [ "$WAS_ACTIVE" = "1" ]; then
+  echo -e "  ${B}Reiniciando MMDVMHost (quedó detenido para la prueba)...${N}"
+  systemctl start mmdvmhost 2>/dev/null || warn "No se pudo reiniciar MMDVMHost"
+fi
 echo ""
