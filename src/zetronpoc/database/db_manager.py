@@ -463,9 +463,12 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
     mqtt_name = g("mmdvm_mqtt_name", "host")
     conn_type = (g("mmdvm_connection_type", "uart")).lower()
     if board_type == "repeater":
-        # La repetidora siempre va por UART; el firmware G4KLX V3F4 usa 460800.
+        # La repetidora siempre va por UART. El firmware G4KLX cambio de baud
+        # entre versiones (los builds viejos, ej. 2018, usan 115200; V3F4 usa
+        # 460800), asi que no se asume: por defecto 115200 y el wrapper sondea
+        # el puerto para corregir UARTSpeed si el valor guardado no responde.
         conn_type = "uart"
-        uart_speed = g("mmdvm_uart_speed", "460800") or "460800"
+        uart_speed = g("mmdvm_uart_speed", "115200") or "115200"
     else:
         uart_speed = g("mmdvm_uart_speed", baud) or baud
     # ---- Merge: preserva secciones/keys no manejadas por el panel ----

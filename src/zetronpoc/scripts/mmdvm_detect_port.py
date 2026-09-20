@@ -13,7 +13,8 @@ Uso:
   - imprime el puerto que responde y sale 0
   - --version: imprime "puerto<TAB>version_firmware"
   - --board:   imprime "puerto<TAB>hotspot|repeater<TAB>proto<TAB>version"
-               (proto 1 = MMDVM_HS hotspot; proto 2 = G4KLX repetidora de radio)
+               (se clasifica por el string: MMDVM_HS = hotspot ADF7021,
+                MMDVM = G4KLX, modem de radio externo / repetidora)
   - si ninguno responde, sale 1 (sin imprimir nada)
 
 Deteccion preferida: USB-TTL (ttyUSB/ttyACM) > ttyAMA0 (HAT) > ttyS0 (mini-UART).
@@ -118,18 +119,27 @@ def candidates():
     return res
 
 
-def _board_kind(proto):
-    """Clasifica la placa por el byte de protocolo de GET_VERSION."""
-    if proto == 2:
-        return "repeater"
-    if proto == 1:
+def _board_kind(version):
+    """Clasifica la placa por el STRING de version de GET_VERSION.
+
+    El byte de protocolo NO sirve para distinguirlas: MMDVM_HS (hotspot con
+    ADF7021) y MMDVM (G4KLX, modem que maneja un radio externo) responden los
+    dos con 1. Lo que las diferencia es el string: MMDVM_HS lo lleva siempre en
+    el nombre ("MMDVM_HS-v1.6.0 20210919 14.7456MHz"), el G4KLX no
+    ("MMDVM 20180327")."""
+    v = (version or "").strip().upper()
+    if not v:
+        return "desconocido"
+    if v.startswith("MMDVM_HS") or v.startswith("MMDVM-HS"):
         return "hotspot"
+    if v.startswith("MMDVM"):
+        return "repeater"
     return "desconocido"
 
 
 def _emit(port, ver, proto, want_version, want_board):
     if want_board:
-        print("%s\t%s\t%s\t%s" % (port, _board_kind(proto),
+        print("%s\t%s\t%s\t%s" % (port, _board_kind(ver),
                                   proto if proto is not None else "?", ver or ""))
     elif want_version and ver:
         print("%s\t%s" % (port, ver))

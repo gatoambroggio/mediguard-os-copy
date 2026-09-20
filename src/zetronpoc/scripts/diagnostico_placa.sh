@@ -223,12 +223,28 @@ if baud != BAUD:
 payload = fr[2:2 + fr[1]]
 version = payload[2:-2].decode("ascii", "ignore").strip() if len(payload) >= 4 else ""
 proto = payload[1] if len(payload) >= 2 else None
-kind = "repeater" if proto == 2 else ("hotspot" if proto == 1 else "desconocido")
+# El byte de protocolo NO distingue hotspot de repetidora (los dos responden 1);
+# lo que distingue es el string: MMDVM_HS lo lleva en el nombre, el G4KLX no.
+_up = (version or "").upper()
+if _up.startswith("MMDVM_HS") or _up.startswith("MMDVM-HS"):
+    kind = "hotspot"
+elif _up.startswith("MMDVM"):
+    kind = "repeater"
+else:
+    kind = "desconocido"
 open(KIND_FILE, "w").write(kind)
 
 print("  Versión de firmware: \033[1m%s\033[0m" % (version or "(sin descripción)"))
 if kind == "repeater":
     print("  \033[0;32m✓\033[0m Tipo de placa: REPETIDORA (radio externo, firmware G4KLX)")
+    # POCSAG se agrego al firmware MMDVM (G4KLX) despues de 2021: un build viejo
+    # hace handshake y acepta el page, pero no lo modula -> no sale RF.
+    import re as _re
+    _m = _re.match(r"MMDVM\s+(\d{8})", version or "")
+    if _m and int(_m.group(1)) < 20210101:
+        print("  \033[1;33m!\033[0m Build %s: POCSAG se agrego al firmware despues de 2021." % _m.group(1))
+        print("    Si el handshake anda pero el page no sale por RF, el limite es el")
+        print("    firmware del modem: hay que actualizarlo a un build G4KLX con POCSAG.")
 elif kind == "hotspot":
     print("  \033[0;32m✓\033[0m Tipo de placa: HOTSPOT (ADF7021, RF propia)")
 else:
