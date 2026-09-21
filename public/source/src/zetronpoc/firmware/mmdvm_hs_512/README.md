@@ -208,15 +208,15 @@ El patch de `IO.h` está envuelto en `#if defined(POCSAG_149MHZ) / #else`.
 
 | Archivo | Qué hace |
 |---|---|
-| `patches/Config.h` | Config.h completo para NANO_HOTSPOT (BI7JTA) |
+| `patches/Config.h` | Config.h completo: LIBRE_KIT_ADF7021, SIMPLEX, TCXO 14.7456, `POCSAG_512` |
 | `patches/IO.h.patch` | VHF1_MAX extendido a 150 MHz |
 | `patches/ADF7021.h.patch` | REG3 POCSAG 512 baud |
 | `tools/verify_patches.py` | Verifica que los 3 patches quedaron aplicados |
 | `tools/find_pocsag_clock.py` | Reporte de diagnóstico del bit-clock (referencia) |
 | `tools/reg3_calc.py` | Recalcula R3 para cualquier baud/XTAL (referencia) |
 | `clone_and_patch.sh` | Clona MMDVM_HS oficial, aplica patches y verifica |
-| `build_firmware.sh` | Compila con `make bl` y copia el `.bin` |
-| `flash.sh` | Flashea el `.bin` al STM32 con `dfu-util` |
+| `build_firmware.sh` | Compila con `make hs OSC=14745600` (standalone) y copia el `.bin` |
+| `flash.sh` | Flashea el `.bin` al STM32 con `stm32flash` (BOOT0/NRST por GPIO) |
 | `verify_baud.sh` | Verifica el baud real de TX con RTL-SDR |
 | `workflow-template.yml` | Workflow de GitHub Actions (publicado como `.github/workflows/build-firmware.yml`) |
 

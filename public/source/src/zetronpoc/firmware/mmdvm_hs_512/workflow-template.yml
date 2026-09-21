@@ -33,26 +33,36 @@ jobs:
         run: |
           python3 tools/verify_patches.py MMDVM_HS
 
-      - name: Build firmware
+      - name: Build firmware (LIBRE_KIT_ADF7021)
         working-directory: src/zetronpoc/firmware/mmdvm_hs_512
         run: |
           chmod +x build_firmware.sh
-          ./build_firmware.sh
+          ./build_firmware.sh MMDVM_HS librekit
 
-      - name: Verify .bin was generated
+      - name: Build firmware (NANO_HOTSPOT)
+        working-directory: src/zetronpoc/firmware/mmdvm_hs_512
         run: |
-          BIN="src/zetronpoc/firmware/mmdvm_hs_512/firmware_pocsag512_149mhz.bin"
-          if [ ! -f "$BIN" ]; then
-            echo "ERROR: no se genero $BIN"
-            exit 1
-          fi
-          echo "Binary generated: $BIN ($(stat -c%s "$BIN") bytes)"
+          ./build_firmware.sh MMDVM_HS nanohotspot
 
-      - name: Upload artifact
+      - name: Verify .bin files were generated
+        run: |
+          for BIN in \
+            src/zetronpoc/firmware/mmdvm_hs_512/firmware_pocsag512_149mhz.bin \
+            src/zetronpoc/firmware/mmdvm_hs_512/firmware_pocsag512_149mhz_nano.bin ; do
+            if [ ! -f "$BIN" ]; then
+              echo "ERROR: no se genero $BIN"
+              exit 1
+            fi
+            echo "Binary generated: $BIN ($(stat -c%s "$BIN") bytes)"
+          done
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: firmware_pocsag512_149mhz
-          path: src/zetronpoc/firmware/mmdvm_hs_512/firmware_pocsag512_149mhz.bin
+          path: |
+            src/zetronpoc/firmware/mmdvm_hs_512/firmware_pocsag512_149mhz.bin
+            src/zetronpoc/firmware/mmdvm_hs_512/firmware_pocsag512_149mhz_nano.bin
 
       - name: Create Release
         if: github.ref == 'refs/heads/main'
@@ -65,12 +75,17 @@ jobs:
             - TCXO: 14.7456 MHz (OSC=14745600)
             - Frecuencia: VHF1_MAX extendido a 150 MHz (soporta 149.255 MHz)
             - Baud: 512 baud POCSAG (REG3 del ADF7021 reconfigurado)
-            - Board: Libre Kit ADF7021, SIMPLEX (sin DUPLEX), UART host
-            - Build: make hs OSC=14745600 (standalone, sin bootloader), flashable a 0x08000000
+            - UART host, SIMPLEX (sin DUPLEX), standalone (flash a 0x08000000)
 
-            Flashear por serial:
+            Dos variantes de board (los clones chinos del Nano hotSPOT varian por lote):
+            - firmware_pocsag512_149mhz.bin       -> LIBRE_KIT_ADF7021
+            - firmware_pocsag512_149mhz_nano.bin  -> NANO_HOTSPOT
+
+            Flashear por serial (el instalador prueba las dos solo):
               sudo apt install stm32flash gpiod
-              sudo ./flash.sh firmware_pocsag512_149mhz.bin
-          files: src/zetronpoc/firmware/mmdvm_hs_512/firmware_pocsag512_149mhz.bin
+              sudo ./instalar_firmware_mmdvm.sh
+          files: |
+            src/zetronpoc/firmware/mmdvm_hs_512/firmware_pocsag512_149mhz.bin
+            src/zetronpoc/firmware/mmdvm_hs_512/firmware_pocsag512_149mhz_nano.bin
           prerelease: false
           draft: false

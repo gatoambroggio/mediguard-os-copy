@@ -33,67 +33,79 @@ baud_from_ini() {
   awk -F= '/^\[Modem\]/{f=1;next} /^\[/{f=0} f&&tolower($1)~/^[[:space:]]*uartspeed[[:space:]]*$/{gsub(/[[:space:]]/,"",$2);print $2;exit}' "$INI" 2>/dev/null
 }
 
-set_ini_port() { # set_ini_port <port>  -> reescribe Port y UARTPort del .ini
-  local p="$1"
+set_ini_modem_key() { # set_ini_modem_key <Clave> <valor> -> reescribe Clave= dentro de [Modem]
+  local k="$1" v="$2"
   [[ ! -f "$INI" ]] && return
-  python3 - "$INI" "$p" <<'PYEOF'
+  python3 - "$INI" "$k" "$v" <<'PYEOF'
 import sys, re
-path, port = sys.argv[1], sys.argv[2]
+path, key, val = sys.argv[1], sys.argv[2], sys.argv[3]
 try:
     txt = open(path).read()
 except Exception:
     sys.exit(1)
-def repl(section, key, val, s):
-    # reemplaza key= dentro de [section]; si no existe, lo agrega tras la seccion
-    pat = re.compile(r'(\['+section+r'\][^\[]*?'+key+r'\s*=\s*)([^\r\n]*)', re.I|re.S)
-    if pat.search(s):
-        return pat.sub(lambda m: m.group(1)+val, s, count=1)
-    return s
-txt = repl("Modem", "Port", port, txt)
-txt = repl("Modem", "UARTPort", port, txt)
-open(path, "w").write(txt)
+pat = re.compile(r'(\[Modem\][^\[]*?' + re.escape(key) + r'\s*=\s*)([^\r\n]*)', re.I | re.S)
+if pat.search(txt):
+    txt = pat.sub(lambda m: m.group(1) + val, txt, count=1)
+    open(path, 'w').write(txt)
 PYEOF
 }
 
-save_db_port() { # save_db_port <port>
-  local p="$1"
+save_db_config() { # save_db_config <clave> <valor>
+  local k="$1" v="$2"
   [[ ! -f "$DB" ]] && return
-  python3 - "$DB" "$p" <<'PYEOF'
+  python3 - "$DB" "$k" "$v" <<'PYEOF'
 import sqlite3, sys
-db, port = sys.argv[1], sys.argv[2]
+db, key, val = sys.argv[1], sys.argv[2], sys.argv[3]
 try:
     c = sqlite3.connect(db)
-    c.execute("INSERT OR REPLACE INTO config(clave,valor) VALUES('mmdvm_serial_port',?)", (port,))
+    c.execute("INSERT OR REPLACE INTO config(clave,valor) VALUES(?,?)", (key, val))
     c.commit(); c.close()
 except Exception:
     pass
 PYEOF
 }
 
+bauds_to_try() { # el baud del .ini primero, despues los tipicos (sin repetir)
+  local seen=" " b
+  for b in "${ini_baud:-115200}" 115200 460800 230400 57600 38400; do
+    [[ "$seen" == *" $b "* ]] && continue
+    seen="${seen}${b} "
+    echo "$b"
+  done
+}
+
 resolve_port() {
-  local ini_port ini_baud detected
+  local ini_port ini_baud detected b
   ini_port="$(port_from_ini)"; ini_port="${ini_port:-$(uart_from_ini)}"
   ini_baud="$(baud_from_ini)"; ini_baud="${ini_baud:-115200}"
   if [[ -x "$PROBE" ]]; then
-    # probar primero el puerto del .ini
-    if [[ -n "$ini_port" ]]; then
-      detected="$(python3 "$PROBE" "$ini_port" "$ini_baud" 2>/dev/null || true)"
-    fi
-    # si no responde, barrer todos los candidatos
-    if [[ -z "$detected" ]]; then
-      detected="$(python3 "$PROBE" "" "$ini_baud" 2>/dev/null || true)"
-    fi
-    if [[ -n "$detected" ]]; then
-      if [[ "$detected" != "$ini_port" ]]; then
-        echo "[mmdvm-run] puerto detectado: ${detected} (el .ini tenia ${ini_port:-<vacio>}); corrigiendo .ini + BD..."
-        set_ini_port "$detected"
-        save_db_port "$detected"
+    # Sondea puerto Y baud. El firmware de repetidora cambio de velocidad entre
+    # versiones (builds viejos 115200, V3F4 460800), asi que el baud del .ini no
+    # se asume: sin esto MMDVMHost abre el puerto a una velocidad que el modulo
+    # no entiende y nunca hace handshake.
+    for b in $(bauds_to_try); do
+      detected=""
+      if [[ -n "$ini_port" ]]; then
+        detected="$(python3 "$PROBE" "$ini_port" "$b" 2>/dev/null || true)"
+      fi
+      # si no responde, barrer todos los candidatos
+      if [[ -z "$detected" ]]; then
+        detected="$(python3 "$PROBE" "" "$b" 2>/dev/null || true)"
+      fi
+      [[ -z "$detected" ]] && continue
+      if [[ "$detected" != "$ini_port" || "$b" != "$ini_baud" ]]; then
+        echo "[mmdvm-run] modulo detectado: ${detected} @ ${b} (el .ini tenia ${ini_port:-<vacio>} @ ${ini_baud}); corrigiendo .ini + BD..."
+        set_ini_modem_key Port "$detected"
+        set_ini_modem_key UARTPort "$detected"
+        set_ini_modem_key UARTSpeed "$b"
+        save_db_config mmdvm_serial_port "$detected"
+        save_db_config mmdvm_uart_speed "$b"
       else
-        echo "[mmdvm-run] puerto confirmado: ${detected}"
+        echo "[mmdvm-run] puerto confirmado: ${detected} @ ${b}"
       fi
       PORT="$detected"
       return
-    fi
+    done
     echo "[mmdvm-run] ningun puerto respondio al handshake. Usando ${ini_port:-/dev/ttyUSB0} (a la espera del modulo)..."
   else
     echo "[mmdvm-run] ${PROBE} no encontrado; usando puerto del .ini."

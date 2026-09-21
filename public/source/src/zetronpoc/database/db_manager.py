@@ -439,7 +439,13 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
     except (ValueError, TypeError):
         freq_hz = "433800000"
     pocsag_baud = g("mmdvm_pocsag_baud", "1200")
-    duplex = g("mmdvm_duplex", "1" if board_type == "repeater" else "0")
+    # Duplex lo define el TIPO DE PLACA, no un valor guardado viejo. La
+    # repetidora (firmware G4KLX, radio externo) es full duplex: con Duplex=0
+    # el firmware NO modula y el page queda en "Data to MMDVM" sin salir por
+    # RF. El hotspot ADF7021 simple se cuelga con Duplex=1. Si se respeta un
+    # mmdvm_duplex guardado de cuando la placa estaba mal clasificada, el .ini
+    # sale con el valor contrario y la placa nunca transmite.
+    duplex = "1" if board_type == "repeater" else "0"
     tx_invert = g("mmdvm_tx_invert", "0")
     rx_invert = g("mmdvm_rx_invert", "0")
     ptt_invert = g("mmdvm_ptt_invert", "1")
@@ -463,9 +469,12 @@ def generar_mmdvm_ini(db_path=DEFAULT_DB):
     mqtt_name = g("mmdvm_mqtt_name", "host")
     conn_type = (g("mmdvm_connection_type", "uart")).lower()
     if board_type == "repeater":
-        # La repetidora siempre va por UART; el firmware G4KLX V3F4 usa 460800.
+        # La repetidora siempre va por UART. El firmware G4KLX cambio de baud
+        # entre versiones (los builds viejos, ej. 2018, usan 115200; V3F4 usa
+        # 460800), asi que no se asume: por defecto 115200 y el wrapper sondea
+        # el puerto para corregir UARTSpeed si el valor guardado no responde.
         conn_type = "uart"
-        uart_speed = g("mmdvm_uart_speed", "460800") or "460800"
+        uart_speed = g("mmdvm_uart_speed", "115200") or "115200"
     else:
         uart_speed = g("mmdvm_uart_speed", baud) or baud
     # ---- Merge: preserva secciones/keys no manejadas por el panel ----
